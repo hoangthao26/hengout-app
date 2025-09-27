@@ -23,7 +23,8 @@ export class ErrorBoundary extends Component<Props, State> {
     }
 
     componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-        console.error('🚨 ErrorBoundary caught an error:', error, errorInfo);
+        // Enterprise: Remove console.error in production
+        // Could integrate with error reporting service here
         this.props.onError?.(error, errorInfo);
     }
 

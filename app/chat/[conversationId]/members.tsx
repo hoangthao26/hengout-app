@@ -99,6 +99,7 @@ const MemberItem: React.FC<{
                         <Image
                             source={{ uri: item.avatarUrl }}
                             style={styles.memberAvatar}
+                            resizeMode="contain"
                         />
                     ) : (
                         <View style={[styles.defaultAvatar, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
@@ -357,7 +358,7 @@ const GroupMembersScreen: React.FC = () => {
                 onBackPress={() => router.back()}
                 rightIcon={{
                     icon: Plus,
-                    size: 24,
+                    size: 28,
                     onPress: handleAddMember
                 }}
             />

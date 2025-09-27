@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import { Search, UserPlus, Users, X } from 'lucide-react-native';
+import NavigationService from '../../services/navigationService';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -17,6 +18,7 @@ import Header from '../../components/Header';
 import { useModal } from '../../contexts/ModalContext';
 import { useToast } from '../../contexts/ToastContext';
 import { chatService } from '../../services/chatService';
+import { useChatStore } from '../../store/chatStore';
 import { ChatConversation } from '../../types/chat';
 
 export default function ChatScreen() {
@@ -26,9 +28,14 @@ export default function ChatScreen() {
     const { openCreateGroupModal, setOnCreateGroupSuccess } = useModal();
     const router = useRouter();
 
-    const [conversations, setConversations] = useState<ChatConversation[]>([]);
+    const {
+        conversations,
+        conversationsLoading,
+        setConversations,
+        setConversationsLoading
+    } = useChatStore();
+
     const [filteredConversations, setFilteredConversations] = useState<ChatConversation[]>([]);
-    const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchLoading, setSearchLoading] = useState(false);
@@ -36,6 +43,7 @@ export default function ChatScreen() {
     // Load conversations
     const loadConversations = useCallback(async () => {
         try {
+            setConversationsLoading(true);
             const response = await chatService.getConversations();
             if (response.status === 'success') {
                 setConversations(response.data);
@@ -47,10 +55,10 @@ export default function ChatScreen() {
             console.error('Failed to load conversations:', err);
             error('Lỗi khi tải cuộc trò chuyện');
         } finally {
-            setLoading(false);
+            setConversationsLoading(false);
             setRefreshing(false);
         }
-    }, [error]);
+    }, [error, setConversations, setConversationsLoading]);
 
     // Filter conversations based on search query
     const filterConversations = useCallback((query: string) => {
@@ -94,8 +102,8 @@ export default function ChatScreen() {
 
     // Handle conversation press
     const handleConversationPress = useCallback((conversation: ChatConversation) => {
-        router.push(`/chat/${conversation.id}` as any);
-    }, [router]);
+        NavigationService.goToChatConversation(conversation.id);
+    }, []);
 
     // Handle create group
     const handleCreateGroup = useCallback(() => {
@@ -107,6 +115,15 @@ export default function ChatScreen() {
     useEffect(() => {
         loadConversations();
     }, [loadConversations]);
+
+    // Update filtered conversations when store conversations change
+    useEffect(() => {
+        if (searchQuery.trim()) {
+            filterConversations(searchQuery);
+        } else {
+            setFilteredConversations(conversations);
+        }
+    }, [conversations, searchQuery, filterConversations]);
 
     // Render conversation item
     const renderConversationItem = ({ item }: { item: ChatConversation }) => {
@@ -127,6 +144,7 @@ export default function ChatScreen() {
                                 styles.avatar,
                                 { borderColor: item.type === 'GROUP' ? '#F48C06' : '#9CA3AF' }
                             ]}
+                            resizeMode="contain"
                         />
                     ) : (
                         <View style={[
@@ -179,7 +197,7 @@ export default function ChatScreen() {
                 rightIcons={[
                     {
                         icon: UserPlus,
-                        size: 24,
+                        size: 28,
                         onPress: handleCreateGroup,
                     }
                 ]}
@@ -232,7 +250,7 @@ export default function ChatScreen() {
                     />
                 }
                 ListEmptyComponent={
-                    !loading ? (
+                    !conversationsLoading ? (
                         <View style={styles.emptyState}>
                             <Users
                                 size={48}
@@ -298,7 +316,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingVertical: 16,
+        paddingVertical: 8,
         backgroundColor: 'transparent',
     },
     avatarContainer: {

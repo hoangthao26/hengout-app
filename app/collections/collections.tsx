@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import { FolderOpen, Plus } from 'lucide-react-native';
+import NavigationService from '../../services/navigationService';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -10,11 +11,11 @@ import {
     useColorScheme,
     View
 } from 'react-native';
-import CollectionCard from '../components/CollectionCard';
-import Header from '../components/Header';
-import { useToast } from '../contexts/ToastContext';
-import { locationFolderService } from '../services/locationFolderService';
-import { LocationFolder } from '../types/locationFolder';
+import CollectionCard from '../../components/CollectionCard';
+import Header from '../../components/Header';
+import { useToast } from '../../contexts/ToastContext';
+import { locationFolderService } from '../../services/locationFolderService';
+import { LocationFolder } from '../../types/locationFolder';
 
 export default function CollectionsScreen() {
     const router = useRouter();
@@ -56,16 +57,7 @@ export default function CollectionsScreen() {
     }, [loadCollections]);
 
     const handleCollectionPress = (collection: LocationFolder) => {
-        router.push({
-            pathname: '/collections/collection-detail',
-            params: {
-                collectionId: collection.id,
-                collectionName: collection.name,
-                collectionDescription: collection.description || '',
-                visibility: collection.visibility,
-                isDefault: collection.isDefault.toString()
-            }
-        });
+        NavigationService.goToCollectionDetail(collection.id);
     };
 
     const handleCreateCollection = () => {
@@ -121,6 +113,7 @@ export default function CollectionsScreen() {
                 showBackButton
                 rightIcon={{
                     icon: Plus,
+                    size: 28,
                     onPress: handleCreateCollection
                 }}
             />

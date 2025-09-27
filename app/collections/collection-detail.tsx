@@ -12,15 +12,15 @@ import {
     useColorScheme,
     View
 } from 'react-native';
-import CollectionActionsModal from '../components/CollectionActionsModal';
-import CollectionDetailCard from '../components/CollectionDetailCard';
-import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
-import EditCollectionModal from '../components/EditCollectionModal';
-import Header from '../components/Header';
-import { useToast } from '../contexts/ToastContext';
-import { locationFolderService } from '../services/locationFolderService';
-import { useCollectionStore } from '../store/collectionStore';
-import { LocationInFolder } from '../types/locationFolder';
+import CollectionActionsModal from '../../components/CollectionActionsModal';
+import CollectionDetailCard from '../../components/CollectionDetailCard';
+import ConfirmDeleteModal from '../../components/ConfirmDeleteModal';
+import EditCollectionModal from '../../components/EditCollectionModal';
+import Header from '../../components/Header';
+import { useToast } from '../../contexts/ToastContext';
+import { locationFolderService } from '../../services/locationFolderService';
+import { useCollectionStore } from '../../store/collectionStore';
+import { LocationInFolder } from '../../types/locationFolder';
 
 export default function CollectionDetailScreen() {
     const router = useRouter();
@@ -284,6 +284,7 @@ export default function CollectionDetailScreen() {
                 onBackPress={handleBackPress}
                 rightIcon={{
                     icon: MoreHorizontal,
+                    size: 28,
                     onPress: () => {
                         console.log('🔍 Icon pressed, setting showActionsModal to true');
                         setShowActionsModal(true);

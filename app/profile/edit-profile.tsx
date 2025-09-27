@@ -4,9 +4,10 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Camera, ChevronRight, Eye, Images, User, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
-import Header from '../components/Header';
-import { useToast } from '../contexts/ToastContext';
-import { useProfileStore, useUIStore } from '../store';
+import Header from '../../components/Header';
+import { useToast } from '../../contexts/ToastContext';
+import NavigationService from '../../services/navigationService';
+import { useProfileStore, useUIStore } from '../../store';
 
 export default function EditProfileScreen() {
     const colorScheme = useColorScheme();
@@ -387,7 +388,7 @@ export default function EditProfileScreen() {
                         {/* Display Name */}
                         <TouchableOpacity
                             style={styles.fieldRow}
-                            onPress={() => router.push('/profile/edit-name')}
+                            onPress={() => NavigationService.goToEditName()}
                         >
                             <Text style={[styles.fieldLabel, { color: isDark ? '#FFFFFF' : '#000000' }]}>
                                 Tên
@@ -406,7 +407,7 @@ export default function EditProfileScreen() {
                         {/* Gender */}
                         <TouchableOpacity
                             style={styles.fieldRow}
-                            onPress={() => router.push('/profile/edit-gender')}
+                            onPress={() => NavigationService.goToEditGender()}
                         >
                             <Text style={[styles.fieldLabel, { color: isDark ? '#FFFFFF' : '#000000' }]}>
                                 Giới tính
@@ -425,7 +426,7 @@ export default function EditProfileScreen() {
                         {/* Date of Birth */}
                         <TouchableOpacity
                             style={styles.fieldRow}
-                            onPress={() => router.push('/profile/edit-date-of-birth')}
+                            onPress={() => NavigationService.goToEditDateOfBirth()}
                         >
                             <Text style={[styles.fieldLabel, { color: isDark ? '#FFFFFF' : '#000000' }]}>
                                 Ngày sinh
@@ -444,7 +445,7 @@ export default function EditProfileScreen() {
                         {/* Bio */}
                         <TouchableOpacity
                             style={styles.fieldRow}
-                            onPress={() => router.push('/profile/edit-bio')}
+                            onPress={() => NavigationService.goToEditBio()}
                         >
                             <Text style={[styles.fieldLabel, { color: isDark ? '#FFFFFF' : '#000000' }]}>
                                 Tiểu sử

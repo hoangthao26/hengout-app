@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, ImageIcon } from 'lucide-react-native';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
-import Header from '../components/Header';
+import Header from '../../components/Header';
 
 export default function ViewAvatarScreen() {
     const colorScheme = useColorScheme();

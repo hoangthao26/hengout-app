@@ -62,12 +62,12 @@ export class CloudinaryService {
             console.log('☁️ Upload successful:', result);
 
             if (result.secure_url) {
-                // Apply square crop transformation to the URL
-                // c_crop: crop mode, w_500,h_500: 500x500px, g_center: gravity center, q_80: quality 80%, f_auto: format auto
-                const croppedUrl = result.secure_url.replace('/upload/', '/upload/c_crop,w_500,h_500,g_center,q_80,f_auto/');
+                // Apply only quality and format optimization, no cropping
+                // q_80: quality 80%, f_auto: format auto
+                const optimizedUrl = result.secure_url.replace('/upload/', '/upload/q_80,f_auto/');
                 console.log('☁️ Original URL:', result.secure_url);
-                console.log('☁️ Cropped URL:', croppedUrl);
-                return croppedUrl;
+                console.log('☁️ Optimized URL:', optimizedUrl);
+                return optimizedUrl;
             } else {
                 throw new Error('No secure_url in response');
             }

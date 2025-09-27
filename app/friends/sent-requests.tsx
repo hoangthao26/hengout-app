@@ -10,12 +10,12 @@ import {
     useColorScheme,
     View
 } from 'react-native';
-import Header from '../components/Header';
-import SimpleAvatar from '../components/SimpleAvatar';
-import { useToast } from '../contexts/ToastContext';
-import NavigationService from '../services/navigationService';
-import { socialService } from '../services/socialService';
-import { SentFriendRequest } from '../types/social';
+import Header from '../../components/Header';
+import SimpleAvatar from '../../components/SimpleAvatar';
+import { useToast } from '../../contexts/ToastContext';
+import NavigationService from '../../services/navigationService';
+import { socialService } from '../../services/socialService';
+import { SentFriendRequest } from '../../types/social';
 
 export default function SentRequestsScreen() {
     const colorScheme = useColorScheme();

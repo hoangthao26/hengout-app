@@ -132,7 +132,7 @@ export default function LoginScreen() {
                 alignSelf: 'center',
                 width: '100%'
             }}>
-                <AuthBackButton onPress={() => router.replace("/")} />
+                <AuthBackButton onPress={() => NavigationService.goToHome()} />
 
                 {/* Logo Section - Reduced spacing */}
                 <View style={{ alignItems: 'center', marginTop: 20, marginBottom: 20 }}>

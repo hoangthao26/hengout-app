@@ -9,7 +9,7 @@ interface UseAutoScrollOptions {
 
 interface UseAutoScrollReturn {
     // Refs
-    flatListRef: React.RefObject<FlatList>;
+    flatListRef: React.RefObject<FlatList | null>;
 
     // State
     isAtBottom: boolean;

@@ -10,6 +10,7 @@ import {
     UserPlus,
     Users
 } from 'lucide-react-native';
+import NavigationService from '../../../services/navigationService';
 import React, { useEffect, useState } from 'react';
 import {
     Image,
@@ -23,8 +24,10 @@ import {
 } from 'react-native';
 import AddMemberModal from '../../../components/AddMemberModal';
 import CreateGroupModal from '../../../components/CreateGroupModal';
+import EditGroupModal from '../../../components/EditGroupModal';
 import Header from '../../../components/Header';
 import { chatService } from '../../../services/chatService';
+import { useChatStore } from '../../../store/chatStore';
 import { ChatConversation } from '../../../types/chat';
 
 export default function ConversationDetailsScreen() {
@@ -33,10 +36,19 @@ export default function ConversationDetailsScreen() {
     const router = useRouter();
     const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
 
-    const [conversation, setConversation] = useState<ChatConversation | null>(null);
+    const {
+        conversations,
+        currentConversation,
+        setCurrentConversation
+    } = useChatStore();
+
     const [loading, setLoading] = useState(true);
+
+    // Get conversation from store or local state
+    const conversation = conversations.find(c => c.id === conversationId) || currentConversation;
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
     const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+    const [showEditGroupModal, setShowEditGroupModal] = useState(false);
 
     useEffect(() => {
         loadConversation();
@@ -49,7 +61,7 @@ export default function ConversationDetailsScreen() {
             setLoading(true);
             const response = await chatService.getConversation(conversationId);
             if (response.status === 'success') {
-                setConversation(response.data);
+                setCurrentConversation(response.data);
             }
         } catch (error) {
             console.error('Failed to load conversation:', error);
@@ -63,8 +75,16 @@ export default function ConversationDetailsScreen() {
     };
 
     const handleChangeNameOrPhoto = () => {
-        // TODO: Implement change name or photo
-        console.log('Change name or photo');
+        setShowEditGroupModal(true);
+    };
+
+    const handleCloseEditGroupModal = () => {
+        setShowEditGroupModal(false);
+    };
+
+    const handleEditGroupSuccess = () => {
+        loadConversation(); // Reload conversation data after editing
+        setShowEditGroupModal(false);
     };
 
     const handleAddMember = () => {
@@ -82,7 +102,7 @@ export default function ConversationDetailsScreen() {
     };
 
     const handleViewMembers = () => {
-        router.push(`/chat/${conversationId}/members`);
+        NavigationService.goToChatMembers(conversationId);
     };
 
     const handleViewMedia = () => {
@@ -192,6 +212,7 @@ export default function ConversationDetailsScreen() {
                             <Image
                                 source={{ uri: conversation.avatarUrl }}
                                 style={styles.avatar}
+                                resizeMode="contain"
                             />
                         ) : (
                             <View style={[styles.defaultAvatar, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
@@ -364,6 +385,18 @@ export default function ConversationDetailsScreen() {
                 onClose={handleCloseCreateGroupModal}
                 onSuccess={handleCreateGroupSuccess}
             />
+
+            {/* Edit Group Modal */}
+            {conversation && (
+                <EditGroupModal
+                    isVisible={showEditGroupModal}
+                    onClose={handleCloseEditGroupModal}
+                    onSuccess={handleEditGroupSuccess}
+                    conversationId={conversation.id}
+                    currentName={conversation.name}
+                    currentAvatar={conversation.avatarUrl}
+                />
+            )}
         </View>
     );
 }

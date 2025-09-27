@@ -1,63 +1,142 @@
-import { useRouter } from 'expo-router';
-import React from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
-import { useToast } from '../../contexts/ToastContext';
-import { AuthHelper } from '../../services/authHelper';
-import NavigationService from '../../services/navigationService';
+import React, { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, View, Alert } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import MapView from '../../components/MapView';
+import { useLocation } from '../../hooks/useLocation';
 
 export default function DiscoverScreen() {
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === 'dark';
-    const { success, error, info, warning, loading, hideLoading } = useToast();
-    const router = useRouter();
+    // Get location data from splash screen navigation params
+    const { lat, lng, accuracy } = useLocalSearchParams<{
+        lat?: string;
+        lng?: string;
+        accuracy?: string;
+    }>();
 
-    const handleLogout = async () => {
-        Alert.alert(
-            'Đăng xuất',
-            'Bạn có chắc chắn muốn đăng xuất?',
-            [
-                {
-                    text: 'Hủy',
-                    style: 'cancel',
-                },
-                {
-                    text: 'Đăng xuất',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await AuthHelper.logout();
-                            success('Đã đăng xuất thành công');
-                            NavigationService.logoutToLogin();
-                        } catch (error: any) {
-                            console.error('Logout failed:', error);
-                            error('Đăng xuất thất bại');
+    const {
+        location,
+        loading,
+        error,
+        getCurrentLocation,
+        requestLocationPermission,
+        watchLocation,
+        stopWatching
+    } = useLocation();
+
+    const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [initialLocation, setInitialLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [isInitialized, setIsInitialized] = useState(false);
+
+    const handleLocationSelect = useCallback((location: { lat: number; lng: number }) => {
+        setSelectedLocation(location);
+        // Enterprise: Remove debug logs in production
+    }, []);
+
+    // Enterprise: Error handling for location errors
+    useEffect(() => {
+        if (error) {
+            Alert.alert(
+                'Location Error',
+                error,
+                [
+                    {
+                        text: 'Retry', onPress: () => {
+                            // Simple retry without complex dependencies
+                            requestLocationPermission().then(hasPermission => {
+                                if (hasPermission) {
+                                    getCurrentLocation().then(currentLocation => {
+                                        if (currentLocation) {
+                                            setInitialLocation({
+                                                lat: currentLocation.latitude,
+                                                lng: currentLocation.longitude
+                                            });
+                                            watchLocation();
+                                        }
+                                    });
+                                }
+                            });
                         }
                     },
-                },
-            ]
-        );
-    };
+                    { text: 'Cancel', style: 'cancel' }
+                ]
+            );
+        }
+    }, [error, requestLocationPermission, getCurrentLocation, watchLocation]);
+
+    // Enterprise: Remove duplicate initializeLocation function
+
+    // Enterprise: Initialize location on mount - use splash data if available
+    useEffect(() => {
+        let isMounted = true;
+
+        const initLocation = async () => {
+            if (!isMounted) return;
+
+            try {
+                // Check if we have location data from splash screen
+                if (lat && lng) {
+                    console.log('📍 [DiscoverScreen] Using location from splash:', { lat, lng, accuracy });
+
+                    setInitialLocation({
+                        lat: parseFloat(lat),
+                        lng: parseFloat(lng)
+                    });
+
+                    // Start watching location for real-time updates
+                    await watchLocation();
+                    setIsInitialized(true);
+                    return;
+                }
+
+                // Fallback: Request permission and get current location
+                const hasPermission = await requestLocationPermission();
+
+                if (hasPermission && isMounted) {
+                    // Get current location
+                    const currentLocation = await getCurrentLocation();
+
+                    if (currentLocation && isMounted) {
+                        setInitialLocation({
+                            lat: currentLocation.latitude,
+                            lng: currentLocation.longitude
+                        });
+
+                        // Start watching location for real-time updates
+                        await watchLocation();
+                        setIsInitialized(true);
+                    }
+                }
+            } catch (error) {
+                if (isMounted) {
+                    Alert.alert(
+                        'Location Initialization Failed',
+                        'Unable to get your current location. Please check your location settings.',
+                        [
+                            { text: 'Retry', onPress: () => initLocation() },
+                            { text: 'Continue', style: 'cancel' }
+                        ]
+                    );
+                }
+            }
+        };
+
+        initLocation();
+
+        // Enterprise: Cleanup on unmount
+        return () => {
+            isMounted = false;
+            stopWatching();
+        };
+    }, [lat, lng, accuracy]); // ✅ Dependencies include splash location data
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            {/* Content */}
-            <View style={styles.content}>
-                <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                    🎉 Discover Screen
-                </Text>
-                <Text style={[styles.subtitle, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                    Auto-login thành công! Bạn đã vào được màn hình Discover.
-                </Text>
-
-
-                {/* Temporary Logout Button */}
-                <TouchableOpacity
-                    style={[styles.logoutButton, { backgroundColor: '#DC2F02' }]}
-                    onPress={handleLogout}
-                >
-                    <Text style={styles.logoutButtonText}>Logout (Test)</Text>
-                </TouchableOpacity>
-            </View>
+        <View style={styles.container}>
+            <MapView
+                onLocationSelect={handleLocationSelect}
+                showUserLocation={true}
+                initialLocation={initialLocation || undefined}
+                currentLocation={location}
+                style={styles.fullMap}
+            />
         </View>
     );
 }
@@ -66,30 +145,7 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    content: {
+    fullMap: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-    },
-    title: {
-        fontSize: 32,
-        fontWeight: 'bold',
-        marginBottom: 8,
-    },
-    subtitle: {
-        fontSize: 16,
-        textAlign: 'center',
-        marginBottom: 40,
-    },
-    logoutButton: {
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 8,
-    },
-    logoutButtonText: {
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: '600',
     },
 });

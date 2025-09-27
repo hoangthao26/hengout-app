@@ -120,17 +120,8 @@ export default function ProfileScreen() {
 
     // Handle collection press
     const handleCollectionPress = useCallback((collection: LocationFolder) => {
-        router.push({
-            pathname: '/collections/collection-detail',
-            params: {
-                collectionId: collection.id,
-                collectionName: collection.name,
-                collectionDescription: collection.description || '',
-                visibility: collection.visibility,
-                isDefault: collection.isDefault.toString()
-            }
-        });
-    }, [router]);
+        NavigationService.goToCollectionDetail(collection.id);
+    }, []);
 
     // Handle create collection
     const handleCreateCollection = useCallback(() => {
@@ -300,7 +291,7 @@ export default function ProfileScreen() {
                     {
                         icon: UserPlus,
                         size: 28,
-                        onPress: () => NavigationService.navigate('/friend-request')
+                        onPress: () => NavigationService.goToFriendRequest()
                     },
                     {
                         icon: Settings,
@@ -334,6 +325,7 @@ export default function ProfileScreen() {
                             <Image
                                 source={{ uri: profile.avatarUrl }}
                                 style={styles.avatarImage}
+                                resizeMode="contain"
                             />
                         ) : (
                             <User
@@ -359,7 +351,7 @@ export default function ProfileScreen() {
                     <View style={styles.editIconContainer}>
                         <TouchableOpacity
                             style={[styles.editIconButton, { backgroundColor: isDark ? '#262626' : '#F5F5F5' }]}
-                            onPress={() => router.push('/profile/edit-profile')}
+                            onPress={() => NavigationService.goToEditProfile()}
                         >
                             <UserPen
                                 size={24}

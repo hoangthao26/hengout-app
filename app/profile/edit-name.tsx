@@ -2,8 +2,8 @@ import { useRouter } from 'expo-router';
 import { XCircle } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
-import { useToast } from '../contexts/ToastContext';
-import { useProfileStore } from '../store';
+import { useToast } from '../../contexts/ToastContext';
+import { useProfileStore } from '../../store';
 
 export default function EditNameScreen() {
     const colorScheme = useColorScheme();

@@ -2,10 +2,10 @@ import { useRouter } from 'expo-router';
 import { ChevronRight, LogOut, Settings } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
-import Header from '../components/Header';
-import { useToast } from '../contexts/ToastContext';
-import { AuthHelper } from '../services/authHelper';
-import NavigationService from '../services/navigationService';
+import Header from '../../components/Header';
+import { useToast } from '../../contexts/ToastContext';
+import { AuthHelper } from '../../services/authHelper';
+import NavigationService from '../../services/navigationService';
 
 export default function SettingsScreen() {
     const colorScheme = useColorScheme();
@@ -58,7 +58,7 @@ export default function SettingsScreen() {
                 {/* Preferences Option */}
                 <TouchableOpacity
                     style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
-                    onPress={() => router.push('/settings/preferences')}
+                    onPress={() => NavigationService.goToPreferences()}
                 >
                     <View style={styles.settingLeft}>
                         <Settings

@@ -10,18 +10,18 @@ import {
     useColorScheme,
     View
 } from 'react-native';
-import BottomSheetModal from '../components/BottomSheetModal';
-import GradientButton from '../components/GradientButton';
-import Header from '../components/Header';
-import SearchUserItem from '../components/SearchUserItem';
-import SimpleAvatar from '../components/SimpleAvatar';
-import { useToast } from '../contexts/ToastContext';
-import { useFriendActions } from '../hooks/useFriendActions';
-import NavigationService from '../services/navigationService';
-import { socialService } from '../services/socialService';
-import { userSearchService } from '../services/userSearchService';
-import { useFriendStore, usePendingRequests } from '../store/friendStore';
-import { FriendRequest, SearchUser } from '../types/social';
+import BottomSheetModal from '../../components/BottomSheetModal';
+import GradientButton from '../../components/GradientButton';
+import Header from '../../components/Header';
+import SearchUserItem from '../../components/SearchUserItem';
+import SimpleAvatar from '../../components/SimpleAvatar';
+import { useToast } from '../../contexts/ToastContext';
+import { useFriendActions } from '../../hooks/useFriendActions';
+import NavigationService from '../../services/navigationService';
+import { socialService } from '../../services/socialService';
+import { userSearchService } from '../../services/userSearchService';
+import { useFriendStore, usePendingRequests } from '../../store/friendStore';
+import { FriendRequest, SearchUser } from '../../types/social';
 
 
 export default function FriendRequestScreen() {

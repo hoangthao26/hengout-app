@@ -11,16 +11,16 @@ import {
     useColorScheme,
     View,
 } from 'react-native';
-import ContextMenu from '../components/ContextMenu';
-import Header from '../components/Header';
-import SearchUserItem from '../components/SearchUserItem';
-import SimpleAvatar from '../components/SimpleAvatar';
-import { useToast } from '../contexts/ToastContext';
-import { useFriendActions } from '../hooks/useFriendActions';
-import NavigationService from '../services/navigationService';
-import { socialService } from '../services/socialService';
-import { userSearchService } from '../services/userSearchService';
-import { Friend, SearchUser } from '../types/social';
+import ContextMenu from '../../components/ContextMenu';
+import Header from '../../components/Header';
+import SearchUserItem from '../../components/SearchUserItem';
+import SimpleAvatar from '../../components/SimpleAvatar';
+import { useToast } from '../../contexts/ToastContext';
+import { useFriendActions } from '../../hooks/useFriendActions';
+import NavigationService from '../../services/navigationService';
+import { socialService } from '../../services/socialService';
+import { userSearchService } from '../../services/userSearchService';
+import { Friend, SearchUser } from '../../types/social';
 
 export default function FriendsListScreen() {
     const isDark = useColorScheme() === 'dark';
