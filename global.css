@@ -1,0 +1,6 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* import Konsta UI theme */
+@import 'konsta/react/theme.css';

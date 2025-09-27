@@ -1,0 +1,80 @@
+{
+  "expo": {
+    "name": "project-exe101",
+    "slug": "project-exe101",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "hengout",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hengout.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.hengout.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Dongle-Regular.ttf",
+            "./assets/fonts/Dongle-Light.ttf",
+            "./assets/fonts/Dongle-Bold.ttf"
+          ]
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your friends.",
+          "cameraPermission": "The app accesses your camera to let you take photos for your profile."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "20c98bc3-d234-463f-aaf0-84fabace9aca"
+      },
+      "EXPO_PUBLIC_USER_SERVICE_URL": "https://hengout.tranquocdat.com/user-service/api/v1",
+      "EXPO_PUBLIC_API_BASE_URL": "https://hengout.tranquocdat.com/auth-service/api/v1",
+      "EXPO_PUBLIC_SOCIAL_SERVICE_URL": "https://hengout.tranquocdat.com/social-service/api/v1"
+    },
+    "oauth": {
+      "redirectUrls": [
+        "hengout://auth",
+        "https://auth.expo.io/@trendslade/project-exe101",
+        "http://localhost:8081"
+      ]
+    }
+  }
+}
