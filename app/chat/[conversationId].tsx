@@ -20,6 +20,7 @@ import BackButton from '../../components/BackButton';
 import { useToast } from '../../contexts/ToastContext';
 import { chatService } from '../../services/chatService';
 import { useChatStore } from '../../store/chatStore';
+import { useChatSync } from '../../hooks/useChatSync';
 import { ChatConversation, ChatMessage } from '../../types/chat';
 
 export default function ChatConversationScreen() {
@@ -35,6 +36,14 @@ export default function ChatConversationScreen() {
         currentConversation,
         setCurrentConversation
     } = useChatStore();
+
+    // SQLite Chat Sync
+    const {
+        isInitialized: chatSyncInitialized,
+        getMessages: getMessagesFromDB,
+        sendMessage: sendMessageWithSync,
+        syncMessages
+    } = useChatSync();
 
     // Get conversation from store or local state
     const conversation = conversations.find(c => c.id === conversationId) || currentConversation;
@@ -61,18 +70,45 @@ export default function ChatConversationScreen() {
         }
     }, [conversationId, error, setCurrentConversation]);
 
-    // Load messages (pagination)
+    // Load messages with SQLite (instant) + background sync
     const loadMessages = useCallback(
         async (pageNum: number) => {
             if (!conversationId) return;
             try {
-                const response = await chatService.getMessages(conversationId, pageNum, 50);
-                if (response.status === 'success') {
-                    // Server trả DESC (newest trước)
+                // Load from SQLite first (instant)
+                if (chatSyncInitialized) {
+                    const localMessages = await getMessagesFromDB(conversationId, 50, pageNum * 50);
                     if (pageNum === 0) {
-                        setMessages(response.data);
+                        setMessages(localMessages);
                     } else {
-                        setMessages(prev => [...prev, ...response.data]); // append older
+                        setMessages(prev => [...prev, ...localMessages]);
+                    }
+
+                    // Background sync from server
+                    try {
+                        const response = await chatService.getMessages(conversationId, pageNum, 50);
+                        if (response.status === 'success') {
+                            const syncedMessages = response.data;
+                            if (pageNum === 0) {
+                                setMessages(syncedMessages);
+                            } else {
+                                setMessages(prev => [...prev, ...syncedMessages]);
+                            }
+                        }
+                    } catch (syncError) {
+                        console.error('Background sync failed:', syncError);
+                        // Continue with local data
+                    }
+                } else {
+                    // Fallback to direct API call if SQLite not ready
+                    const response = await chatService.getMessages(conversationId, pageNum, 50);
+                    if (response.status === 'success') {
+                        // Server trả DESC (newest trước)
+                        if (pageNum === 0) {
+                            setMessages(response.data);
+                        } else {
+                            setMessages(prev => [...prev, ...response.data]); // append older
+                        }
                     }
                 }
             } catch (err: any) {
@@ -82,27 +118,39 @@ export default function ChatConversationScreen() {
                 setLoading(false);
             }
         },
-        [conversationId, error]
+        [conversationId, chatSyncInitialized, getMessagesFromDB, error]
     );
 
-    // Send message
+    // Send message with SQLite optimistic update
     const sendMessage = useCallback(async () => {
         if (!messageText.trim() || !conversationId || sending) return;
 
         setSending(true);
         try {
-            const response = await chatService.sendMessage({
-                conversationId,
-                type: 'TEXT',
-                content: { text: messageText.trim() }
-            });
+            if (chatSyncInitialized) {
+                // Use SQLite with optimistic update
+                const newMessage = await sendMessageWithSync({
+                    conversationId,
+                    type: 'TEXT',
+                    content: { text: messageText.trim() }
+                });
 
-            if (response.status === 'success') {
-                setMessages(prev => [response.data, ...prev]); // prepend mới nhất
+                setMessages(prev => [newMessage, ...prev]); // prepend mới nhất
                 setMessageText('');
-
             } else {
-                error('Không thể gửi tin nhắn');
+                // Fallback to direct API call
+                const response = await chatService.sendMessage({
+                    conversationId,
+                    type: 'TEXT',
+                    content: { text: messageText.trim() }
+                });
+
+                if (response.status === 'success') {
+                    setMessages(prev => [response.data, ...prev]); // prepend mới nhất
+                    setMessageText('');
+                } else {
+                    error('Không thể gửi tin nhắn');
+                }
             }
         } catch (err: any) {
             console.error('Failed to send message:', err);
@@ -110,7 +158,7 @@ export default function ChatConversationScreen() {
         } finally {
             setSending(false);
         }
-    }, [messageText, conversationId, sending, error]);
+    }, [messageText, conversationId, sending, chatSyncInitialized, sendMessageWithSync, error]);
 
     // Handle back press
     const handleBack = useCallback(() => {

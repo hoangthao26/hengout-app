@@ -16,7 +16,11 @@ import { locationFolderService } from '../services/locationFolderService';
 interface EditCollectionModalProps {
     isVisible: boolean;
     onClose: () => void;
-    onSuccess: () => void;
+    onSuccess: (updatedData?: {
+        name?: string;
+        description?: string;
+        visibility?: 'PUBLIC' | 'PRIVATE';
+    }) => void;
     collectionId: string;
     collectionName: string;
     collectionDescription: string;
@@ -111,7 +115,15 @@ const EditCollectionModal: React.FC<EditCollectionModalProps> = ({
 
             if (response.status === 'success') {
                 showSuccess('Cập nhật collection thành công');
-                onSuccess();
+
+                // Pass updated data to onSuccess for Store-Update-First approach
+                const updatedData = {
+                    name: name.trim(),
+                    description: description.trim(),
+                    visibility: visibility,
+                };
+
+                onSuccess(updatedData);
                 handleClose();
             } else {
                 showError(response.message || 'Có lỗi xảy ra khi cập nhật collection');

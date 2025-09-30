@@ -4,6 +4,8 @@ import { Animated, AppState, Image, useColorScheme, Alert } from 'react-native';
 import { refreshTokenManager } from '../services/refreshTokenManager';
 import NavigationService from '../services/navigationService';
 import { useAuthStore } from '../store';
+import { useAppStore } from '../store/appStore';
+import { initializationService } from '../services/initializationService';
 import * as Location from 'expo-location';
 
 export default function SplashScreen() {
@@ -12,26 +14,46 @@ export default function SplashScreen() {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const { initializeAuth, isLoading, isAuthenticated } = useAuthStore();
 
+  // App initialization state
+  const {
+    isAppReady,
+    isServicesReady
+  } = useAppStore();
+
   // GPS Location state
   const [locationData, setLocationData] = useState<{
     latitude: number;
     longitude: number;
     accuracy?: number;
   } | null>(null);
-  const [gpsLoading, setGpsLoading] = useState(false);
 
-  // Initialize authentication on app start
+  // 🚀 ENTERPRISE FEATURE: Initialize all services on app start
   useEffect(() => {
-    console.log('🚀 [SplashScreen] App started, initializing auth...');
-    initializeAuth();
+    const initializeApp = async () => {
+      try {
+        console.log('🚀 [SplashScreen] App started, initializing all services...');
+
+        // Initialize authentication
+        initializeAuth();
+
+        // Initialize all services (Database, Location, Chat Services)
+        await initializationService.initialize();
+
+        console.log('✅ [SplashScreen] All services initialized successfully');
+      } catch (error) {
+        console.error('❌ [SplashScreen] App initialization failed:', error);
+        // Continue with app - some services might still work
+      }
+    };
+
+    initializeApp();
   }, [initializeAuth]);
 
-  // 🗺️ ENTERPRISE FEATURE: Initialize GPS location during splash
+  // 🗺️ ENTERPRISE FEATURE: Get GPS location after services are ready
   useEffect(() => {
-    const initializeLocation = async () => {
-      if (gpsLoading) return; // Prevent multiple calls
-
-      setGpsLoading(true);
+    const getLocationData = async () => {
+      // Only get location if services are ready
+      if (!isServicesReady) return;
 
       try {
         // Check if location services are enabled
@@ -44,7 +66,6 @@ export default function SplashScreen() {
             longitude: 106.6297,
             accuracy: 0
           });
-          setGpsLoading(false);
           return;
         }
 
@@ -58,7 +79,6 @@ export default function SplashScreen() {
             longitude: 106.6297,
             accuracy: 0
           });
-          setGpsLoading(false);
           return;
         }
 
@@ -87,15 +107,11 @@ export default function SplashScreen() {
           longitude: 106.6297,
           accuracy: 0
         });
-      } finally {
-        setGpsLoading(false);
       }
     };
 
-    // Start location initialization after a short delay
-    const timer = setTimeout(initializeLocation, 500);
-    return () => clearTimeout(timer);
-  }, []);
+    getLocationData();
+  }, [isServicesReady]);
 
   // 🔥 ENTERPRISE FEATURE: Start token refresh monitoring
   useEffect(() => {
@@ -123,17 +139,18 @@ export default function SplashScreen() {
     return () => subscription?.remove();
   }, [isAuthenticated]);
 
-  // Handle navigation based on authentication state and GPS loading
+  // 🚀 ENTERPRISE FEATURE: Handle navigation based on app readiness
   useEffect(() => {
     console.log('🔄 [SplashScreen] State changed:', {
       isLoading,
       isAuthenticated,
-      gpsLoading,
+      isAppReady,
+      isServicesReady,
       hasLocation: !!locationData
     });
 
-    // Wait for both auth and GPS to complete
-    if (!isLoading && !gpsLoading && locationData) {
+    // Wait for app to be ready and location data
+    if (!isLoading && isAppReady && locationData) {
       // Navigate immediately when both auth and GPS are ready
       const navigate = () => {
         Animated.timing(fadeAnim, {
@@ -158,7 +175,7 @@ export default function SplashScreen() {
 
       return () => clearTimeout(timer);
     }
-  }, [isLoading, isAuthenticated, gpsLoading, locationData, router, fadeAnim]);
+  }, [isLoading, isAuthenticated, isAppReady, locationData, router, fadeAnim]);
 
   return (
     <Animated.View
@@ -174,6 +191,7 @@ export default function SplashScreen() {
         style={{ width: 200, height: 200 }}
         resizeMode="contain"
       />
+
 
     </Animated.View>
   );

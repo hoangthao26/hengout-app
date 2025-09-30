@@ -29,23 +29,36 @@ export default function CollectionDetailScreen() {
     const isDark = useColorScheme() === 'dark';
     const { success: showSuccess, error: showError } = useToast();
 
-    const {
-        collectionId,
-        collectionName,
-        collectionDescription,
-        visibility,
-        isDefault
-    } = params as {
+    const { collectionId } = params as {
         collectionId: string;
-        collectionName: string;
-        collectionDescription: string;
-        visibility: string;
-        isDefault: string;
     };
+
+    // Debug log to check params
+    console.log('CollectionDetail params:', params);
+    console.log('CollectionDetail collectionId:', collectionId);
+
+    // Early return if collectionId is missing
+    if (!collectionId) {
+        return (
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                <Header
+                    title="Lỗi"
+                    showBackButton={true}
+                    onBackPress={() => router.back()}
+                />
+                <View style={styles.errorContainer}>
+                    <Text style={[styles.errorText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                        Không tìm thấy ID collection
+                    </Text>
+                </View>
+            </View>
+        );
+    }
 
     const [locations, setLocations] = useState<LocationInFolder[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [collectionLoading, setCollectionLoading] = useState(false);
     const [showActionsModal, setShowActionsModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -64,19 +77,42 @@ export default function CollectionDetailScreen() {
         resetCurrentCollection
     } = useCollectionStore();
 
-    // Load collection info into store on mount
+    // Load collection info from store (Store-First approach)
     useEffect(() => {
-        const collectionData = {
-            id: collectionId,
-            name: collectionName,
-            description: collectionDescription,
-            visibility: visibility as 'PUBLIC' | 'PRIVATE',
-            isDefault: isDefault === 'true',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-        };
-        setCurrentCollection(collectionData);
-    }, [collectionId, collectionName, collectionDescription, visibility, isDefault, setCurrentCollection]);
+        // If we don't have currentCollection or it's a different collection, 
+        // try to find it in the collections list or fetch from API as fallback
+        if (!currentCollection || currentCollection.id !== collectionId) {
+            console.log('Collection not found in store, fetching from API as fallback');
+            setCollectionLoading(true);
+
+            // Fallback: Fetch from API only if store doesn't have the data
+            const fetchFromAPI = async () => {
+                try {
+                    const response = await locationFolderService.getFolderById(collectionId);
+                    if (response.status === 'success') {
+                        console.log('Collection info loaded from API fallback:', response.data);
+                        setCurrentCollection(response.data);
+                    } else {
+                        showError('Không thể tải thông tin collection');
+                    }
+                } catch (error: any) {
+                    console.error('Error loading collection info from API fallback:', error);
+                    showError('Lỗi khi tải thông tin collection');
+                } finally {
+                    setCollectionLoading(false);
+                }
+            };
+
+            fetchFromAPI();
+        } else {
+            console.log('Using collection data from store:', currentCollection);
+        }
+    }, [collectionId, currentCollection, setCurrentCollection, showError]);
+
+    // Debug log for currentCollection
+    useEffect(() => {
+        console.log('Current collection from store:', currentCollection);
+    }, [currentCollection]);
 
     // Cleanup store on unmount
     useEffect(() => {
@@ -91,10 +127,17 @@ export default function CollectionDetailScreen() {
     }, [router]);
 
     const loadLocations = useCallback(async () => {
+        if (!collectionId) {
+            console.error('CollectionDetail: collectionId is undefined');
+            showError('Không tìm thấy ID collection');
+            return;
+        }
+
         try {
+            console.log('Loading locations for collectionId:', collectionId);
             const response = await locationFolderService.getLocationsInFolder(collectionId);
             if (response.status === 'success') {
-                setLocations(response.data);
+                setLocations(response.data.content);
             } else {
                 showError('Không thể tải danh sách địa điểm');
             }
@@ -106,9 +149,27 @@ export default function CollectionDetailScreen() {
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await loadLocations();
-        setRefreshing(false);
-    }, [loadLocations]);
+
+        // Store-Update-First: Only refresh locations, collection info already in store
+        try {
+            // Only refresh locations (collection info is already up-to-date in store)
+            await loadLocations();
+
+            // Optional: Background refresh collection info for data consistency
+            // (This can be done silently without affecting UI)
+            const collectionResponse = await locationFolderService.getFolderById(collectionId);
+            if (collectionResponse.status === 'success') {
+                console.log('Background refresh collection info:', collectionResponse.data);
+                setCurrentCollection(collectionResponse.data);
+                updateCollection(collectionId, collectionResponse.data);
+            }
+        } catch (error) {
+            console.error('Failed to refresh data on pull-to-refresh:', error);
+            showError('Lỗi khi làm mới dữ liệu');
+        } finally {
+            setRefreshing(false);
+        }
+    }, [collectionId, setCurrentCollection, updateCollection, loadLocations, showError]);
 
     useEffect(() => {
         const initializeData = async () => {
@@ -177,27 +238,36 @@ export default function CollectionDetailScreen() {
         }, 200);
     };
 
-    const handleEditSuccess = () => {
+    const handleEditSuccess = useCallback((updatedData?: {
+        name?: string;
+        description?: string;
+        visibility?: 'PUBLIC' | 'PRIVATE';
+    }) => {
         setShowEditModal(false);
-        // Refresh collection info and locations after edit
+
+        // Store-Update-First: Update store immediately with new data (Optimistic Update)
+        if (updatedData && currentCollection) {
+            // Save previous state for potential rollback
+            const previousState = currentCollection;
+
+            const updatedCollection = {
+                ...currentCollection,
+                ...updatedData,
+                updatedAt: new Date().toISOString()
+            };
+
+            console.log('Optimistic update: Updating collection in store immediately:', updatedCollection);
+            setCurrentCollection(updatedCollection);
+            updateCollection(collectionId, updatedCollection);
+
+            // Note: API call is already handled in EditCollectionModal
+            // If API fails, the modal will show error and not call onSuccess
+            // So we don't need rollback mechanism here since onSuccess is only called on API success
+        }
+
+        // Only refresh locations (collection info already updated in store)
         loadLocations();
-        // Refresh collection info
-        const refreshCollectionInfo = async () => {
-            try {
-                const response = await locationFolderService.getAllFolders();
-                if (response.status === 'success') {
-                    const updatedCollection = response.data.find(folder => folder.id === collectionId);
-                    if (updatedCollection) {
-                        updateCurrentCollection(updatedCollection);
-                        updateCollection(collectionId, updatedCollection);
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to refresh collection info:', error);
-            }
-        };
-        refreshCollectionInfo();
-    };
+    }, [collectionId, currentCollection, setCurrentCollection, updateCollection, loadLocations]);
 
     const handleDeleteSuccess = async () => {
         try {
@@ -220,7 +290,7 @@ export default function CollectionDetailScreen() {
     };
 
     const renderLocation = ({ item, index }: { item: LocationInFolder; index: number }) => {
-        const isProtected = isDefault === 'true'; // Protected if collection is default
+        const isProtected = currentCollection?.isDefault === true; // Protected if collection is default
         return (
             <CollectionDetailCard
                 location={item}
@@ -245,7 +315,7 @@ export default function CollectionDetailScreen() {
             <Text style={[styles.emptySubtitle, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
                 Thêm địa điểm đầu tiên vào collection này
             </Text>
-            {isDefault !== 'true' && (
+            {currentCollection?.isDefault !== true && (
                 <TouchableOpacity
                     style={[styles.addButton, { backgroundColor: '#F48C06' }]}
                     onPress={handleAddLocation}
@@ -279,7 +349,7 @@ export default function CollectionDetailScreen() {
     return (
         <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
             <Header
-                title={currentCollection?.name || collectionName}
+                title={currentCollection?.name || 'Collection'}
                 showBackButton
                 onBackPress={handleBackPress}
                 rightIcon={{
@@ -301,18 +371,29 @@ export default function CollectionDetailScreen() {
                     />
                 </View>
                 <View style={styles.collectionInfo}>
-                    <Text
-                        style={[styles.collectionName, { color: isDark ? '#FFFFFF' : '#000000' }]}
-                        numberOfLines={1}
-                    >
-                        {currentCollection?.name || collectionName}
-                    </Text>
-                    <Text
-                        style={[styles.collectionDescription, { color: isDark ? '#9CA3AF' : '#6B7280' }]}
-                        numberOfLines={2}
-                    >
-                        {currentCollection?.description || collectionDescription || 'Không có mô tả'}
-                    </Text>
+                    {collectionLoading ? (
+                        <View style={styles.collectionLoadingContainer}>
+                            <ActivityIndicator size="small" color="#F48C06" />
+                            <Text style={[styles.collectionLoadingText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                Đang tải...
+                            </Text>
+                        </View>
+                    ) : (
+                        <>
+                            <Text
+                                style={[styles.collectionName, { color: isDark ? '#FFFFFF' : '#000000' }]}
+                                numberOfLines={1}
+                            >
+                                {currentCollection?.name || 'Collection'}
+                            </Text>
+                            <Text
+                                style={[styles.collectionDescription, { color: isDark ? '#9CA3AF' : '#6B7280' }]}
+                                numberOfLines={2}
+                            >
+                                {currentCollection?.description || 'Không có mô tả'}
+                            </Text>
+                        </>
+                    )}
                 </View>
                 <View style={styles.collectionStatus}>
                     {(() => {
@@ -348,7 +429,7 @@ export default function CollectionDetailScreen() {
                         }}
                         onEdit={handleEditCollection}
                         onDelete={handleDeleteCollection}
-                        isDefault={isDefault === 'true'}
+                        isDefault={currentCollection?.isDefault === true}
                     />
                 </>
             )}
@@ -360,9 +441,9 @@ export default function CollectionDetailScreen() {
                     onClose={() => setShowEditModal(false)}
                     onSuccess={handleEditSuccess}
                     collectionId={collectionId}
-                    collectionName={currentCollection?.name || collectionName}
-                    collectionDescription={currentCollection?.description || collectionDescription}
-                    visibility={(currentCollection?.visibility || visibility) as 'PUBLIC' | 'PRIVATE'}
+                    collectionName={currentCollection?.name || ''}
+                    collectionDescription={currentCollection?.description || ''}
+                    visibility={currentCollection?.visibility || 'PRIVATE'}
                 />
             )}
 
@@ -372,7 +453,7 @@ export default function CollectionDetailScreen() {
                     isVisible={showDeleteModal}
                     onClose={() => setShowDeleteModal(false)}
                     onConfirm={handleDeleteSuccess}
-                    collectionName={currentCollection?.name || collectionName}
+                    collectionName={currentCollection?.name || ''}
                 />
             )}
 
@@ -439,6 +520,25 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 32,
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
+    errorText: {
+        fontSize: 16,
+        textAlign: 'center',
+    },
+    collectionLoadingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    collectionLoadingText: {
+        fontSize: 14,
+        marginLeft: 8,
     },
     emptyTitle: {
         fontSize: 20,

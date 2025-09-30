@@ -42,7 +42,8 @@ export default function ProfileScreen() {
         setLoading: setCollectionsLoading,
         addCollection,
         updateCollection,
-        removeCollection
+        removeCollection,
+        setCurrentCollection
     } = useCollectionStore();
 
     // Local state
@@ -120,8 +121,12 @@ export default function ProfileScreen() {
 
     // Handle collection press
     const handleCollectionPress = useCallback((collection: LocationFolder) => {
+        // Save current collection to store before navigation (for immediate display)
+        setCurrentCollection(collection);
+
+        // Navigate with just ID - detail screen will fetch fresh data from API
         NavigationService.goToCollectionDetail(collection.id);
-    }, []);
+    }, [setCurrentCollection]);
 
     // Handle create collection
     const handleCreateCollection = useCallback(() => {

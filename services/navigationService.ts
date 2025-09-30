@@ -444,8 +444,14 @@ class NavigationService {
         await this.navigate(ROUTES.COLLECTIONS);
     }
 
-    static async goToCollectionDetail(collectionId: string, additionalParams?: Record<string, string | number | boolean>) {
-        const params = { id: collectionId, ...additionalParams };
+    static async goToCollectionDetail(
+        collectionId: string,
+        additionalParams?: Record<string, string | number | boolean>
+    ) {
+        const params = {
+            collectionId: collectionId,
+            ...additionalParams
+        };
         await this.navigateWithParams(ROUTES.COLLECTION_DETAIL, params);
     }
 

@@ -49,13 +49,19 @@ export const SERVICES_CONFIG = {
     LOCATION_SERVICE: {
         BASE_URL: process.env.EXPO_PUBLIC_LOCATION_SERVICE_URL || 'https://hengout.tranquocdat.com/location-service/api/v1',
         ENDPOINTS: {
-            SEARCH_PLACES: '/places/search',
-            GET_PLACE_DETAILS: '/places/:id',
-            GET_NEARBY_PLACES: '/places/nearby',
-            GET_RECOMMENDATIONS: '/places/recommendations',
-            ADD_PLACE: '/places',
-            UPDATE_PLACE: '/places/:id',
-            DELETE_PLACE: '/places/:id',
+            // Location Details
+            GET_LOCATION_DETAILS: '/recommendation/locations/:locationId',
+            GET_LOCATION_REVIEWS: '/recommendation/locations/:locationId/reviews',
+
+            // Recommendations
+            GET_RANDOM_RECOMMENDATIONS: '/recommendation/random',
+            GET_NLP_RECOMMENDATIONS: '/recommendation/nlp',
+            GET_FILTERED_RECOMMENDATIONS: '/recommendation/filter',
+
+            // User Vibes
+            GET_CURRENT_VIBES: '/recommendation/current-vibes',
+            INIT_CURRENT_VIBES: '/recommendation/current-vibes/init',
+            GENERATE_NEW_VIBES: '/recommendation/current-vibes/new',
         }
     },
 

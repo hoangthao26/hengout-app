@@ -1,6 +1,6 @@
 import axiosInstance from '../config/axios';
 import { buildEndpointUrl, SERVICES_CONFIG } from '../config/services';
-import { AddLocationToFolderRequest, ApiResponse, CreateFolderRequest, LocationFolder, LocationInFolder, UpdateFolderRequest, UpdateLocationInFolderRequest } from '../types/locationFolder';
+import { AddLocationToFolderRequest, ApiResponse, CreateFolderRequest, LocationFolder, LocationInFolder, PaginatedLocationInFolder, UpdateFolderRequest, UpdateLocationInFolderRequest } from '../types/locationFolder';
 
 class LocationFolderService {
     private readonly baseUrl = SERVICES_CONFIG.USER_SERVICE.BASE_URL;
@@ -81,13 +81,21 @@ class LocationFolderService {
     }
 
     /**
-     * Get all locations in a folder
+     * Get all locations in a folder with pagination
      * GET /api/v1/folder/{folderId}/locations
      */
-    async getLocationsInFolder(folderId: string): Promise<ApiResponse<LocationInFolder[]>> {
+    async getLocationsInFolder(
+        folderId: string,
+        page: number = 0,
+        size: number = 20,
+        sort: string = 'createdAt',
+        direction: string = 'desc'
+    ): Promise<ApiResponse<PaginatedLocationInFolder>> {
         try {
             const endpoint = buildEndpointUrl('USER_SERVICE', 'GET_LOCATIONS_IN_FOLDER').replace(':folderId', folderId);
-            const response = await axiosInstance.get<ApiResponse<LocationInFolder[]>>(endpoint);
+            const response = await axiosInstance.get<ApiResponse<PaginatedLocationInFolder>>(endpoint, {
+                params: { page, size, sort, direction }
+            });
             return response.data;
         } catch (error: any) {
             console.error(`Failed to get locations in folder ${folderId}:`, error);
@@ -161,7 +169,7 @@ class LocationFolderService {
                         const locationsResponse = await this.getLocationsInFolder(folder.id);
                         return {
                             ...folder,
-                            locationCount: locationsResponse.data.length
+                            locationCount: locationsResponse.data.totalElements
                         };
                     } catch (error) {
                         console.warn(`Failed to get location count for folder ${folder.id}:`, error);
@@ -186,7 +194,7 @@ class LocationFolderService {
     async isLocationInFolder(folderId: string, locationId: string): Promise<boolean> {
         try {
             const locationsResponse = await this.getLocationsInFolder(folderId);
-            return locationsResponse.data.some(location => location.locationId === locationId);
+            return locationsResponse.data.content.some(location => location.locationId === locationId);
         } catch (error: any) {
             console.error(`Failed to check if location ${locationId} is in folder ${folderId}:`, error);
             return false;

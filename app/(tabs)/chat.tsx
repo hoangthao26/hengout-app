@@ -19,6 +19,7 @@ import { useModal } from '../../contexts/ModalContext';
 import { useToast } from '../../contexts/ToastContext';
 import { chatService } from '../../services/chatService';
 import { useChatStore } from '../../store/chatStore';
+import { useChatSync } from '../../hooks/useChatSync';
 import { ChatConversation } from '../../types/chat';
 
 export default function ChatScreen() {
@@ -35,21 +36,50 @@ export default function ChatScreen() {
         setConversationsLoading
     } = useChatStore();
 
+    // SQLite Chat Sync
+    const {
+        isInitialized: chatSyncInitialized,
+        isSyncing,
+        getConversations: getConversationsFromDB,
+        forceSync
+    } = useChatSync();
+
     const [filteredConversations, setFilteredConversations] = useState<ChatConversation[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchLoading, setSearchLoading] = useState(false);
 
-    // Load conversations
+    // Load conversations with SQLite (instant) + background sync
     const loadConversations = useCallback(async () => {
         try {
             setConversationsLoading(true);
-            const response = await chatService.getConversations();
-            if (response.status === 'success') {
-                setConversations(response.data);
-                setFilteredConversations(response.data);
+
+            // Load from SQLite first (instant)
+            if (chatSyncInitialized) {
+                const localConversations = await getConversationsFromDB();
+                setConversations(localConversations);
+                setFilteredConversations(localConversations);
+
+                // Background sync from server
+                try {
+                    const response = await chatService.getConversations();
+                    if (response.status === 'success') {
+                        setConversations(response.data);
+                        setFilteredConversations(response.data);
+                    }
+                } catch (syncError) {
+                    console.error('Background sync failed:', syncError);
+                    // Continue with local data
+                }
             } else {
-                error('Không thể tải danh sách cuộc trò chuyện');
+                // Fallback to direct API call if SQLite not ready
+                const response = await chatService.getConversations();
+                if (response.status === 'success') {
+                    setConversations(response.data);
+                    setFilteredConversations(response.data);
+                } else {
+                    error('Không thể tải danh sách cuộc trò chuyện');
+                }
             }
         } catch (err: any) {
             console.error('Failed to load conversations:', err);
@@ -58,7 +88,7 @@ export default function ChatScreen() {
             setConversationsLoading(false);
             setRefreshing(false);
         }
-    }, [error, setConversations, setConversationsLoading]);
+    }, [chatSyncInitialized, getConversationsFromDB, error, setConversations, setConversationsLoading]);
 
     // Filter conversations based on search query
     const filterConversations = useCallback((query: string) => {
@@ -94,11 +124,21 @@ export default function ChatScreen() {
         setFilteredConversations(conversations);
     }, [conversations]);
 
-    // Handle refresh
-    const handleRefresh = useCallback(() => {
+    // Handle refresh with force sync
+    const handleRefresh = useCallback(async () => {
         setRefreshing(true);
-        loadConversations();
-    }, [loadConversations]);
+        try {
+            if (chatSyncInitialized) {
+                // Use force sync for better data freshness
+                await forceSync();
+            }
+            await loadConversations();
+        } catch (error) {
+            console.error('Refresh failed:', error);
+        } finally {
+            setRefreshing(false);
+        }
+    }, [chatSyncInitialized, forceSync, loadConversations]);
 
     // Handle conversation press
     const handleConversationPress = useCallback((conversation: ChatConversation) => {
@@ -263,6 +303,7 @@ export default function ChatScreen() {
                     ) : null
                 }
             />
+
         </View>
     );
 }

@@ -15,12 +15,14 @@ import CollectionCard from '../../components/CollectionCard';
 import Header from '../../components/Header';
 import { useToast } from '../../contexts/ToastContext';
 import { locationFolderService } from '../../services/locationFolderService';
+import { useCollectionStore } from '../../store/collectionStore';
 import { LocationFolder } from '../../types/locationFolder';
 
 export default function CollectionsScreen() {
     const router = useRouter();
     const isDark = useColorScheme() === 'dark';
     const { success: showSuccess, error: showError } = useToast();
+    const { setCurrentCollection } = useCollectionStore();
 
     const [collections, setCollections] = useState<LocationFolder[]>([]);
     const [loading, setLoading] = useState(true);
@@ -57,6 +59,10 @@ export default function CollectionsScreen() {
     }, [loadCollections]);
 
     const handleCollectionPress = (collection: LocationFolder) => {
+        // Save current collection to store before navigation (for immediate display)
+        setCurrentCollection(collection);
+
+        // Navigate with just ID - detail screen will fetch fresh data from API
         NavigationService.goToCollectionDetail(collection.id);
     };
 

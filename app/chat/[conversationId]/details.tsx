@@ -28,6 +28,7 @@ import EditGroupModal from '../../../components/EditGroupModal';
 import Header from '../../../components/Header';
 import { chatService } from '../../../services/chatService';
 import { useChatStore } from '../../../store/chatStore';
+import { useChatSync } from '../../../hooks/useChatSync';
 import { ChatConversation } from '../../../types/chat';
 
 export default function ConversationDetailsScreen() {
@@ -41,6 +42,13 @@ export default function ConversationDetailsScreen() {
         currentConversation,
         setCurrentConversation
     } = useChatStore();
+
+    // SQLite Chat Sync
+    const {
+        isInitialized: chatSyncInitialized,
+        getMembers: getMembersFromDB,
+        syncMembers
+    } = useChatSync();
 
     const [loading, setLoading] = useState(true);
 
@@ -59,9 +67,22 @@ export default function ConversationDetailsScreen() {
 
         try {
             setLoading(true);
-            const response = await chatService.getConversation(conversationId);
-            if (response.status === 'success') {
-                setCurrentConversation(response.data);
+
+            // Load from SQLite first (instant) if available
+            if (chatSyncInitialized) {
+                // Conversation data is already available from store
+                // Just sync members in background
+                try {
+                    await syncMembers(conversationId);
+                } catch (syncError) {
+                    console.error('Background member sync failed:', syncError);
+                }
+            } else {
+                // Fallback to direct API call if SQLite not ready
+                const response = await chatService.getConversation(conversationId);
+                if (response.status === 'success') {
+                    setCurrentConversation(response.data);
+                }
             }
         } catch (error) {
             console.error('Failed to load conversation:', error);

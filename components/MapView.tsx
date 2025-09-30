@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet, useColorScheme, Text } from 'react-native';
+import { View, StyleSheet, useColorScheme, Text, TouchableOpacity, Animated } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocation } from '../hooks/useLocation';
+import { MapPin } from 'lucide-react-native';
 
 interface MapViewProps {
     onLocationSelect?: (location: { lat: number; lng: number; address?: string }) => void;
@@ -22,6 +23,8 @@ const CustomMapView: React.FC<MapViewProps> = ({
     const isDark = useColorScheme() === 'dark';
     const mapRef = useRef<MapView>(null);
     const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [isAnimating, setIsAnimating] = useState(false);
+    const scaleAnim = useRef(new Animated.Value(1)).current;
 
     const handleMapPress = (event: any) => {
         const { latitude, longitude } = event.nativeEvent.coordinate;
@@ -39,6 +42,41 @@ const CustomMapView: React.FC<MapViewProps> = ({
     const handleUserLocationPress = () => {
         // Enterprise: Remove debug logs in production
         // Could trigger analytics or user action here
+    };
+
+    const handleGoToInitialLocation = () => {
+        if (isAnimating || !mapRef.current) return;
+
+        setIsAnimating(true);
+
+        // Button press animation
+        Animated.sequence([
+            Animated.timing(scaleAnim, {
+                toValue: 0.9,
+                duration: 100,
+                useNativeDriver: true,
+            }),
+            Animated.timing(scaleAnim, {
+                toValue: 1,
+                duration: 100,
+                useNativeDriver: true,
+            }),
+        ]).start();
+
+        // Animate map to initial location
+        const region: Region = {
+            latitude: initialLocation.lat,
+            longitude: initialLocation.lng,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+        };
+
+        mapRef.current.animateToRegion(region, 600);
+
+        // Reset animation state
+        setTimeout(() => {
+            setIsAnimating(false);
+        }, 1000);
     };
 
     // Enterprise: Remove debug logs in production
@@ -68,11 +106,9 @@ const CustomMapView: React.FC<MapViewProps> = ({
                 region={currentRegion}
                 onPress={handleMapPress}
                 showsUserLocation={false}
-                showsMyLocationButton={false}
                 showsCompass={true}
-                showsScale={true}
                 mapType="standard"
-                mapPadding={{ bottom: -30, top: 0, left: 0, right: 0 }}
+                mapPadding={{ bottom: -60, top: 60, left: 0, right: 0 }}
                 showsPointsOfInterest={false}
 
             >
@@ -109,6 +145,37 @@ const CustomMapView: React.FC<MapViewProps> = ({
 
 
             </MapView>
+
+            {/* Custom Go to Initial Location Button */}
+            <Animated.View
+                style={[
+                    styles.goToInitialButton,
+                    {
+                        backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+                        transform: [{ scale: scaleAnim }]
+                    }
+                ]}
+            >
+                <TouchableOpacity
+                    style={styles.goToInitialButtonContent}
+                    onPress={handleGoToInitialLocation}
+                    disabled={isAnimating}
+                    activeOpacity={0.8}
+                >
+                    <LinearGradient
+                        colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
+                        locations={[0, 0.31, 0.69, 1]}
+                        start={{ x: 0, y: 1 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.goToInitialButtonGradient}
+                    >
+                        <MapPin
+                            size={32}
+                            color="#FFFFFF"
+                        />
+                    </LinearGradient>
+                </TouchableOpacity>
+            </Animated.View>
         </View>
     );
 };
@@ -151,6 +218,33 @@ const styles = StyleSheet.create({
         height: 28,
         borderRadius: 20,
         opacity: 0.3,
+    },
+    goToInitialButton: {
+        position: 'absolute',
+        bottom: 100,
+        right: 20,
+        width: 50,
+        height: 50,
+        borderRadius: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 8,
+    },
+    goToInitialButtonContent: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 8,
+        overflow: 'hidden',
+    },
+    goToInitialButtonGradient: {
+        width: 50,
+        height: 50,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 8,
     },
 });
 
