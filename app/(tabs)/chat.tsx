@@ -21,6 +21,7 @@ import { chatService } from '../../services/chatService';
 import { useChatStore } from '../../store/chatStore';
 import { useChatSync } from '../../hooks/useChatSync';
 import { ChatConversation } from '../../types/chat';
+import DatabaseResetButton from '../../components/DatabaseResetButton';
 
 export default function ChatScreen() {
     const colorScheme = useColorScheme();
@@ -33,7 +34,11 @@ export default function ChatScreen() {
         conversations,
         conversationsLoading,
         setConversations,
-        setConversationsLoading
+        setConversationsLoading,
+        // Enterprise Store-First Messages
+        setConversationMessages,
+        setMessageSnapshot,
+        preloadMessages
     } = useChatStore();
 
     // SQLite Chat Sync
@@ -41,6 +46,7 @@ export default function ChatScreen() {
         isInitialized: chatSyncInitialized,
         isSyncing,
         getConversations: getConversationsFromDB,
+        getMessages: getMessagesFromDB,
         forceSync
     } = useChatSync();
 
@@ -49,7 +55,7 @@ export default function ChatScreen() {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchLoading, setSearchLoading] = useState(false);
 
-    // Load conversations with SQLite (instant) + background sync
+    // Enterprise Preloading Strategy: Load conversations + recent messages
     const loadConversations = useCallback(async () => {
         try {
             setConversationsLoading(true);
@@ -60,12 +66,32 @@ export default function ChatScreen() {
                 setConversations(localConversations);
                 setFilteredConversations(localConversations);
 
-                // Background sync from server
+                // 🚀 ENTERPRISE PRELOADING: Load recent messages for top conversations
+                console.log('🚀 [Enterprise Chat] Preloading recent messages for instant display...');
+                const topConversations = localConversations.slice(0, 5); // Top 5 conversations
+
+                for (const conversation of topConversations) {
+                    try {
+                        const recentMessages = await getMessagesFromDB(conversation.id, 20, 0); // Last 20 messages
+                        if (recentMessages.length > 0) {
+                            // Store in conversation messages
+                            setConversationMessages(conversation.id, recentMessages);
+                            // Create snapshot for instant display
+                            setMessageSnapshot(conversation.id, recentMessages.slice(0, 10)); // Keep 10 for instant display
+                            console.log(`⚡ [Enterprise Chat] Preloaded ${recentMessages.length} messages for conversation: ${conversation.name}`);
+                        }
+                    } catch (preloadError) {
+                        console.error(`Failed to preload messages for conversation ${conversation.id}:`, preloadError);
+                        // Continue with other conversations
+                    }
+                }
+
+                // ✅ Background sync từ server (không update UI, chỉ sync database)
                 try {
                     const response = await chatService.getConversations();
                     if (response.status === 'success') {
-                        setConversations(response.data);
-                        setFilteredConversations(response.data);
+                        // ✅ Chỉ sync vào database, không update UI (tránh flicker)
+                        console.log('🔄 [Background Sync] Synced conversations to database');
                     }
                 } catch (syncError) {
                     console.error('Background sync failed:', syncError);
@@ -88,7 +114,7 @@ export default function ChatScreen() {
             setConversationsLoading(false);
             setRefreshing(false);
         }
-    }, [chatSyncInitialized, getConversationsFromDB, error, setConversations, setConversationsLoading]);
+    }, [chatSyncInitialized, getConversationsFromDB, getMessagesFromDB, error, setConversations, setConversationsLoading, setConversationMessages, setMessageSnapshot]);
 
     // Filter conversations based on search query
     const filterConversations = useCallback((query: string) => {
@@ -124,21 +150,32 @@ export default function ChatScreen() {
         setFilteredConversations(conversations);
     }, [conversations]);
 
-    // Handle refresh with force sync
+    // ✅ OPTIMISTIC REFRESH - Không clear data khi refresh
     const handleRefresh = useCallback(async () => {
         setRefreshing(true);
         try {
             if (chatSyncInitialized) {
-                // Use force sync for better data freshness
+                // ✅ Force sync trong background, không clear UI
                 await forceSync();
+
+                // ✅ Load fresh data từ database (đã được sync)
+                const freshConversations = await getConversationsFromDB();
+                setConversations(freshConversations);
+                setFilteredConversations(freshConversations);
+            } else {
+                // Fallback to direct API call
+                const response = await chatService.getConversations();
+                if (response.status === 'success') {
+                    setConversations(response.data);
+                    setFilteredConversations(response.data);
+                }
             }
-            await loadConversations();
         } catch (error) {
             console.error('Refresh failed:', error);
         } finally {
             setRefreshing(false);
         }
-    }, [chatSyncInitialized, forceSync, loadConversations]);
+    }, [chatSyncInitialized, forceSync, getConversationsFromDB, setConversations]);
 
     // Handle conversation press
     const handleConversationPress = useCallback((conversation: ChatConversation) => {
@@ -151,10 +188,13 @@ export default function ChatScreen() {
         openCreateGroupModal();
     }, [setOnCreateGroupSuccess, openCreateGroupModal, loadConversations]);
 
-    // Load conversations on mount
+    // Load conversations on mount (only if not already loaded by initialization)
     useEffect(() => {
-        loadConversations();
-    }, [loadConversations]);
+        // Only load if conversations are empty (not preloaded by initialization service)
+        if (conversations.length === 0) {
+            loadConversations();
+        }
+    }, [loadConversations, conversations.length]);
 
     // Update filtered conversations when store conversations change
     useEffect(() => {
@@ -303,6 +343,9 @@ export default function ChatScreen() {
                     ) : null
                 }
             />
+
+            {/* Temporary Database Reset Button for Testing */}
+            <DatabaseResetButton />
 
         </View>
     );

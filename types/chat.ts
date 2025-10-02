@@ -12,7 +12,9 @@ export interface ChatMessage {
         fileName?: string;
         fileUrl?: string;
     };
+    status?: 'SENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED';
     createdAt: string;
+    updatedAt?: string;
     mine: boolean;
 }
 

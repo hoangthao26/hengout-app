@@ -48,6 +48,12 @@ export class RefreshTokenManager {
      * Start comprehensive token monitoring with monitoring
      */
     async startMonitoring(): Promise<void> {
+        // ✅ GUARD: Prevent multiple monitoring starts
+        if (this.refreshTimer !== null) {
+            console.log('⏳ [RefreshTokenManager] Monitoring already active, skipping start...');
+            return;
+        }
+
         try {
             console.log('🚀 [RefreshTokenManager] Starting token monitoring...');
 

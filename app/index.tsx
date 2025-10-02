@@ -17,7 +17,8 @@ export default function SplashScreen() {
   // App initialization state
   const {
     isAppReady,
-    isServicesReady
+    isServicesReady,
+    isChatDataPreloaded // ✅ Thêm chat data preloaded status
   } = useAppStore();
 
   // GPS Location state
@@ -27,7 +28,7 @@ export default function SplashScreen() {
     accuracy?: number;
   } | null>(null);
 
-  // 🚀 ENTERPRISE FEATURE: Initialize all services on app start
+  // 🚀 ENTERPRISE FEATURE: Initialize all services on app start (ONCE)
   useEffect(() => {
     const initializeApp = async () => {
       try {
@@ -47,7 +48,7 @@ export default function SplashScreen() {
     };
 
     initializeApp();
-  }, [initializeAuth]);
+  }, []); // ✅ Empty dependency array để chỉ chạy 1 lần
 
   // 🗺️ ENTERPRISE FEATURE: Get GPS location after services are ready
   useEffect(() => {
@@ -113,18 +114,20 @@ export default function SplashScreen() {
     getLocationData();
   }, [isServicesReady]);
 
-  // 🔥 ENTERPRISE FEATURE: Start token refresh monitoring
+  // 🔥 ENTERPRISE FEATURE: Start token refresh monitoring (ONCE)
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
       console.log('🔄 [SplashScreen] Starting token refresh monitoring...');
       refreshTokenManager.startMonitoring();
     }
 
+    // ✅ Cleanup chỉ khi component unmount, không phải mỗi lần dependency thay đổi
     return () => {
-      console.log('⏹️ [SplashScreen] Stopping token refresh monitoring...');
+      // Chỉ stop khi component thực sự unmount
+      console.log('⏹️ [SplashScreen] Component unmounting, stopping token refresh monitoring...');
       refreshTokenManager.stopMonitoring();
     };
-  }, [isAuthenticated, isLoading]);
+  }, []); // ✅ Empty dependency array để chỉ chạy 1 lần
 
   // 🔥 ENTERPRISE FEATURE: Handle app state changes for background refresh
   useEffect(() => {
@@ -146,11 +149,12 @@ export default function SplashScreen() {
       isAuthenticated,
       isAppReady,
       isServicesReady,
+      isChatDataPreloaded, // ✅ Log chat data preloaded status
       hasLocation: !!locationData
     });
 
-    // Wait for app to be ready and location data
-    if (!isLoading && isAppReady && locationData) {
+    // ✅ ĐỢI CHAT DATA PRELOADED HOÀN THÀNH
+    if (!isLoading && isAppReady && isChatDataPreloaded && locationData) {
       // Navigate immediately when both auth and GPS are ready
       const navigate = () => {
         Animated.timing(fadeAnim, {
@@ -175,7 +179,7 @@ export default function SplashScreen() {
 
       return () => clearTimeout(timer);
     }
-  }, [isLoading, isAuthenticated, isAppReady, locationData, router, fadeAnim]);
+  }, [isLoading, isAuthenticated, isAppReady, isChatDataPreloaded, locationData, router, fadeAnim]); // ✅ Thêm isChatDataPreloaded vào dependencies
 
   return (
     <Animated.View

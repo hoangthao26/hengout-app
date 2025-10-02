@@ -441,6 +441,13 @@ export const useAuthStore = create<AuthState>()(
             },
 
             initializeAuth: async () => {
+                // ✅ GUARD: Prevent multiple initialization calls
+                const currentState = get();
+                if (currentState.isLoading) {
+                    console.log('⏳ [AuthStore] Auth initialization already in progress, skipping...');
+                    return;
+                }
+
                 try {
                     console.log('🔐 [AuthStore] Starting auth initialization...');
                     set({ isLoading: true });

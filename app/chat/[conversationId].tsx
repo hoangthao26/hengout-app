@@ -34,7 +34,20 @@ export default function ChatConversationScreen() {
     const {
         conversations,
         currentConversation,
-        setCurrentConversation
+        setCurrentConversation,
+        // Enterprise Store-First Messages
+        conversationMessages,
+        messageSnapshots,
+        getMessageSnapshot,
+        setConversationMessages,
+        addConversationMessage,
+        updateConversationMessage,
+        setMessageSnapshot,
+        // Enterprise Caching
+        getCachedMessages,
+        updateCachedMessages,
+        shouldSyncMessages,
+        markSyncTime
     } = useChatStore();
 
     // SQLite Chat Sync
@@ -49,10 +62,10 @@ export default function ChatConversationScreen() {
     const conversation = conversations.find(c => c.id === conversationId) || currentConversation;
 
     const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const [messageText, setMessageText] = useState('');
     const [page, setPage] = useState(0);
+    const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
     const flatListRef = useRef<FlatList>(null);
 
@@ -70,44 +83,102 @@ export default function ChatConversationScreen() {
         }
     }, [conversationId, error, setCurrentConversation]);
 
-    // Load messages with SQLite (instant) + background sync
+    // Enterprise Store-First Message Loading
     const loadMessages = useCallback(
         async (pageNum: number) => {
-            if (!conversationId) return;
+            if (!conversationId || isLoadingMessages) return;
+
+            setIsLoadingMessages(true);
+            console.log(`🚀 [Enterprise Chat] Loading messages for conversation: ${conversationId}, page: ${pageNum}`);
+
             try {
-                // Load from SQLite first (instant)
+                // 1. Check store first (instant display)
+                const storeMessages = conversationMessages[conversationId] || [];
+                console.log(`🔍 [Enterprise Chat] DEBUG - Store check: conversationId=${conversationId}, storeMessages.length=${storeMessages.length}`);
+                console.log(`🔍 [Enterprise Chat] DEBUG - All conversationMessages keys:`, Object.keys(conversationMessages));
+
+                if (pageNum === 0 && storeMessages.length > 0) {
+                    setMessages(storeMessages);
+                    console.log(`⚡ [Enterprise Chat] Instant display: ${storeMessages.length} messages from store`);
+                    setIsLoadingMessages(false);
+                    return; // Exit early if we have store messages
+                }
+
+                // 2. Check snapshot (recent messages for instant display)
+                const snapshotMessages = getMessageSnapshot(conversationId);
+                if (pageNum === 0 && snapshotMessages.length > 0) {
+                    setMessages(snapshotMessages);
+                    setConversationMessages(conversationId, snapshotMessages);
+                    console.log(`⚡ [Enterprise Chat] Instant display: ${snapshotMessages.length} messages from snapshot`);
+                    setIsLoadingMessages(false);
+                    return; // Exit early if we have snapshot messages
+                }
+
+                // 3. Load from SQLite (fast fallback)
                 if (chatSyncInitialized) {
+                    console.log(`💾 [Enterprise Chat] Loading from SQLite...`);
                     const localMessages = await getMessagesFromDB(conversationId, 50, pageNum * 50);
+                    console.log(`💾 [Enterprise Chat] Loaded ${localMessages.length} messages from SQLite`);
+
                     if (pageNum === 0) {
                         setMessages(localMessages);
+                        setConversationMessages(conversationId, localMessages);
+                        setMessageSnapshot(conversationId, localMessages.slice(0, 20)); // Keep recent 20 for instant display
                     } else {
                         setMessages(prev => [...prev, ...localMessages]);
+                        setConversationMessages(conversationId, [...storeMessages, ...localMessages]);
                     }
 
-                    // Background sync from server
-                    try {
-                        const response = await chatService.getMessages(conversationId, pageNum, 50);
-                        if (response.status === 'success') {
-                            const syncedMessages = response.data;
-                            if (pageNum === 0) {
-                                setMessages(syncedMessages);
-                            } else {
-                                setMessages(prev => [...prev, ...syncedMessages]);
+                    // 4. Background sync from server (only if needed)
+                    if (shouldSyncMessages(conversationId)) {
+                        console.log(`🔄 [Enterprise Chat] Starting background sync...`);
+                        setTimeout(async () => {
+                            try {
+                                const response = await chatService.getMessages(conversationId, pageNum, 50);
+                                if (response.status === 'success') {
+                                    const syncedMessages = response.data;
+                                    console.log(`🔄 [Enterprise Chat] Synced ${syncedMessages.length} messages from server`);
+
+                                    if (pageNum === 0) {
+                                        // Only update if server has newer messages
+                                        setMessages(prev => {
+                                            if (prev.length === 0 ||
+                                                (syncedMessages.length > 0 && syncedMessages[0].id !== prev[0].id)) {
+                                                setConversationMessages(conversationId, syncedMessages);
+                                                setMessageSnapshot(conversationId, syncedMessages.slice(0, 20));
+                                                return syncedMessages;
+                                            }
+                                            return prev; // Keep local data if no newer messages
+                                        });
+                                    } else {
+                                        setMessages(prev => {
+                                            const newMessages = [...prev, ...syncedMessages];
+                                            setConversationMessages(conversationId, newMessages);
+                                            return newMessages;
+                                        });
+                                    }
+                                    markSyncTime(conversationId);
+                                }
+                            } catch (syncError) {
+                                console.error('Background sync failed:', syncError);
+                                // Continue with local data
                             }
-                        }
-                    } catch (syncError) {
-                        console.error('Background sync failed:', syncError);
-                        // Continue with local data
+                        }, 100); // Small delay to ensure UI renders first
                     }
                 } else {
                     // Fallback to direct API call if SQLite not ready
+                    console.log(`🌐 [Enterprise Chat] Loading from API (SQLite not ready)...`);
                     const response = await chatService.getMessages(conversationId, pageNum, 50);
                     if (response.status === 'success') {
-                        // Server trả DESC (newest trước)
+                        console.log(`🌐 [Enterprise Chat] Loaded ${response.data.length} messages from API`);
+
                         if (pageNum === 0) {
                             setMessages(response.data);
+                            setConversationMessages(conversationId, response.data);
+                            setMessageSnapshot(conversationId, response.data.slice(0, 20));
                         } else {
-                            setMessages(prev => [...prev, ...response.data]); // append older
+                            setMessages(prev => [...prev, ...response.data]);
+                            setConversationMessages(conversationId, [...storeMessages, ...response.data]);
                         }
                     }
                 }
@@ -115,39 +186,84 @@ export default function ChatConversationScreen() {
                 console.error('Failed to load messages:', err);
                 error('Không thể tải tin nhắn');
             } finally {
-                setLoading(false);
+                setIsLoadingMessages(false);
             }
         },
-        [conversationId, chatSyncInitialized, getMessagesFromDB, error]
+        [conversationId, chatSyncInitialized, getMessagesFromDB, error, isLoadingMessages, conversationMessages, getMessageSnapshot, setConversationMessages, setMessageSnapshot, shouldSyncMessages, markSyncTime]
     );
 
-    // Send message with SQLite optimistic update
+    // Enterprise Optimistic UI Send Message
     const sendMessage = useCallback(async () => {
         if (!messageText.trim() || !conversationId || sending) return;
 
+        const messageContent = messageText.trim();
+        setMessageText('');
         setSending(true);
+
+        // Create optimistic message
+        const optimisticMessage: ChatMessage = {
+            id: `temp_${Date.now()}`, // Temporary ID
+            conversationId,
+            senderId: 'current_user', // Will be replaced by actual user ID
+            senderName: 'You',
+            senderAvatar: '',
+            content: { text: messageContent },
+            type: 'TEXT',
+            status: 'SENDING', // Optimistic status
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            mine: true
+        };
+
         try {
+            // 1. Add to store immediately (optimistic UI)
+            addConversationMessage(conversationId, optimisticMessage);
+            setMessages(prev => [optimisticMessage, ...prev]);
+            console.log(`⚡ [Enterprise Chat] Optimistic message added: ${messageContent}`);
+
             if (chatSyncInitialized) {
-                // Use SQLite with optimistic update
-                const newMessage = await sendMessageWithSync({
+                // 2. Send to server with sync
+                const result = await sendMessageWithSync({
                     conversationId,
                     type: 'TEXT',
-                    content: { text: messageText.trim() }
+                    content: { text: messageContent }
                 });
 
-                setMessages(prev => [newMessage, ...prev]); // prepend mới nhất
-                setMessageText('');
+                // 3. Update message with real data
+                if (result && result.id) {
+                    updateConversationMessage(conversationId, optimisticMessage.id, {
+                        id: result.id,
+                        status: 'SENT',
+                        senderId: result.senderId,
+                        senderName: result.senderName
+                    });
+                    setMessages(prev => prev.map(msg =>
+                        msg.id === optimisticMessage.id
+                            ? { ...msg, id: result.id, status: 'SENT', senderId: result.senderId, senderName: result.senderName }
+                            : msg
+                    ));
+                    console.log(`✅ [Enterprise Chat] Message sent successfully: ${result.id}`);
+                }
             } else {
                 // Fallback to direct API call
                 const response = await chatService.sendMessage({
                     conversationId,
                     type: 'TEXT',
-                    content: { text: messageText.trim() }
+                    content: { text: messageContent }
                 });
 
                 if (response.status === 'success') {
-                    setMessages(prev => [response.data, ...prev]); // prepend mới nhất
-                    setMessageText('');
+                    updateConversationMessage(conversationId, optimisticMessage.id, {
+                        id: response.data.id,
+                        status: 'SENT',
+                        senderId: response.data.senderId,
+                        senderName: response.data.senderName
+                    });
+                    setMessages(prev => prev.map(msg =>
+                        msg.id === optimisticMessage.id
+                            ? { ...msg, id: response.data.id, status: 'SENT', senderId: response.data.senderId, senderName: response.data.senderName }
+                            : msg
+                    ));
                 } else {
                     error('Không thể gửi tin nhắn');
                 }
@@ -155,10 +271,22 @@ export default function ChatConversationScreen() {
         } catch (err: any) {
             console.error('Failed to send message:', err);
             error('Lỗi khi gửi tin nhắn');
+
+            // Update message status to failed
+            updateConversationMessage(conversationId, optimisticMessage.id, {
+                status: 'FAILED'
+            });
+            setMessages(prev => prev.map(msg =>
+                msg.id === optimisticMessage.id
+                    ? { ...msg, status: 'FAILED' }
+                    : msg
+            ));
+
+            setMessageText(messageContent); // Restore message text
         } finally {
             setSending(false);
         }
-    }, [messageText, conversationId, sending, chatSyncInitialized, sendMessageWithSync, error]);
+    }, [messageText, conversationId, sending, chatSyncInitialized, sendMessageWithSync, error, addConversationMessage, updateConversationMessage]);
 
     // Handle back press
     const handleBack = useCallback(() => {
@@ -167,9 +295,11 @@ export default function ChatConversationScreen() {
 
     // Load data on mount
     useEffect(() => {
-        loadConversation();
-        loadMessages(0);
-    }, [loadConversation, loadMessages]);
+        if (conversationId) {
+            loadConversation();
+            loadMessages(0);
+        }
+    }, [conversationId]); // Only depend on conversationId to avoid loop
 
     // Load conversation if not in store
     useEffect(() => {
@@ -337,29 +467,43 @@ export default function ChatConversationScreen() {
                         >
                             {chatService.formatMessageContent(item)}
                         </Text>
+
+                        {/* Enterprise Message Status Indicator */}
+                        {isMyMessage && item.status && (
+                            <View style={styles.messageStatusContainer}>
+                                {item.status === 'SENDING' && (
+                                    <Text style={[styles.messageStatus, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                        Đang gửi...
+                                    </Text>
+                                )}
+                                {item.status === 'SENT' && (
+                                    <Text style={[styles.messageStatus, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                        Đã gửi
+                                    </Text>
+                                )}
+                                {item.status === 'DELIVERED' && (
+                                    <Text style={[styles.messageStatus, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                        Đã nhận
+                                    </Text>
+                                )}
+                                {item.status === 'READ' && (
+                                    <Text style={[styles.messageStatus, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                        Đã đọc
+                                    </Text>
+                                )}
+                                {item.status === 'FAILED' && (
+                                    <Text style={[styles.messageStatus, { color: '#EF4444' }]}>
+                                        Gửi thất bại
+                                    </Text>
+                                )}
+                            </View>
+                        )}
                     </View>
                 </View>
             </View>
         );
     };
 
-    if (loading) {
-        return (
-            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-                <View style={[styles.header, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-                    <BackButton onPress={handleBack} />
-                    <View style={styles.headerContent}>
-                        <Text style={[styles.headerTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                            Đang tải...
-                        </Text>
-                    </View>
-                    <TouchableOpacity style={styles.compassButton}>
-                        <Compass size={28} color={isDark ? '#FFFFFF' : '#000000'} />
-                    </TouchableOpacity>
-                </View>
-            </View>
-        );
-    }
 
     return (
         <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
@@ -529,6 +673,15 @@ const styles = StyleSheet.create({
     otherMessageLastInGroup: { backgroundColor: '#E5E7EB', borderTopLeftRadius: 4, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 18 },
     otherMessageMiddleInGroup: { backgroundColor: '#E5E7EB', borderTopLeftRadius: 4, borderBottomLeftRadius: 4, borderTopRightRadius: 18, borderBottomRightRadius: 18 },
     messageText: { fontSize: 16, lineHeight: 20 },
+    messageStatusContainer: {
+        marginTop: 4,
+        alignItems: 'flex-end'
+    },
+    messageStatus: {
+        fontSize: 11,
+        fontWeight: '500',
+        opacity: 0.7
+    },
     inputContainer: { paddingHorizontal: 16, paddingVertical: 16 },
     inputWrapper: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
     messageInput: {

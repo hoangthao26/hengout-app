@@ -43,7 +43,8 @@ class DatabaseService {
                 updated_at TEXT NOT NULL,
                 last_message_id TEXT,
                 last_message_text TEXT,
-                last_message_timestamp TEXT
+                last_message_timestamp TEXT,
+                last_message_mine INTEGER NOT NULL DEFAULT 0
             );
         `);
 
@@ -109,8 +110,8 @@ class DatabaseService {
             INSERT OR REPLACE INTO conversations (
                 id, type, name, avatar_url, created_by, status, member_count, 
                 user_role, created_at, updated_at, last_message_id, 
-                last_message_text, last_message_timestamp
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                last_message_text, last_message_timestamp, last_message_mine
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             conversation.id,
             conversation.type || 'PRIVATE',
@@ -124,7 +125,8 @@ class DatabaseService {
             conversation.createdAt || new Date().toISOString(), // updated_at
             lastMessage?.id || null,
             lastMessage?.content.text || null,
-            lastMessage?.createdAt || null
+            lastMessage?.createdAt || null,
+            lastMessage?.mine ? 1 : 0
         ]);
     }
 
@@ -134,9 +136,10 @@ class DatabaseService {
     async getConversations(): Promise<ChatConversation[]> {
         if (!this.db) throw new Error('Database not initialized');
 
+        // ✅ SẮP XẾP THEO lastMessage.createdAt NHƯ API (ASC - từ cũ đến mới)
         const result = await this.db.getAllAsync(`
             SELECT * FROM conversations 
-            ORDER BY updated_at DESC
+            ORDER BY created_at ASC
         `);
 
         return result.map(this.mapConversationFromDB);
@@ -416,7 +419,8 @@ class DatabaseService {
                 type: 'TEXT',
                 content: { text: row.last_message_text },
                 createdAt: row.last_message_timestamp,
-                mine: false
+                // ✅ BỎ updatedAt THEO API (API không có field này)
+                mine: row.last_message_mine === 1
             } : undefined
         };
     }

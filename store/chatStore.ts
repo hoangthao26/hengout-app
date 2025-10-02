@@ -8,10 +8,22 @@ interface ChatState {
     conversationsLoading: boolean;
     conversationsError: string | null;
 
-    // Messages
-    messages: { [conversationId: string]: ChatMessage[] };
+    // Enterprise Store-First Messages
+    conversationMessages: { [conversationId: string]: ChatMessage[] };
+    messageSnapshots: { [conversationId: string]: ChatMessage[] }; // Recent messages for instant display
     messagesLoading: { [conversationId: string]: boolean };
     messagesError: { [conversationId: string]: string | null };
+    hasMoreMessages: { [conversationId: string]: boolean };
+    lastMessageTimestamp: { [conversationId: string]: string };
+
+    // Legacy Messages (for backward compatibility)
+    messages: { [conversationId: string]: ChatMessage[] };
+
+    // Enterprise Message Caching & Sync
+    cachedMessages: { [conversationId: string]: ChatMessage[] };
+    lastSyncTime: { [conversationId: string]: number };
+    preloadedConversations: string[];
+    syncStatus: { [conversationId: string]: 'idle' | 'syncing' | 'error' };
 
     // Members
     members: { [conversationId: string]: ChatMember[] };
@@ -34,14 +46,39 @@ interface ChatActions {
     setConversationsLoading: (loading: boolean) => void;
     setConversationsError: (error: string | null) => void;
 
-    // Messages
+    // Enterprise Store-First Messages
+    setConversationMessages: (conversationId: string, messages: ChatMessage[]) => void;
+    addConversationMessage: (conversationId: string, message: ChatMessage) => void;
+    updateConversationMessage: (conversationId: string, messageId: string, updates: Partial<ChatMessage>) => void;
+    removeConversationMessage: (conversationId: string, messageId: string) => void;
+    appendConversationMessages: (conversationId: string, messages: ChatMessage[]) => void;
+    prependConversationMessages: (conversationId: string, messages: ChatMessage[]) => void;
+    setMessagesLoading: (conversationId: string, loading: boolean) => void;
+    setMessagesError: (conversationId: string, error: string | null) => void;
+    clearConversationMessages: (conversationId: string) => void;
+    setHasMoreMessages: (conversationId: string, hasMore: boolean) => void;
+    setLastMessageTimestamp: (conversationId: string, timestamp: string) => void;
+
+    // Enterprise Message Snapshots (for instant display)
+    setMessageSnapshot: (conversationId: string, messages: ChatMessage[]) => void;
+    getMessageSnapshot: (conversationId: string) => ChatMessage[];
+    clearMessageSnapshot: (conversationId: string) => void;
+
+    // Legacy Messages (for backward compatibility)
     setMessages: (conversationId: string, messages: ChatMessage[]) => void;
     addMessage: (conversationId: string, message: ChatMessage) => void;
     updateMessage: (conversationId: string, messageId: string, updates: Partial<ChatMessage>) => void;
     removeMessage: (conversationId: string, messageId: string) => void;
-    setMessagesLoading: (conversationId: string, loading: boolean) => void;
-    setMessagesError: (conversationId: string, error: string | null) => void;
     clearMessages: (conversationId: string) => void;
+
+    // Enterprise Message Caching
+    getCachedMessages: (conversationId: string) => ChatMessage[];
+    updateCachedMessages: (conversationId: string, messages: ChatMessage[]) => void;
+    preloadMessages: (conversationId: string, messages: ChatMessage[]) => void;
+    shouldSyncMessages: (conversationId: string) => boolean;
+    markSyncTime: (conversationId: string) => void;
+    setSyncStatus: (conversationId: string, status: 'idle' | 'syncing' | 'error') => void;
+    clearCache: (conversationId?: string) => void;
 
     // Members
     setMembers: (conversationId: string, members: ChatMember[]) => void;
@@ -72,10 +109,22 @@ const initialState: ChatState = {
     conversationsLoading: false,
     conversationsError: null,
 
-    // Messages
-    messages: {},
+    // Enterprise Store-First Messages
+    conversationMessages: {},
+    messageSnapshots: {},
     messagesLoading: {},
     messagesError: {},
+    hasMoreMessages: {},
+    lastMessageTimestamp: {},
+
+    // Legacy Messages (for backward compatibility)
+    messages: {},
+
+    // Enterprise Message Caching & Sync
+    cachedMessages: {},
+    lastSyncTime: {},
+    preloadedConversations: [],
+    syncStatus: {},
 
     // Members
     members: {},
@@ -177,6 +226,102 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         }
     })),
 
+    // ==================== ENTERPRISE STORE-FIRST MESSAGES ====================
+
+    setConversationMessages: (conversationId, messages) => set((state) => ({
+        conversationMessages: {
+            ...state.conversationMessages,
+            [conversationId]: messages
+        },
+        lastMessageTimestamp: {
+            ...state.lastMessageTimestamp,
+            [conversationId]: messages.length > 0 ? messages[0].createdAt : ''
+        }
+    })),
+
+    addConversationMessage: (conversationId, message) => set((state) => ({
+        conversationMessages: {
+            ...state.conversationMessages,
+            [conversationId]: [message, ...(state.conversationMessages[conversationId] || [])]
+        },
+        lastMessageTimestamp: {
+            ...state.lastMessageTimestamp,
+            [conversationId]: message.createdAt
+        }
+    })),
+
+    updateConversationMessage: (conversationId, messageId, updates) => set((state) => ({
+        conversationMessages: {
+            ...state.conversationMessages,
+            [conversationId]: (state.conversationMessages[conversationId] || []).map(msg =>
+                msg.id === messageId ? { ...msg, ...updates } : msg
+            )
+        }
+    })),
+
+    removeConversationMessage: (conversationId, messageId) => set((state) => ({
+        conversationMessages: {
+            ...state.conversationMessages,
+            [conversationId]: (state.conversationMessages[conversationId] || []).filter(msg => msg.id !== messageId)
+        }
+    })),
+
+    appendConversationMessages: (conversationId, messages) => set((state) => ({
+        conversationMessages: {
+            ...state.conversationMessages,
+            [conversationId]: [...(state.conversationMessages[conversationId] || []), ...messages]
+        }
+    })),
+
+    prependConversationMessages: (conversationId, messages) => set((state) => ({
+        conversationMessages: {
+            ...state.conversationMessages,
+            [conversationId]: [...messages, ...(state.conversationMessages[conversationId] || [])]
+        }
+    })),
+
+    clearConversationMessages: (conversationId) => set((state) => ({
+        conversationMessages: {
+            ...state.conversationMessages,
+            [conversationId]: []
+        }
+    })),
+
+    setHasMoreMessages: (conversationId, hasMore) => set((state) => ({
+        hasMoreMessages: {
+            ...state.hasMoreMessages,
+            [conversationId]: hasMore
+        }
+    })),
+
+    setLastMessageTimestamp: (conversationId, timestamp) => set((state) => ({
+        lastMessageTimestamp: {
+            ...state.lastMessageTimestamp,
+            [conversationId]: timestamp
+        }
+    })),
+
+    // ==================== ENTERPRISE MESSAGE SNAPSHOTS ====================
+
+    setMessageSnapshot: (conversationId, messages) => set((state) => ({
+        messageSnapshots: {
+            ...state.messageSnapshots,
+            [conversationId]: messages
+        }
+    })),
+
+    getMessageSnapshot: (conversationId) => {
+        const state = get();
+        return state.messageSnapshots[conversationId] || [];
+    },
+
+    clearMessageSnapshot: (conversationId) => set((state) => ({
+        messageSnapshots: {
+            ...state.messageSnapshots,
+            [conversationId]: []
+        }
+    })),
+
     // ==================== MEMBERS ====================
 
     setMembers: (conversationId, members) => set((state) => ({
@@ -220,6 +365,55 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         membersError: {
             ...state.membersError,
             [conversationId]: error
+        }
+    })),
+
+    // ==================== ENTERPRISE MESSAGE CACHING ====================
+
+    getCachedMessages: (conversationId) => {
+        const state = get();
+        return state.cachedMessages[conversationId] || [];
+    },
+
+    updateCachedMessages: (conversationId, messages) => set((state) => ({
+        cachedMessages: {
+            ...state.cachedMessages,
+            [conversationId]: messages
+        },
+        lastSyncTime: {
+            ...state.lastSyncTime,
+            [conversationId]: Date.now()
+        }
+    })),
+
+    preloadMessages: (conversationId, messages) => set((state) => ({
+        cachedMessages: {
+            ...state.cachedMessages,
+            [conversationId]: messages
+        },
+        preloadedConversations: [...state.preloadedConversations, conversationId]
+    })),
+
+    shouldSyncMessages: (conversationId) => {
+        const state = get();
+        const lastSync = state.lastSyncTime[conversationId];
+        const now = Date.now();
+        const SYNC_INTERVAL = 30000; // 30 seconds
+
+        return !lastSync || (now - lastSync) > SYNC_INTERVAL;
+    },
+
+    markSyncTime: (conversationId) => set((state) => ({
+        lastSyncTime: {
+            ...state.lastSyncTime,
+            [conversationId]: Date.now()
+        }
+    })),
+
+    setSyncStatus: (conversationId, status) => set((state) => ({
+        syncStatus: {
+            ...state.syncStatus,
+            [conversationId]: status
         }
     })),
 
@@ -292,5 +486,30 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             ...state.unreadCount,
             [conversationId]: 0
         }
-    }))
+    })),
+
+    clearCache: (conversationId) => set((state) => {
+        if (conversationId) {
+            // Clear specific conversation cache
+            const newCachedMessages = { ...state.cachedMessages };
+            const newLastSyncTime = { ...state.lastSyncTime };
+            const newPreloadedConversations = state.preloadedConversations.filter(id => id !== conversationId);
+
+            delete newCachedMessages[conversationId];
+            delete newLastSyncTime[conversationId];
+
+            return {
+                cachedMessages: newCachedMessages,
+                lastSyncTime: newLastSyncTime,
+                preloadedConversations: newPreloadedConversations
+            };
+        } else {
+            // Clear all cache
+            return {
+                cachedMessages: {},
+                lastSyncTime: {},
+                preloadedConversations: []
+            };
+        }
+    }),
 }));
