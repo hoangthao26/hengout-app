@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, useColorScheme, View } from 'react-native';
-import AuthBackButton from '../../components/AuthBackButton';
+// import AuthBackButton from '../../components/AuthBackButton'; // 🚀 REMOVED: No back button on login screen
 import GradientText from '../../components/GradientText';
 import { useToast } from '../../contexts/ToastContext';
 import EmailLoginForm from '../../modules/auth/components/EmailLoginForm';
@@ -132,7 +132,7 @@ export default function LoginScreen() {
                 alignSelf: 'center',
                 width: '100%'
             }}>
-                <AuthBackButton onPress={() => NavigationService.goToHome()} />
+                {/* 🚀 REMOVED: No back button on login screen */}
 
                 {/* Logo Section - Reduced spacing */}
                 <View style={{ alignItems: 'center', marginTop: 20, marginBottom: 20 }}>

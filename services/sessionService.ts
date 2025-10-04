@@ -6,6 +6,7 @@ import {
     LogoutResponse,
     RefreshTokenRequest,
 } from '../types/auth';
+import axiosInstance from '../config/axios';
 
 // ============================================================================
 // SESSION MANAGEMENT SERVICE
@@ -50,10 +51,19 @@ class SessionService {
         try {
             const request: LogoutRequest = { refreshToken };
             const endpoint = buildEndpointUrl('AUTH_SERVICE', 'LOGOUT');
-            const response = await publicAxios.post<LogoutResponse>(endpoint, request);
+
+            console.log('🚪 [SessionService] Logging out user:', {
+                hasRefreshToken: !!refreshToken,
+                refreshTokenLength: refreshToken?.length || 0,
+                endpoint: endpoint,
+                usingAxiosInstance: true,
+            });
+
+            // 🚀 USE AXIOS INSTANCE: Include access token in header for logout
+            const response = await axiosInstance.post<LogoutResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to logout user:', error);
+            console.error('❌ [SessionService] Failed to logout user:', error);
             throw error;
         }
     }

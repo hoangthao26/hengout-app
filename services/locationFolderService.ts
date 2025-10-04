@@ -15,6 +15,11 @@ class LocationFolderService {
             const response = await axiosInstance.get<ApiResponse<LocationFolder[]>>(endpoint);
             return response.data;
         } catch (error: any) {
+            // 🚀 DEFENSIVE: Check if error is due to user logout
+            if (error.message?.includes('User logged out')) {
+                console.log('ℹ️ [LocationFolderService] User logged out, skipping folder fetch');
+                return { status: 'success', data: [], message: 'User logged out' };
+            }
             console.error('Failed to get all folders:', error);
             throw error;
         }

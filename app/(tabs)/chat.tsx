@@ -108,6 +108,11 @@ export default function ChatScreen() {
                 }
             }
         } catch (err: any) {
+            // 🚀 DEFENSIVE: Don't show error if user logged out
+            if (err.message?.includes('User logged out')) {
+                console.log('ℹ️ [Chat] User logged out, skipping conversation load');
+                return;
+            }
             console.error('Failed to load conversations:', err);
             error('Lỗi khi tải cuộc trò chuyện');
         } finally {
@@ -345,7 +350,7 @@ export default function ChatScreen() {
             />
 
             {/* Temporary Database Reset Button for Testing */}
-            <DatabaseResetButton />
+            {/* <DatabaseResetButton /> */}
 
         </View>
     );

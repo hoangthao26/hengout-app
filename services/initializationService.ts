@@ -166,6 +166,16 @@ class InitializationService {
         try {
             console.log('🚀 [InitializationService] Preloading chat data for instant display...');
 
+            // 🚀 CHECK AUTH FIRST: Only sync if user is authenticated
+            const { AuthHelper } = await import('./authHelper');
+            const isAuthenticated = await AuthHelper.isAuthenticated();
+
+            if (!isAuthenticated) {
+                console.log('ℹ️ [InitializationService] User not authenticated, skipping chat data preload');
+                appStore.setChatDataPreloaded(true);
+                return;
+            }
+
             const chatStore = useChatStore.getState();
 
             // ✅ SYNC DATA TỪ SERVER TRƯỚC KHI PRELOAD

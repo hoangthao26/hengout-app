@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import Header from '../../components/Header';
 import { useToast } from '../../contexts/ToastContext';
-import { AuthHelper } from '../../services/authHelper';
+import { useAuthStore } from '../../store/authStore';
 import NavigationService from '../../services/navigationService';
 
 export default function SettingsScreen() {
@@ -13,6 +13,7 @@ export default function SettingsScreen() {
     const { success, error, info, warning, loading, hideLoading } = useToast();
     const router = useRouter();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const { fastLogout, isLoading } = useAuthStore();
 
     const handleLogout = async () => {
         Alert.alert(
@@ -28,14 +29,34 @@ export default function SettingsScreen() {
                     style: 'destructive',
                     onPress: async () => {
                         try {
+                            // 🚀 OPTIMISTIC LOGOUT: Navigate immediately for better UX
                             setIsLoggingOut(true);
-                            await AuthHelper.logout();
-                            success('Đã đăng xuất thành công');
+
+                            // 1. Navigate to login immediately
                             NavigationService.logoutToLogin();
+
+                            // 2. Show success toast
+                            success('Đã đăng xuất thành công');
+
+                            // 3. Background logout (non-blocking)
+                            setTimeout(async () => {
+                                try {
+                                    // 🚀 SET LOGOUT FLAGS: Prevent race conditions
+                                    const { setLogoutMode, setUserLoggedOut } = await import('../../config/axios');
+                                    setLogoutMode(true);
+                                    setUserLoggedOut(true);
+
+                                    // 🚀 BACKGROUND LOGOUT: Clear data without blocking UI
+                                    await fastLogout();
+                                } catch (error: any) {
+                                    console.error('Background logout failed:', error);
+                                    // Don't show error to user since they're already logged out
+                                }
+                            }, 100); // Small delay to ensure navigation completes
+
                         } catch (error: any) {
-                            console.error('Logout failed:', error);
+                            console.error('Logout navigation failed:', error);
                             error('Đăng xuất thất bại');
-                        } finally {
                             setIsLoggingOut(false);
                         }
                     },
@@ -79,7 +100,7 @@ export default function SettingsScreen() {
                 <TouchableOpacity
                     style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
                     onPress={handleLogout}
-                    disabled={isLoggingOut}
+                    disabled={isLoggingOut || isLoading}
                 >
                     <View style={styles.settingLeft}>
                         <LogOut

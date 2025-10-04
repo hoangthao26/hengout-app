@@ -84,8 +84,25 @@ class ChatSyncService {
         try {
             console.log('🔄 Syncing conversations...');
 
+            // 🚀 CHECK AUTH FIRST: Only sync if user is authenticated
+            const { AuthHelper } = await import('./authHelper');
+            const isAuthenticated = await AuthHelper.isAuthenticated();
+
+            if (!isAuthenticated) {
+                console.log('ℹ️ [ChatSyncService] User not authenticated, skipping conversation sync');
+                return;
+            }
+
             // Fetch conversations from server
             const response = await chatService.getConversations();
+
+            // 🚀 DEFENSIVE: Check if user is still authenticated after API call
+            const stillAuthenticated = await AuthHelper.isAuthenticated();
+
+            if (!stillAuthenticated) {
+                console.log('ℹ️ [ChatSyncService] User logged out during sync, aborting');
+                return;
+            }
 
             if (response.status === 'success') {
                 // Save to local database
@@ -95,7 +112,12 @@ class ChatSyncService {
 
                 console.log(`✅ Synced ${response.data.length} conversations`);
             }
-        } catch (error) {
+        } catch (error: any) {
+            // 🚀 DEFENSIVE: Don't throw error if user logged out
+            if (error.message?.includes('User logged out')) {
+                console.log('ℹ️ [ChatSyncService] User logged out during conversation sync, aborting gracefully');
+                return;
+            }
             console.error('Failed to sync conversations:', error);
             throw error;
         }
@@ -126,8 +148,25 @@ class ChatSyncService {
         try {
             console.log(`🔄 Syncing messages for conversation ${conversationId}...`);
 
+            // 🚀 CHECK AUTH FIRST: Only sync if user is authenticated
+            const { AuthHelper } = await import('./authHelper');
+            const isAuthenticated = await AuthHelper.isAuthenticated();
+
+            if (!isAuthenticated) {
+                console.log('ℹ️ [ChatSyncService] User not authenticated, skipping message sync');
+                return [];
+            }
+
             // Fetch messages from server
             const response = await chatService.getMessages(conversationId, page, size);
+
+            // 🚀 DEFENSIVE: Check if user is still authenticated after API call
+            const stillAuthenticated = await AuthHelper.isAuthenticated();
+
+            if (!stillAuthenticated) {
+                console.log('ℹ️ [ChatSyncService] User logged out during message sync, aborting');
+                return [];
+            }
 
             if (response.status === 'success') {
                 // Save to local database
@@ -140,7 +179,12 @@ class ChatSyncService {
             }
 
             return [];
-        } catch (error) {
+        } catch (error: any) {
+            // 🚀 DEFENSIVE: Don't throw error if user logged out
+            if (error.message?.includes('User logged out')) {
+                console.log('ℹ️ [ChatSyncService] User logged out during message sync, aborting gracefully');
+                return [];
+            }
             console.error(`Failed to sync messages for conversation ${conversationId}:`, error);
             throw error;
         }

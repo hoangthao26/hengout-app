@@ -1,8 +1,9 @@
 import React, { createContext, ReactNode, useContext, useState } from 'react';
 import { LocationFolder } from '../types/locationFolder';
+import { LocationDetails } from '../types/location';
 
 // Enhanced types for enterprise-level type safety
-type ModalType = 'create-collection' | 'delete-collections' | 'create-group';
+type ModalType = 'create-collection' | 'delete-collections' | 'create-group' | 'location-detail';
 
 interface ModalState {
     isVisible: boolean;
@@ -43,6 +44,16 @@ interface ModalContextType {
     setOnDeleteSuccess: (callback?: () => void) => void;
     onCreateGroupSuccess?: () => void;
     setOnCreateGroupSuccess: (callback?: () => void) => void;
+
+    // Location Detail Modal
+    showLocationDetailModal: boolean;
+    setShowLocationDetailModal: (show: boolean) => void;
+    locationDetailModalData: LocationDetails | null;
+    setLocationDetailModalData: (location: LocationDetails | null) => void;
+    openLocationDetailModal: (location: LocationDetails, onSuccess?: () => void) => void;
+    closeLocationDetailModal: () => void;
+    onLocationDetailSuccess?: () => void;
+    setOnLocationDetailSuccess: (callback?: () => void) => void;
 }
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
@@ -64,17 +75,21 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
     const [modals, setModals] = useState<Record<ModalType, ModalState>>({
         'create-collection': { isVisible: false },
         'delete-collections': { isVisible: false, data: [] },
-        'create-group': { isVisible: false }
+        'create-group': { isVisible: false },
+        'location-detail': { isVisible: false, data: null }
     });
 
     // Legacy state for backward compatibility
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+    const [showLocationDetailModal, setShowLocationDetailModal] = useState(false);
     const [deleteModalCollections, setDeleteModalCollections] = useState<LocationFolder[]>([]);
+    const [locationDetailModalData, setLocationDetailModalData] = useState<LocationDetails | null>(null);
     const [onCreateSuccess, setOnCreateSuccess] = useState<(() => void) | undefined>();
     const [onDeleteSuccess, setOnDeleteSuccess] = useState<(() => void) | undefined>();
     const [onCreateGroupSuccess, setOnCreateGroupSuccess] = useState<(() => void) | undefined>();
+    const [onLocationDetailSuccess, setOnLocationDetailSuccess] = useState<(() => void) | undefined>();
 
     // Generic modal management (Enterprise approach)
     const openModal = (type: ModalType, data?: any, callbacks?: { onSuccess?: () => void; onError?: (error: Error) => void }) => {
@@ -150,6 +165,21 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
         setShowCreateGroupModal(false);
     };
 
+    // Location Detail Modal helpers
+    const openLocationDetailModal = (location: LocationDetails, onSuccess?: () => void) => {
+        setLocationDetailModalData(location);
+        setOnLocationDetailSuccess(() => onSuccess);
+        setTimeout(() => {
+            setShowLocationDetailModal(true);
+        }, 150);
+    };
+
+    const closeLocationDetailModal = () => {
+        setShowLocationDetailModal(false);
+        setLocationDetailModalData(null);
+        setOnLocationDetailSuccess(undefined);
+    };
+
     const value: ModalContextType = {
         // Generic modal management
         modals,
@@ -178,6 +208,14 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
         setOnDeleteSuccess,
         onCreateGroupSuccess,
         setOnCreateGroupSuccess,
+        showLocationDetailModal,
+        setShowLocationDetailModal,
+        locationDetailModalData,
+        setLocationDetailModalData,
+        openLocationDetailModal,
+        closeLocationDetailModal,
+        onLocationDetailSuccess,
+        setOnLocationDetailSuccess,
     };
 
     return (

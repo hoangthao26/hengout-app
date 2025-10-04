@@ -144,8 +144,14 @@ export default function ProfileScreen() {
                 try {
                     const tokenInfo = await AuthHelper.getTokenInfo();
                     if (tokenInfo?.isAuthenticated && isProfileInitialized) {
-                        // Only refresh if we have a profile but want to ensure it's up to date
-                        fetchProfile();
+                        // 🚀 INSTANT DISPLAY: Always use cached data first
+                        const currentProfile = profile;
+                        if (currentProfile) {
+                            console.log('📱 [Profile] Using cached profile for instant display');
+                        } else {
+                            console.log('📱 [Profile] No cached profile, fetching from server...');
+                            fetchProfile();
+                        }
                     }
                 } catch (error) {
                     console.error('Failed to check auth status in useFocusEffect:', error);
@@ -153,7 +159,7 @@ export default function ProfileScreen() {
             };
 
             checkAuthAndRefresh();
-        }, [isProfileInitialized, fetchProfile])
+        }, [isProfileInitialized, fetchProfile, profile])
     );
 
     const loadProfile = async () => {
@@ -166,12 +172,20 @@ export default function ProfileScreen() {
                 return;
             }
 
+            // 🚀 INSTANT DISPLAY: Check if profile already exists in store
+            const currentProfile = profile;
+            if (currentProfile) {
+                console.log('📱 [Profile] Profile already cached, displaying instantly');
+                setIsProfileInitialized(true);
+                return;
+            }
+
             // Check onboarding status from stored data (preferred method)
             const onboardingComplete = await OnboardingService.isOnboardingComplete();
 
             if (onboardingComplete) {
                 // User has completed onboarding, load profile using Zustand
-                // Always refresh profile to ensure we have the latest data
+                console.log('📱 [Profile] No cached profile, fetching from server...');
                 await refreshProfile();
                 setIsProfileInitialized(true);
             } else {
@@ -188,11 +202,21 @@ export default function ProfileScreen() {
     const handleRefresh = async () => {
         setRefreshing(true);
         try {
-            // Force refresh profile data and collections
-            await Promise.all([
-                refreshProfile(),
-                loadCollections()
-            ]);
+            // 🚀 SMART REFRESH: Only refresh if needed
+            const currentProfile = profile;
+            const refreshPromises = [];
+
+            if (!currentProfile) {
+                console.log('📱 [Profile] No profile data, refreshing...');
+                refreshPromises.push(refreshProfile());
+            } else {
+                console.log('📱 [Profile] Profile exists, only refreshing collections');
+            }
+
+            // Always refresh collections as they change more frequently
+            refreshPromises.push(loadCollections());
+
+            await Promise.all(refreshPromises);
         } catch (error: any) {
             console.error('Failed to refresh profile:', error);
             showError('Failed to refresh profile',);

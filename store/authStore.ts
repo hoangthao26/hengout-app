@@ -41,6 +41,8 @@ export interface AuthState {
     clearError: () => void;
     initializeAuth: () => Promise<void>;
     fetchUserProfile: () => Promise<void>;
+    initializeUserServices: () => Promise<void>;
+    fastLogout: () => Promise<void>;
     scheduleProactiveRefresh: (timeUntilExpiry: number) => void;
     performProactiveRefresh: () => Promise<boolean>;
 }
@@ -95,8 +97,16 @@ export const useAuthStore = create<AuthState>()(
                         isLoading: false,
                     });
 
+                    // 🚀 RESET LOGOUT FLAGS: Enable axios interceptor for new session
+                    const { setLogoutMode, setUserLoggedOut } = await import('../config/axios');
+                    setLogoutMode(false);
+                    setUserLoggedOut(false);
+
                     // Fetch user profile after successful login
                     await get().fetchUserProfile();
+
+                    // 🚀 INITIALIZE SERVICES: Preload data for new user
+                    await get().initializeUserServices();
                 } catch (error: any) {
                     set({
                         error: error.message || 'Login failed',
@@ -158,8 +168,16 @@ export const useAuthStore = create<AuthState>()(
                         isLoading: false,
                     });
 
+                    // 🚀 RESET LOGOUT FLAGS: Enable axios interceptor for new session
+                    const { setLogoutMode, setUserLoggedOut } = await import('../config/axios');
+                    setLogoutMode(false);
+                    setUserLoggedOut(false);
+
                     // Fetch user profile after successful OTP verification
                     await get().fetchUserProfile();
+
+                    // 🚀 INITIALIZE SERVICES: Preload data for new user
+                    await get().initializeUserServices();
                 } catch (error: any) {
                     set({
                         error: error.message || 'OTP verification failed',
@@ -221,8 +239,16 @@ export const useAuthStore = create<AuthState>()(
                         isLoading: false,
                     });
 
+                    // 🚀 RESET LOGOUT FLAGS: Enable axios interceptor for new session
+                    const { setLogoutMode, setUserLoggedOut } = await import('../config/axios');
+                    setLogoutMode(false);
+                    setUserLoggedOut(false);
+
                     // Fetch user profile after successful Google sign in
                     await get().fetchUserProfile();
+
+                    // 🚀 INITIALIZE SERVICES: Preload data for new user
+                    await get().initializeUserServices();
                 } catch (error: any) {
                     set({
                         error: error.message || 'Google sign in failed',
@@ -236,13 +262,22 @@ export const useAuthStore = create<AuthState>()(
                 try {
                     set({ isLoading: true, error: null });
 
+                    // 🚀 SET LOGOUT FLAGS: Prevent infinite 401 loops
+                    const { setLogoutMode, setUserLoggedOut } = await import('../config/axios');
+                    setLogoutMode(true);
+                    setUserLoggedOut(true);
+
                     // 🚀 STOP REFRESH TOKEN MANAGER: Stop monitoring before logout
                     refreshTokenManager.stopMonitoring();
 
-                    // Get refresh token from SecureStore instead of Zustand store
-                    const storedTokens = await AuthHelper.getTokens();
-                    if (storedTokens && storedTokens.refreshToken) {
-                        await sessionService.logoutUser(storedTokens.refreshToken);
+                    // 🚀 STOP CHAT SYNC SERVICE: Stop background sync to prevent 401 errors
+                    const { chatSyncService } = await import('../services/chatSyncService');
+                    chatSyncService.stopSync();
+
+                    // Get refresh token from current store state (not SecureStore)
+                    const currentState = get();
+                    if (currentState.tokens.refreshToken) {
+                        await sessionService.logoutUser(currentState.tokens.refreshToken);
                     }
 
                     // Clear stored tokens
@@ -261,6 +296,38 @@ export const useAuthStore = create<AuthState>()(
                     const preferencesStore = usePreferencesStore.getState();
                     preferencesStore.clearPreferences();
 
+                    // 🚀 CLEAR CHAT DATA: Prevent showing old user's chat data
+                    const { useChatStore } = await import('./chatStore');
+                    const chatStore = useChatStore.getState();
+                    chatStore.reset();
+
+                    // 🚀 CLEAR FRIEND DATA: Prevent showing old user's friends
+                    const { useFriendStore } = await import('./friendStore');
+                    const friendStore = useFriendStore.getState();
+                    friendStore.reset();
+
+                    // 🚀 CLEAR COLLECTION DATA: Prevent showing old user's collections
+                    const { useCollectionStore } = await import('./collectionStore');
+                    const collectionStore = useCollectionStore.getState();
+                    collectionStore.resetCollections();
+                    collectionStore.resetCurrentCollection();
+
+                    // 🚀 CLEAR SEARCH DATA: Prevent showing old user's search history
+                    const { useSearchStore } = await import('./searchStore');
+                    const searchStore = useSearchStore.getState();
+                    searchStore.clearSearch();
+
+                    // 🚀 RESET APP STORE: Reset initialization state for fresh start
+                    const { useAppStore } = await import('./appStore');
+                    const appStore = useAppStore.getState();
+                    appStore.setDatabaseReady(false);
+                    appStore.setAuthReady(false);
+                    appStore.setLocationReady(false);
+                    appStore.setServicesReady(false);
+                    appStore.setChatDataPreloaded(false);
+                    appStore.setAppReady(false);
+                    appStore.setInitializationError(null);
+
                     set({
                         isAuthenticated: false,
                         user: null,
@@ -275,6 +342,78 @@ export const useAuthStore = create<AuthState>()(
                         error: error.message || 'Logout failed',
                         isLoading: false,
                     });
+                    throw error;
+                }
+            },
+
+            // 🚀 OPTIMISTIC LOGOUT: Fast logout for better UX
+            fastLogout: async () => {
+                try {
+                    console.log('🚀 [AuthStore] Starting fast logout...');
+
+                    // 🚀 IMMEDIATE STATE CLEAR: Clear UI state first
+                    set({
+                        isAuthenticated: false,
+                        user: null,
+                        tokens: {
+                            accessToken: null,
+                            refreshToken: null,
+                        },
+                        isLoading: false,
+                        error: null,
+                    });
+
+                    // 🚀 BACKGROUND CLEANUP: Clear data without blocking UI
+                    setTimeout(async () => {
+                        try {
+                            // Set logout flags
+                            const { setLogoutMode, setUserLoggedOut } = await import('../config/axios');
+                            setLogoutMode(true);
+                            setUserLoggedOut(true);
+
+                            // Stop services
+                            refreshTokenManager.stopMonitoring();
+                            const { chatSyncService } = await import('../services/chatSyncService');
+                            chatSyncService.stopSync();
+
+                            // Clear tokens and data
+                            await AuthHelper.clearTokens();
+                            await OnboardingService.clearOnboardingStatus();
+
+                            // Clear all stores
+                            const { useProfileStore } = await import('./profileStore');
+                            const { usePreferencesStore } = await import('./preferencesStore');
+                            const { useChatStore } = await import('./chatStore');
+                            const { useFriendStore } = await import('./friendStore');
+                            const { useCollectionStore } = await import('./collectionStore');
+                            const { useSearchStore } = await import('./searchStore');
+                            const { useAppStore } = await import('./appStore');
+
+                            useProfileStore.getState().clearProfile();
+                            usePreferencesStore.getState().clearPreferences();
+                            useChatStore.getState().reset();
+                            useFriendStore.getState().reset();
+                            useCollectionStore.getState().resetCollections();
+                            useCollectionStore.getState().resetCurrentCollection();
+                            useSearchStore.getState().clearSearch();
+
+                            const appStore = useAppStore.getState();
+                            appStore.setDatabaseReady(false);
+                            appStore.setAuthReady(false);
+                            appStore.setLocationReady(false);
+                            appStore.setServicesReady(false);
+                            appStore.setChatDataPreloaded(false);
+                            appStore.setAppReady(false);
+                            appStore.setInitializationError(null);
+
+                            console.log('✅ [AuthStore] Fast logout completed');
+                        } catch (error: any) {
+                            console.error('❌ [AuthStore] Background logout cleanup failed:', error);
+                        }
+                    }, 100);
+
+                } catch (error: any) {
+                    console.error('❌ [AuthStore] Fast logout failed:', error);
                     throw error;
                 }
             },
@@ -551,13 +690,14 @@ export const useAuthStore = create<AuthState>()(
                     const profileData = response.data;
 
                     // Update user data with profile information
+                    const currentUser = get().user;
                     set({
                         user: {
-                            id: '', // Profile doesn't have id
-                            email: '', // Profile doesn't have email
+                            id: currentUser?.id || '', // Keep existing id
+                            email: currentUser?.email || '', // Keep existing email
                             displayName: profileData.displayName,
                             avatarUrl: profileData.avatarUrl,
-                            role: get().user?.role || 'USER',
+                            role: currentUser?.role || 'USER',
                         },
                     });
 
@@ -568,6 +708,23 @@ export const useAuthStore = create<AuthState>()(
                     profileStore.setProfile(profileData);
                 } catch (error: any) {
                     console.error('Failed to fetch user profile:', error);
+                    // Don't throw error here to avoid breaking auth flow
+                }
+            },
+
+            initializeUserServices: async () => {
+                try {
+                    console.log('🚀 [AuthStore] Initializing services for new user...');
+
+                    // Import initialization service
+                    const { initializationService } = await import('../services/initializationService');
+
+                    // Initialize services for the new user
+                    await initializationService.initialize();
+
+                    console.log('✅ [AuthStore] User services initialized successfully');
+                } catch (error: any) {
+                    console.error('❌ [AuthStore] Failed to initialize user services:', error);
                     // Don't throw error here to avoid breaking auth flow
                 }
             },
@@ -583,3 +740,4 @@ export const useAuthStore = create<AuthState>()(
         }
     )
 );
+

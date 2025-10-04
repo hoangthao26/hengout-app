@@ -23,10 +23,16 @@ let failedQueue: Array<{
 
 // Flag to disable interceptor for logout scenarios
 let isLoggingOut = false;
+let isUserLoggedOut = false; // 🚀 NEW: Track if user is completely logged out
 
 // Function to set logout mode
 export const setLogoutMode = (mode: boolean) => {
     isLoggingOut = mode;
+};
+
+// 🚀 NEW: Function to set user logged out state
+export const setUserLoggedOut = (loggedOut: boolean) => {
+    isUserLoggedOut = loggedOut;
 };
 
 const processQueue = (error: any, token: string | null = null) => {
@@ -101,11 +107,14 @@ axiosInstance.interceptors.response.use(
 
         // Handle specific error cases
         if (error.response?.status === 401) {
-            console.error('🔐 401 Unauthorized - Attempting token refresh');
-
-            if (isLoggingOut) {
-                return Promise.reject(error);
+            // 🚀 STOP INFINITE LOOP: Don't try to refresh if user is logged out
+            if (isLoggingOut || isUserLoggedOut) {
+                console.log('🚫 [Axios] User is logged out, silently ignoring 401 error');
+                // Return a silent rejection - don't log as error
+                return Promise.reject(new Error('User logged out - request cancelled'));
             }
+
+            console.error('🔐 401 Unauthorized - Attempting token refresh');
 
             if (originalRequest.url?.includes('/auth/user/register/verify-otp') ||
                 originalRequest.url?.includes('/auth/user/register/send-otp') ||

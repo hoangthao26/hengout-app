@@ -209,7 +209,7 @@ export default function ChatConversationScreen() {
             senderAvatar: '',
             content: { text: messageContent },
             type: 'TEXT',
-            status: 'SENDING', // Optimistic status
+            // 🚀 REMOVED: Message status not supported by API
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             mine: true
@@ -233,13 +233,12 @@ export default function ChatConversationScreen() {
                 if (result && result.id) {
                     updateConversationMessage(conversationId, optimisticMessage.id, {
                         id: result.id,
-                        status: 'SENT',
                         senderId: result.senderId,
                         senderName: result.senderName
                     });
                     setMessages(prev => prev.map(msg =>
                         msg.id === optimisticMessage.id
-                            ? { ...msg, id: result.id, status: 'SENT', senderId: result.senderId, senderName: result.senderName }
+                            ? { ...msg, id: result.id, senderId: result.senderId, senderName: result.senderName }
                             : msg
                     ));
                     console.log(`✅ [Enterprise Chat] Message sent successfully: ${result.id}`);
@@ -255,13 +254,12 @@ export default function ChatConversationScreen() {
                 if (response.status === 'success') {
                     updateConversationMessage(conversationId, optimisticMessage.id, {
                         id: response.data.id,
-                        status: 'SENT',
                         senderId: response.data.senderId,
                         senderName: response.data.senderName
                     });
                     setMessages(prev => prev.map(msg =>
                         msg.id === optimisticMessage.id
-                            ? { ...msg, id: response.data.id, status: 'SENT', senderId: response.data.senderId, senderName: response.data.senderName }
+                            ? { ...msg, id: response.data.id, senderId: response.data.senderId, senderName: response.data.senderName }
                             : msg
                     ));
                 } else {
@@ -272,15 +270,7 @@ export default function ChatConversationScreen() {
             console.error('Failed to send message:', err);
             error('Lỗi khi gửi tin nhắn');
 
-            // Update message status to failed
-            updateConversationMessage(conversationId, optimisticMessage.id, {
-                status: 'FAILED'
-            });
-            setMessages(prev => prev.map(msg =>
-                msg.id === optimisticMessage.id
-                    ? { ...msg, status: 'FAILED' }
-                    : msg
-            ));
+            // 🚀 REMOVED: No need to update status since we don't show status indicators
 
             setMessageText(messageContent); // Restore message text
         } finally {
@@ -468,36 +458,7 @@ export default function ChatConversationScreen() {
                             {chatService.formatMessageContent(item)}
                         </Text>
 
-                        {/* Enterprise Message Status Indicator */}
-                        {isMyMessage && item.status && (
-                            <View style={styles.messageStatusContainer}>
-                                {item.status === 'SENDING' && (
-                                    <Text style={[styles.messageStatus, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                        Đang gửi...
-                                    </Text>
-                                )}
-                                {item.status === 'SENT' && (
-                                    <Text style={[styles.messageStatus, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                        Đã gửi
-                                    </Text>
-                                )}
-                                {item.status === 'DELIVERED' && (
-                                    <Text style={[styles.messageStatus, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                        Đã nhận
-                                    </Text>
-                                )}
-                                {item.status === 'READ' && (
-                                    <Text style={[styles.messageStatus, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                        Đã đọc
-                                    </Text>
-                                )}
-                                {item.status === 'FAILED' && (
-                                    <Text style={[styles.messageStatus, { color: '#EF4444' }]}>
-                                        Gửi thất bại
-                                    </Text>
-                                )}
-                            </View>
-                        )}
+                        {/* 🚀 REMOVED: Hide all message status indicators */}
                     </View>
                 </View>
             </View>

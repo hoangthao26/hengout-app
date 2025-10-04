@@ -1,9 +1,13 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, useColorScheme, Text, TouchableOpacity, Animated } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocation } from '../hooks/useLocation';
 import { MapPin } from 'lucide-react-native';
+
+interface MapController {
+    centerMapOnLocation: (latitude: number, longitude: number, delta?: number) => void;
+}
 
 interface MapViewProps {
     onLocationSelect?: (location: { lat: number; lng: number; address?: string }) => void;
@@ -11,6 +15,8 @@ interface MapViewProps {
     currentLocation?: { latitude: number; longitude: number; accuracy?: number; timestamp?: number } | null;
     showUserLocation?: boolean;
     style?: any;
+    children?: React.ReactNode;
+    onMapRef?: (mapController: MapController | null) => void;
 }
 
 const CustomMapView: React.FC<MapViewProps> = ({
@@ -18,7 +24,9 @@ const CustomMapView: React.FC<MapViewProps> = ({
     initialLocation = { lat: 10.8231, lng: 106.6297 }, // Ho Chi Minh City fallback
     currentLocation,
     showUserLocation = true,
-    style
+    style,
+    children,
+    onMapRef
 }) => {
     const isDark = useColorScheme() === 'dark';
     const mapRef = useRef<MapView>(null);
@@ -79,6 +87,30 @@ const CustomMapView: React.FC<MapViewProps> = ({
         }, 1000);
     };
 
+    // Method to center map on specific coordinates
+    const centerMapOnLocation = useCallback((latitude: number, longitude: number, delta: number = 0.01) => {
+        if (!mapRef.current) return;
+
+        const region: Region = {
+            latitude,
+            longitude,
+            latitudeDelta: delta,
+            longitudeDelta: delta,
+        };
+
+        mapRef.current.animateToRegion(region, 600);
+    }, []);
+
+    // Expose map controller to parent component
+    useEffect(() => {
+        if (onMapRef) {
+            const mapController: MapController = {
+                centerMapOnLocation
+            };
+            onMapRef(mapController);
+        }
+    }, [onMapRef, centerMapOnLocation]);
+
     // Enterprise: Remove debug logs in production
 
     // Create initial region
@@ -89,13 +121,7 @@ const CustomMapView: React.FC<MapViewProps> = ({
         longitudeDelta: 0.01,
     };
 
-    // Update region when location changes
-    const currentRegion: Region = currentLocation ? {
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-    } : initialRegion;
+    // Note: Removed currentRegion to prevent auto-centering on location updates
 
     return (
         <View style={[styles.container, style]}>
@@ -103,7 +129,6 @@ const CustomMapView: React.FC<MapViewProps> = ({
                 ref={mapRef}
                 style={styles.map}
                 initialRegion={initialRegion}
-                region={currentRegion}
                 onPress={handleMapPress}
                 showsUserLocation={false}
                 showsCompass={true}
@@ -143,6 +168,8 @@ const CustomMapView: React.FC<MapViewProps> = ({
                     </Marker>
                 )}
 
+                {/* Render children (MapPins) */}
+                {children}
 
             </MapView>
 

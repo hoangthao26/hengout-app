@@ -136,10 +136,10 @@ class DatabaseService {
     async getConversations(): Promise<ChatConversation[]> {
         if (!this.db) throw new Error('Database not initialized');
 
-        // ✅ SẮP XẾP THEO lastMessage.createdAt NHƯ API (ASC - từ cũ đến mới)
+        // 🚀 SẮP XẾP THEO lastMessage.createdAt (DESC - từ mới đến cũ)
         const result = await this.db.getAllAsync(`
             SELECT * FROM conversations 
-            ORDER BY created_at ASC
+            ORDER BY last_message_timestamp DESC, created_at DESC
         `);
 
         return result.map(this.mapConversationFromDB);
@@ -224,6 +224,18 @@ class DatabaseService {
             message.mine ? 1 : 0,
             'sent',
             1 // synced
+        ]);
+
+        // 🚀 UPDATE CONVERSATION: Update last_message_timestamp when new message is saved
+        await this.db.runAsync(`
+            UPDATE conversations 
+            SET last_message_timestamp = ?, last_message_text = ?, last_message_mine = ?
+            WHERE id = ?
+        `, [
+            message.createdAt || new Date().toISOString(),
+            message.content.text || '',
+            message.mine ? 1 : 0,
+            message.conversationId
         ]);
     }
 

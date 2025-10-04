@@ -12,7 +12,7 @@ export interface ChatMessage {
         fileName?: string;
         fileUrl?: string;
     };
-    status?: 'SENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED';
+
     createdAt: string;
     updatedAt?: string;
     mine: boolean;
@@ -24,7 +24,7 @@ export interface ChatConversation {
     name: string;
     avatarUrl?: string;
     createdBy: string;
-    status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+    status: 'ACTIVE' | 'INACTIVE';
     memberCount: number;
     userRole: 'OWNER' | 'ADMIN' | 'MEMBER';
     lastMessage?: ChatMessage;

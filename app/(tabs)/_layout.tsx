@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CreateCollectionModal from '../../components/CreateCollectionModal';
 import CreateGroupModal from '../../components/CreateGroupModal';
 import DeleteCollectionsModal from '../../components/DeleteCollectionsModal';
+import LocationDetailModal from '../../components/LocationDetailModal';
 import { ModalProvider, useModal } from '../../contexts/ModalContext';
 
 function TabLayoutContent() {
@@ -23,13 +24,17 @@ function TabLayoutContent() {
         showCreateModal,
         showDeleteModal,
         showCreateGroupModal,
+        showLocationDetailModal,
         deleteModalCollections,
+        locationDetailModalData,
         closeCreateModal,
         closeDeleteModal,
         closeCreateGroupModal,
+        closeLocationDetailModal,
         onCreateSuccess,
         onDeleteSuccess,
-        onCreateGroupSuccess
+        onCreateGroupSuccess,
+        onLocationDetailSuccess
     } = useModal();
 
     // State for native modules
@@ -198,6 +203,16 @@ function TabLayoutContent() {
                 onSuccess={() => {
                     onCreateGroupSuccess?.();
                     closeCreateGroupModal();
+                }}
+            />
+
+            <LocationDetailModal
+                isVisible={showLocationDetailModal}
+                onClose={closeLocationDetailModal}
+                location={locationDetailModalData}
+                onSuccess={() => {
+                    onLocationDetailSuccess?.();
+                    closeLocationDetailModal();
                 }}
             />
         </>

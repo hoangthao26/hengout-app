@@ -91,7 +91,7 @@ export default function RootLayout() {
                     animation: 'slide_from_right'
                 }}>
                     <Stack.Screen name="index" />
-                    <Stack.Screen name="auth/login" />
+                    <Stack.Screen name="auth/login" options={{ gestureEnabled: false }} />
                     <Stack.Screen name="auth/signup" />
                     <Stack.Screen name="auth/verify-otp" options={{ gestureEnabled: false }} />
                     <Stack.Screen name="auth/forgot-password" />

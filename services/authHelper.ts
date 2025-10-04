@@ -236,6 +236,14 @@ export class AuthHelper {
      */
     static async logout(): Promise<void> {
         try {
+            // 🚀 STOP BACKGROUND SERVICES: Prevent 401 errors during logout
+            try {
+                const { chatSyncService } = await import('./chatSyncService');
+                chatSyncService.stopSync();
+                console.log('✅ [AuthHelper] Chat sync service stopped');
+            } catch (error) {
+                console.log('⚠️ [AuthHelper] Failed to stop chat sync service:', error);
+            }
 
             // Get current token status
             const refreshToken = await this.getRefreshToken();
@@ -265,6 +273,16 @@ export class AuthHelper {
             await this.clearTokens();
             await OnboardingService.clearOnboardingStatus();
             console.log('✅ Local tokens and onboarding status cleared');
+
+            // 🚀 SET LOGOUT FLAGS: Prevent infinite 401 loops
+            try {
+                const { setLogoutMode, setUserLoggedOut } = await import('../config/axios');
+                setLogoutMode(true);
+                setUserLoggedOut(true);
+                console.log('✅ [AuthHelper] Logout flags set');
+            } catch (error) {
+                console.log('⚠️ [AuthHelper] Failed to set logout flags:', error);
+            }
 
         } catch (error) {
             console.error('❌ Logout process failed:', error);
@@ -300,7 +318,14 @@ export class AuthHelper {
      */
     static async forceLogout(): Promise<void> {
         try {
-
+            // 🚀 STOP BACKGROUND SERVICES: Prevent 401 errors during force logout
+            try {
+                const { chatSyncService } = await import('./chatSyncService');
+                chatSyncService.stopSync();
+                console.log('✅ [AuthHelper] Chat sync service stopped (force logout)');
+            } catch (error) {
+                console.log('⚠️ [AuthHelper] Failed to stop chat sync service (force logout):', error);
+            }
 
             // Clear local tokens
             await this.clearTokens();
