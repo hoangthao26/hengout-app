@@ -7,9 +7,13 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import ToastContainer from '../components/ToastContainer';
 import { ToastProvider } from '../contexts/ToastContext';
+import { ErrorProvider } from '../contexts/ErrorContext';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { ErrorCategory, ErrorSeverity } from '../types/error';
 import '../global.css';
 import '../localizations/i18n';
 import { AuthHelper } from '../services/authHelper';
+import { globalErrorHandler, networkErrorHandler } from '../services/globalErrorHandler';
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
@@ -44,6 +48,17 @@ export default function RootLayout() {
                     }
                 } catch (error) {
                     console.error('❌ Auth check failed:', error);
+                    // Report auth error to global handler
+                    globalErrorHandler.reportError(
+                        error as Error,
+                        ErrorCategory.AUTH,
+                        ErrorSeverity.HIGH,
+                        {
+                            component: 'RootLayout',
+                            action: 'authCheck',
+                            appState: nextAppState
+                        }
+                    );
                     // If auth check fails, assume user needs to login
                     await AuthHelper.logoutAndNavigate();
                 }
@@ -67,6 +82,16 @@ export default function RootLayout() {
                 }
             } catch (error) {
                 console.error('❌ Failed to initialize token monitoring:', error);
+                // Report initialization error
+                globalErrorHandler.reportError(
+                    error as Error,
+                    ErrorCategory.SYSTEM,
+                    ErrorSeverity.MEDIUM,
+                    {
+                        component: 'RootLayout',
+                        action: 'initializeTokenMonitoring'
+                    }
+                );
             }
         };
 
@@ -83,39 +108,57 @@ export default function RootLayout() {
     if (!fontsLoaded) return null;
 
     return (
-        <ToastProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-                <Stack screenOptions={{
-                    headerShown: false,
-                    gestureEnabled: true, // Enable swipe back by default
-                    animation: 'slide_from_right'
-                }}>
-                    <Stack.Screen name="index" />
-                    <Stack.Screen name="auth/login" options={{ gestureEnabled: false }} />
-                    <Stack.Screen name="auth/signup" />
-                    <Stack.Screen name="auth/verify-otp" options={{ gestureEnabled: false }} />
-                    <Stack.Screen name="auth/forgot-password" />
-                    <Stack.Screen name="auth/reset-password-otp" options={{ gestureEnabled: false }} />
-                    <Stack.Screen name="auth/reset-password" options={{ gestureEnabled: false }} />
-                    <Stack.Screen name="auth/initialize-profile" options={{ gestureEnabled: false }} />
-                    <Stack.Screen name="auth/onboarding-wizard" options={{ gestureEnabled: false }} />
-                    <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
-                    <Stack.Screen name="profile/edit-profile" />
-                    <Stack.Screen name="profile/edit-name" />
-                    <Stack.Screen name="profile/edit-bio" />
-                    <Stack.Screen name="profile/edit-gender" />
-                    <Stack.Screen name="profile/edit-date-of-birth" />
-                    <Stack.Screen name="profile/view-avatar" />
-                    <Stack.Screen name="friends/friend-request" />
-                    <Stack.Screen name="friends/friends-list" />
-                    <Stack.Screen name="friends/sent-requests" />
-                    <Stack.Screen name="collections/collections" />
-                    <Stack.Screen name="collections/collection-detail" />
-                    <Stack.Screen name="settings/settings" />
-                    <Stack.Screen name="settings/preferences" />
-                </Stack>
-                <ToastContainer />
-            </GestureHandlerRootView>
-        </ToastProvider>
+        <ErrorProvider maxErrors={100} enableLogging={true}>
+            <ToastProvider>
+                <ErrorBoundary
+                    category={ErrorCategory.SYSTEM}
+                    severity={ErrorSeverity.CRITICAL}
+                    enableRecovery={true}
+                    maxRetries={3}
+                    onError={(error) => {
+                        console.error('🚨 Root ErrorBoundary caught error:', error);
+                        globalErrorHandler.reportError(
+                            error.originalError || new Error(error.message),
+                            error.category,
+                            error.severity,
+                            error.context
+                        );
+                    }}
+                >
+                    <GestureHandlerRootView style={{ flex: 1 }}>
+                        <Stack screenOptions={{
+                            headerShown: false,
+                            gestureEnabled: true, // Enable swipe back by default
+                            animation: 'slide_from_right'
+                        }}>
+                            <Stack.Screen name="index" />
+                            <Stack.Screen name="auth/login" options={{ gestureEnabled: false }} />
+                            <Stack.Screen name="auth/signup" />
+                            <Stack.Screen name="auth/verify-otp" options={{ gestureEnabled: false }} />
+                            <Stack.Screen name="auth/forgot-password" />
+                            <Stack.Screen name="auth/reset-password-otp" options={{ gestureEnabled: false }} />
+                            <Stack.Screen name="auth/reset-password" options={{ gestureEnabled: false }} />
+                            <Stack.Screen name="auth/initialize-profile" options={{ gestureEnabled: false }} />
+                            <Stack.Screen name="auth/onboarding-wizard" options={{ gestureEnabled: false }} />
+                            <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
+                            <Stack.Screen name="profile/edit-profile" />
+                            <Stack.Screen name="profile/edit-name" />
+                            <Stack.Screen name="profile/edit-bio" />
+                            <Stack.Screen name="profile/edit-gender" />
+                            <Stack.Screen name="profile/edit-date-of-birth" />
+                            <Stack.Screen name="profile/view-avatar" />
+                            <Stack.Screen name="friends/friend-request" />
+                            <Stack.Screen name="friends/friends-list" />
+                            <Stack.Screen name="friends/sent-requests" />
+                            <Stack.Screen name="collections/collections" />
+                            <Stack.Screen name="collections/collection-detail" />
+                            <Stack.Screen name="settings/settings" />
+                            <Stack.Screen name="settings/preferences" />
+                        </Stack>
+                        <ToastContainer />
+                    </GestureHandlerRootView>
+                </ErrorBoundary>
+            </ToastProvider>
+        </ErrorProvider>
     );
 }

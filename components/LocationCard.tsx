@@ -15,31 +15,51 @@ import { LocationDetails } from '../types/location';
 
 interface LocationCardProps {
     location: LocationDetails | null;
-    visible: boolean;
-    onClose: () => void;
+    visible?: boolean;
+    onClose?: () => void;
     onNavigate?: (location: LocationDetails) => void;
     onCall?: (phoneNumber: string) => void;
     onOpenDetail?: (location: LocationDetails) => void;
+    variant?: 'overlay' | 'list';
+    style?: any;
+    // Additional props for list variant
+    addedAt?: string;
+    updatedAt?: string;
+    note?: string;
 }
 
 const { width: screenWidth } = Dimensions.get('window');
 
 const LocationCard: React.FC<LocationCardProps> = ({
     location,
-    visible,
+    visible = true,
     onClose,
     onNavigate,
     onCall,
     onOpenDetail,
+    variant = 'overlay',
+    style,
+    addedAt,
+    updatedAt,
+    note,
 }) => {
     const isDark = useColorScheme() === 'dark';
 
-    console.log('LocationModal render:', { visible, location: location?.name });
-
-    if (!location) {
-        console.log('LocationModal: No location, returning null');
+    if (!location || !visible) {
         return null;
     }
+
+    // Format date for display
+    const formatDate = (dateString: string) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
 
     const handleNavigate = () => {
         if (onNavigate) {
@@ -54,18 +74,26 @@ const LocationCard: React.FC<LocationCardProps> = ({
         }
     };
 
-    console.log('LocationModal: About to render modal');
+
+    const containerStyle = variant === 'overlay'
+        ? [styles.overlayContainer, { backgroundColor: '#FFFFFF', shadowColor: isDark ? '#FFFFFF' : '#000000' }, style]
+        : [styles.listContainer, {
+            backgroundColor: '#FFFFFF',
+            shadowColor: isDark ? '#FFFFFF' : '#000000',
+
+        }, style];
 
     return (
         <TouchableOpacity
-            style={[styles.container, { backgroundColor: '#FFFFFF' }]}
+            style={containerStyle}
             onPress={() => onOpenDetail && onOpenDetail(location)}
-            activeOpacity={1}
+            activeOpacity={0.7}
+            delayPressIn={0}
         >
             {/* Card Content */}
             <View style={styles.cardContent}>
                 {/* Left Section - Image */}
-                <View style={styles.imageContainer}>
+                <View style={variant === 'overlay' ? styles.imageContainer : styles.listImageContainer}>
                     {location.imageUrls && location.imageUrls.length > 0 ? (
                         <Image
                             source={{ uri: location.imageUrls[0] }}
@@ -86,7 +114,7 @@ const LocationCard: React.FC<LocationCardProps> = ({
                 {/* Right Section - Text Info */}
                 <View style={styles.textContainer}>
                     {/* Name */}
-                    <Text style={styles.locationName} numberOfLines={1}>
+                    <Text style={variant === 'overlay' ? styles.locationName : styles.listLocationName} numberOfLines={1}>
                         {location.name}
                     </Text>
 
@@ -108,10 +136,34 @@ const LocationCard: React.FC<LocationCardProps> = ({
 
                     {/* Address */}
                     <View style={styles.addressRow}>
-                        <Text style={styles.addressText}>
+                        <Text style={variant === 'overlay' ? styles.addressText : styles.listAddressText}>
                             {location.address}
                         </Text>
                     </View>
+
+                    {/* Additional info for list variant */}
+                    {variant === 'list' && (
+                        <>
+                            {/* Note */}
+                            {note && note.trim() && (
+                                <View style={styles.noteRow}>
+                                    <Ionicons name="document-text-outline" size={14} color="#6B7280" />
+                                    <Text style={styles.noteText} numberOfLines={2}>
+                                        {note}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {/* Date info */}
+                            <View style={styles.dateRow}>
+                                {addedAt && (
+                                    <Text style={styles.dateText}>
+                                        Thêm: {formatDate(addedAt)}
+                                    </Text>
+                                )}
+                            </View>
+                        </>
+                    )}
                 </View>
 
 
@@ -144,32 +196,47 @@ const getLocationIcon = (category: string): keyof typeof Ionicons.glyphMap => {
 };
 
 const styles = StyleSheet.create({
-    container: {
-        position: 'absolute',
-        bottom: 16, // 16px margin from bottom tabs
-        left: 16,
-        right: 16,
+    overlayContainer: {
         borderRadius: 20,
-        shadowColor: '#000',
         shadowOffset: {
             width: 0,
             height: 4,
         },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        elevation: 8,
+        shadowOpacity: 0.4,
+        shadowRadius: 6,
+        elevation: 3,
         zIndex: 2,
+        width: '100%', // Full width
+    },
+    listContainer: {
+        borderRadius: 20,
+        marginHorizontal: 12,
+        marginVertical: 4,
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.4,
+        shadowRadius: 6,
+        elevation: 3,
     },
     cardContent: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 12,
         position: 'relative',
-        minHeight: 120,
+        minHeight: 100,
     },
     imageContainer: {
         width: 120,
         height: 120,
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginRight: 16,
+    },
+    listImageContainer: {
+        width: 100,
+        height: 100,
         borderRadius: 12,
         overflow: 'hidden',
         marginRight: 16,
@@ -195,6 +262,12 @@ const styles = StyleSheet.create({
         color: '#000000',
         marginBottom: 6,
     },
+    listLocationName: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#000000',
+        marginBottom: 4,
+    },
     ratingRow: {
         marginBottom: 8,
     },
@@ -213,6 +286,13 @@ const styles = StyleSheet.create({
         flex: 1,
         flexWrap: 'wrap',
     },
+    listAddressText: {
+        fontSize: 13,
+        color: '#6B7280',
+        marginLeft: 0,
+        flex: 1,
+        flexWrap: 'wrap',
+    },
     closeButton: {
         position: 'absolute',
         top: 12,
@@ -222,6 +302,29 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    noteRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginTop: 4,
+        marginBottom: 4,
+    },
+    noteText: {
+        fontSize: 12,
+        color: '#6B7280',
+        marginLeft: 4,
+        flex: 1,
+        lineHeight: 16,
+        fontStyle: 'italic',
+    },
+    dateRow: {
+        marginTop: 4,
+    },
+    dateText: {
+        fontSize: 11,
+        color: '#9CA3AF',
+    },
 });
 
 export default LocationCard;
+
+

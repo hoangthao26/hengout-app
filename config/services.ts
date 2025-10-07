@@ -5,7 +5,7 @@
 export const SERVICES_CONFIG = {
     // Authentication Service
     AUTH_SERVICE: {
-        BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://hengout.tranquocdat.com/auth-service/api/v1',
+        BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.hengout.app/auth-service/api/v1',
         ENDPOINTS: {
             LOGIN: '/auth/user/login',
             REGISTER_SEND_OTP: '/auth/user/register/send-otp',
@@ -22,7 +22,7 @@ export const SERVICES_CONFIG = {
 
     // User Service
     USER_SERVICE: {
-        BASE_URL: process.env.EXPO_PUBLIC_USER_SERVICE_URL || 'https://hengout.tranquocdat.com/user-service/api/v1',
+        BASE_URL: process.env.EXPO_PUBLIC_USER_SERVICE_URL || 'https://api.hengout.app/user-service/api/v1',
         ENDPOINTS: {
             PROFILE: '/profile',
             INITIALIZE_PROFILE: '/profile/initialize',
@@ -47,7 +47,7 @@ export const SERVICES_CONFIG = {
 
     // Location Service
     LOCATION_SERVICE: {
-        BASE_URL: process.env.EXPO_PUBLIC_LOCATION_SERVICE_URL || 'https://hengout.tranquocdat.com/location-service/api/v1',
+        BASE_URL: process.env.EXPO_PUBLIC_LOCATION_SERVICE_URL || 'https://api.hengout.app/location-service/api/v1',
         ENDPOINTS: {
             // Location Details
             GET_LOCATION_DETAILS: '/recommendation/locations/:locationId',
@@ -67,7 +67,7 @@ export const SERVICES_CONFIG = {
 
     // Social Service
     SOCIAL_SERVICE: {
-        BASE_URL: process.env.EXPO_PUBLIC_SOCIAL_SERVICE_URL || 'https://hengout.tranquocdat.com/social-service/api/v1',
+        BASE_URL: process.env.EXPO_PUBLIC_SOCIAL_SERVICE_URL || 'https://api.hengout.app/social-service/api/v1',
         ENDPOINTS: {
             FOLLOW_USER: '/users/:id/follow',
             UNFOLLOW_USER: '/users/:id/unfollow',
@@ -104,7 +104,7 @@ export const SERVICES_CONFIG = {
 
     // Gateway Management
     GATEWAY: {
-        BASE_URL: process.env.EXPO_PUBLIC_GATEWAY_URL || 'https://hengout.tranquocdat.com/gateway/api/v1',
+        BASE_URL: process.env.EXPO_PUBLIC_GATEWAY_URL || 'https://api.hengout.app/gateway/api/v1',
         ENDPOINTS: {
             HEALTH_CHECK: '/health',
             API_STATUS: '/status',

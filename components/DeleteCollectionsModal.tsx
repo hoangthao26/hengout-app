@@ -1,7 +1,8 @@
-import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView, BottomSheetView } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
     Animated,
+    FlatList,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -38,8 +39,8 @@ const DeleteCollectionsModal: React.FC<DeleteCollectionsModalProps> = ({
     // Animation values for each item
     const animationValues = useRef<Map<string, Animated.Value>>(new Map()).current;
 
-    // Bottom sheet snap points
-    const snapPoints = useMemo(() => ['60%', '85%'], []);
+    // Bottom sheet snap points - fixed height
+    const snapPoints = useMemo(() => ['70%'], []);
 
     // Handle sheet changes
     const handleSheetChanges = useCallback((index: number) => {
@@ -184,7 +185,7 @@ const DeleteCollectionsModal: React.FC<DeleteCollectionsModalProps> = ({
             backdropComponent={renderBackdrop}
             enablePanDownToClose={true}
             backgroundStyle={{
-                backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+                backgroundColor: isDark ? '#000000' : '#FFFFFF',
                 borderTopLeftRadius: 20,
                 borderTopRightRadius: 20,
             }}
@@ -194,7 +195,7 @@ const DeleteCollectionsModal: React.FC<DeleteCollectionsModalProps> = ({
                 height: 4,
             }}
         >
-            <BottomSheetView style={styles.container}>
+            <BottomSheetView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
                 {/* Header */}
                 <View style={[styles.header, { borderBottomColor: isDark ? '#374151' : '#E5E7EB' }]}>
                     <TouchableOpacity
@@ -235,12 +236,8 @@ const DeleteCollectionsModal: React.FC<DeleteCollectionsModalProps> = ({
                     />
                 </View>
 
-                {/* Content */}
-                <BottomSheetScrollView
-                    style={styles.content}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.scrollContent}
-                >
+                {/* Content - Fixed height with scroll */}
+                <View style={styles.content}>
                     {collections.length === 0 ? (
                         <View style={styles.emptyContainer}>
                             <FolderOpen
@@ -252,52 +249,56 @@ const DeleteCollectionsModal: React.FC<DeleteCollectionsModalProps> = ({
                             </Text>
                         </View>
                     ) : (
-                        <View style={styles.collectionsList}>
-                            {/* Select All Button */}
-                            <TouchableOpacity
-                                style={[
-                                    styles.selectAllButton,
-                                    {
-                                        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-                                    }
-                                ]}
-                                onPress={handleSelectAll}
-                                activeOpacity={1}
-                            >
-                                <View style={[
-                                    styles.selectAllCheckbox,
-                                    {
-                                        borderColor: isDark ? '#6B7280' : '#D1D5DB',
-                                    },
-                                    (() => {
-                                        const selectableCollections = collections.filter(collection => !collection.isDefault);
-                                        const selectableIds = selectableCollections.map(collection => collection.id);
-                                        const allSelectableSelected = selectableIds.length > 0 && selectableIds.every(id => selectedCollections.includes(id));
-                                        return allSelectableSelected;
-                                    })() && {
-                                        backgroundColor: isDark ? '#FFFFFF' : '#000000',
-                                        borderColor: isDark ? '#FFFFFF' : '#000000',
-                                    }
-                                ]}>
-                                    {(() => {
-                                        const selectableCollections = collections.filter(collection => !collection.isDefault);
-                                        const selectableIds = selectableCollections.map(collection => collection.id);
-                                        const allSelectableSelected = selectableIds.length > 0 && selectableIds.every(id => selectedCollections.includes(id));
-                                        return allSelectableSelected;
-                                    })() && (
-                                            <Check
-                                                size={16}
-                                                color={isDark ? '#000000' : '#FFFFFF'}
-                                            />
-                                        )}
-                                </View>
-                                <Text style={[styles.selectAllText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                                    Chọn tất cả ({selectedCollections.length}/{collections.filter(c => !c.isDefault).length})
-                                </Text>
-                            </TouchableOpacity>
-
-                            {/* Collection Items */}
-                            {collections.map((collection, index) => {
+                        <FlatList
+                            data={collections}
+                            keyExtractor={(item) => item.id}
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={styles.scrollContent}
+                            style={styles.foldersScrollView}
+                            ListHeaderComponent={() => (
+                                <TouchableOpacity
+                                    style={[
+                                        styles.selectAllButton,
+                                        {
+                                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                                        }
+                                    ]}
+                                    onPress={handleSelectAll}
+                                    activeOpacity={1}
+                                >
+                                    <View style={[
+                                        styles.selectAllCheckbox,
+                                        {
+                                            borderColor: isDark ? '#6B7280' : '#D1D5DB',
+                                        },
+                                        (() => {
+                                            const selectableCollections = collections.filter(collection => !collection.isDefault);
+                                            const selectableIds = selectableCollections.map(collection => collection.id);
+                                            const allSelectableSelected = selectableIds.length > 0 && selectableIds.every(id => selectedCollections.includes(id));
+                                            return allSelectableSelected;
+                                        })() && {
+                                            backgroundColor: isDark ? '#FFFFFF' : '#000000',
+                                            borderColor: isDark ? '#FFFFFF' : '#000000',
+                                        }
+                                    ]}>
+                                        {(() => {
+                                            const selectableCollections = collections.filter(collection => !collection.isDefault);
+                                            const selectableIds = selectableCollections.map(collection => collection.id);
+                                            const allSelectableSelected = selectableIds.length > 0 && selectableIds.every(id => selectedCollections.includes(id));
+                                            return allSelectableSelected;
+                                        })() && (
+                                                <Check
+                                                    size={16}
+                                                    color={isDark ? '#000000' : '#FFFFFF'}
+                                                />
+                                            )}
+                                    </View>
+                                    <Text style={[styles.selectAllText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                                        Chọn tất cả ({selectedCollections.length}/{collections.filter(c => !c.isDefault).length})
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+                            renderItem={({ item: collection }) => {
                                 const isProtected = collection.isDefault; // Protected if collection is default
                                 const isSelected = selectedCollections.includes(collection.id);
 
@@ -309,7 +310,6 @@ const DeleteCollectionsModal: React.FC<DeleteCollectionsModalProps> = ({
 
                                 return (
                                     <Animated.View
-                                        key={collection.id}
                                         style={[
                                             {
                                                 transform: [{ scale: animatedValue }],
@@ -349,7 +349,7 @@ const DeleteCollectionsModal: React.FC<DeleteCollectionsModalProps> = ({
                                                     }
                                                 ]}>
                                                     <MapPin
-                                                        size={32}
+                                                        size={40}
                                                         color={isDark ? '#FFFFFF' : '#000000'}
                                                     />
                                                 </View>
@@ -402,10 +402,10 @@ const DeleteCollectionsModal: React.FC<DeleteCollectionsModalProps> = ({
                                         </Animated.View>
                                     </Animated.View>
                                 );
-                            })}
-                        </View>
+                            }}
+                        />
                     )}
-                </BottomSheetScrollView>
+                </View>
             </BottomSheetView>
         </BottomSheet>
     );
@@ -414,6 +414,7 @@ const DeleteCollectionsModal: React.FC<DeleteCollectionsModalProps> = ({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: '#000000',
     },
     header: {
         flexDirection: 'row',
@@ -447,6 +448,9 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
     },
+    foldersScrollView: {
+        maxHeight: 600, // Giới hạn chiều cao để chỉ hiển thị ~4-5 items
+    },
     scrollContent: {
         paddingHorizontal: 24,
         paddingTop: 24,
@@ -457,6 +461,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         paddingVertical: 40,
+        minHeight: 200,
     },
     emptyText: {
         fontSize: 16,

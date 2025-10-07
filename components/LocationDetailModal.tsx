@@ -1,5 +1,5 @@
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView, BottomSheetView } from '@gorhom/bottom-sheet';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import {
     StyleSheet,
     Text,
@@ -7,13 +7,17 @@ import {
     useColorScheme,
     View,
     Image,
-    ScrollView,
+    FlatList,
+    ActivityIndicator,
     Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MapPin, Navigation, Bookmark, Share2 } from 'lucide-react-native';
-import { LocationDetails } from '../types/location';
+import { Bookmark } from 'lucide-react-native';
+import { LocationDetails, LocationReview } from '../types/location';
+import { FeatureErrorBoundary } from './FeatureErrorBoundary';
+import { locationService } from '../services/locationService';
+import { useModal } from '../contexts/ModalContext';
 
 interface LocationDetailModalProps {
     isVisible: boolean;
@@ -26,7 +30,7 @@ interface LocationDetailModalProps {
     onShare?: (location: LocationDetails) => void;
 }
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+// Removed Dimensions import to simplify
 
 const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
     isVisible,
@@ -40,30 +44,87 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
 }) => {
     const isDark = useColorScheme() === 'dark';
     const bottomSheetRef = useRef<BottomSheet>(null);
+    const { openSaveLocationModal } = useModal();
 
-    // Bottom sheet snap points - 90% of screen
-    const snapPoints = useMemo(() => ['90%'], []);
+    // State for reviews with images
+    const [reviewsWithImages, setReviewsWithImages] = useState<LocationReview[]>([]);
+    const [loadingReviews, setLoadingReviews] = useState(false);
+
+    // State for image gallery
+    const [showImageGallery, setShowImageGallery] = useState(false);
+    const [selectedReview, setSelectedReview] = useState<LocationReview | null>(null);
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+    // Get screen dimensions for responsive design
+    const { width: screenWidth } = Dimensions.get('window');
+    const reviewImageSize = useMemo(() => {
+        // Responsive sizing based on screen width
+        if (screenWidth < 375) {
+            return 240; // Small screens (iPhone SE, etc.)
+        } else if (screenWidth < 414) {
+            return 270; // Medium screens (iPhone 12, etc.)
+        } else {
+            return 300; // Large screens (iPhone Pro Max, etc.)
+        }
+    }, [screenWidth]);
+
+    // Bottom sheet snap points - smaller size to avoid crash
+    const snapPoints = useMemo(() => ['86%'], []);
 
     // Handle sheet changes
     const handleSheetChanges = useCallback((index: number) => {
+        console.log('BottomSheet index changed:', index);
         if (index === -1) {
-            setTimeout(() => {
+            // Only call onClose if modal is still visible
+            if (isVisible) {
+                console.log('BottomSheet closed, calling onClose');
                 onClose();
-            }, 100);
+            }
         }
-    }, [onClose]);
+    }, [onClose, isVisible]);
 
     // Open/close effect
     React.useEffect(() => {
+        console.log('LocationDetailModal visibility changed:', isVisible);
         if (isVisible) {
             // Small delay to ensure proper mounting
             setTimeout(() => {
+                console.log('Expanding BottomSheet');
                 bottomSheetRef.current?.expand();
             }, 50);
         } else {
+            console.log('Closing BottomSheet');
             bottomSheetRef.current?.close();
         }
     }, [isVisible]);
+
+    // Load reviews with images when modal opens
+    useEffect(() => {
+        if (isVisible && location?.id) {
+            loadReviewsWithImages();
+        }
+    }, [isVisible, location?.id]);
+
+    const loadReviewsWithImages = async () => {
+        if (!location?.id) return;
+
+        setLoadingReviews(true);
+        try {
+            const response = await locationService.getLocationReviews(location.id, 0, 50);
+            if (response.status === 'success') {
+                // Filter only reviews that have images
+                const reviewsWithImages = response.data.content.filter(
+                    review => review.imageUrls && review.imageUrls.length > 0
+                );
+                setReviewsWithImages(reviewsWithImages);
+            }
+        } catch (error) {
+            console.log('Failed to load reviews:', error);
+            setReviewsWithImages([]);
+        } finally {
+            setLoadingReviews(false);
+        }
+    };
 
     // Custom backdrop
     const renderBackdrop = useCallback(
@@ -80,221 +141,257 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
     );
 
     const handleClose = () => {
+        console.log('handleClose called');
         // Force close the sheet first
         bottomSheetRef.current?.close();
-        // Then reset state and call onClose
-        setTimeout(() => {
-            onClose();
-        }, 100);
-    };
-
-    const handleNavigate = () => {
-        if (onNavigate && location) {
-            onNavigate(location);
-        }
+        // Call onClose immediately - no delay needed
+        onClose();
     };
 
     const handleSave = () => {
-        if (onSave && location) {
-            onSave(location);
+        if (location) {
+            // Open SaveLocationModal instead of calling onSave directly
+            openSaveLocationModal(location, () => {
+                // Call original onSave callback if provided
+                if (onSave) {
+                    onSave(location);
+                }
+                // Gọi onSuccess callback (nhưng không đóng modal vì đã comment out trong _layout.tsx)
+                if (onSuccess) {
+                    onSuccess();
+                }
+            });
         }
     };
 
-    const handleShare = () => {
-        if (onShare && location) {
-            onShare(location);
+    const handleViewImageGallery = (review: LocationReview) => {
+        if (review.imageUrls.length > 0) {
+            setSelectedReview(review);
+            setCurrentImageIndex(0); // Reset to first image
+            setShowImageGallery(true);
         }
     };
 
-    const handleCall = () => {
-        const phoneContact = location?.contacts.find(contact => contact.type === 'phone');
-        if (onCall && phoneContact) {
-            onCall(phoneContact.value);
-        }
+    const handleCloseImageGallery = () => {
+        setShowImageGallery(false);
+        setSelectedReview(null);
+        setCurrentImageIndex(0);
+    };
+
+    const handleImageScroll = (event: any) => {
+        const contentOffsetX = event.nativeEvent.contentOffset.x;
+        const viewSize = event.nativeEvent.layoutMeasurement.width;
+        const currentIndex = Math.round(contentOffsetX / viewSize);
+        setCurrentImageIndex(currentIndex);
     };
 
     if (!isVisible || !location) return null;
 
     return (
-        <BottomSheet
-            ref={bottomSheetRef}
-            index={-1}
-            snapPoints={snapPoints}
-            onChange={handleSheetChanges}
-            backdropComponent={renderBackdrop}
-            enablePanDownToClose={true}
-            backgroundStyle={{
-                backgroundColor: '#000000', // Dark background like in image
-                borderTopLeftRadius: 20,
-                borderTopRightRadius: 20,
-            }}
-            handleIndicatorStyle={{
-                backgroundColor: '#FFFFFF',
-                width: 40,
-                height: 4,
-            }}
-        >
-            <BottomSheetView style={styles.container}>
-                {/* Header - Location Card Style */}
-                <View style={styles.header}>
-                    <View style={styles.locationCard}>
-                        {/* Left Section - Image */}
-                        <View style={styles.imageContainer}>
-                            {location.imageUrls && location.imageUrls.length > 0 ? (
-                                <Image
-                                    source={{ uri: location.imageUrls[0] }}
-                                    style={styles.locationImage}
-                                    resizeMode="cover"
-                                />
-                            ) : (
-                                <View style={styles.placeholderImage}>
-                                    <Ionicons
-                                        name={getLocationIcon(location.categories[0] || 'location')}
-                                        size={32}
-                                        color="#9CA3AF"
+        <FeatureErrorBoundary feature="LocationDetailModal">
+            <BottomSheet
+                ref={bottomSheetRef}
+                index={-1}
+                snapPoints={snapPoints}
+                onChange={handleSheetChanges}
+                backdropComponent={renderBackdrop}
+                enablePanDownToClose={true}
+                backgroundStyle={{
+                    backgroundColor: isDark ? '#000000' : '#FFFFFF',
+                    borderTopLeftRadius: 20,
+                    borderTopRightRadius: 20,
+                }}
+                handleIndicatorStyle={{
+                    backgroundColor: '#FFFFFF',
+                    width: 40,
+                    height: 4,
+                }}
+            >
+                <BottomSheetView style={styles.container}>
+                    {/* Header - Location Card Style */}
+                    <View style={styles.header}>
+                        <View style={styles.locationCard}>
+                            {/* Left Section - Image */}
+                            <View style={styles.imageContainer}>
+                                {location.imageUrls && location.imageUrls.length > 0 ? (
+                                    <Image
+                                        source={{ uri: location.imageUrls[0] }}
+                                        style={styles.locationImage}
+                                        resizeMode="cover"
                                     />
-                                </View>
-                            )}
-                        </View>
-
-                        {/* Right Section - Text Info */}
-                        <View style={styles.textContainer}>
-                            {/* Name */}
-                            <Text style={styles.locationName} numberOfLines={1}>
-                                {location.name}
-                            </Text>
-
-                            {/* Rating */}
-                            {location.totalRating > 0 && (
-                                <View style={styles.ratingRow}>
-                                    <View style={styles.stars}>
-                                        {[1, 2, 3, 4, 5].map((star) => (
-                                            <Ionicons
-                                                key={star}
-                                                name={star <= location.totalRating ? 'star' : 'star-outline'}
-                                                size={20}
-                                                color="#FFD700"
-                                            />
-                                        ))}
-                                    </View>
-                                </View>
-                            )}
-
-                            {/* Address */}
-                            <View style={styles.addressRow}>
-                                <Text style={styles.addressText}>
-                                    {location.address}
-                                </Text>
-                            </View>
-                        </View>
-                    </View>
-                </View>
-
-                {/* Content */}
-                <BottomSheetScrollView
-                    style={styles.content}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.scrollContent}
-                >
-                    {/* Description */}
-                    {location.description && (
-                        <View style={styles.descriptionSection}>
-                            <View style={styles.descriptionHeader}>
-                                <View style={styles.descriptionIconContainer}>
-                                    <Ionicons name="document-text-outline" size={20} color="#F48C06" />
-                                </View>
-                                <Text style={styles.descriptionTitle}>Mô tả</Text>
-                            </View>
-                            <View style={styles.descriptionContainer}>
-                                <Text style={styles.descriptionText}>{location.description}</Text>
-                            </View>
-                            <View style={styles.divider} />
-                        </View>
-                    )}
-
-                    {/* Image Gallery */}
-                    <View style={styles.imageGallery}>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.galleryContent}
-                        >
-                            {location.imageUrls && location.imageUrls.length > 0 ? (
-                                location.imageUrls.map((imageUrl, index) => (
-                                    <View key={index} style={styles.galleryImageContainer}>
-                                        <Image
-                                            source={{ uri: imageUrl }}
-                                            style={styles.galleryImage}
-                                            resizeMode="cover"
-                                        />
-                                        {/* Tag */}
-                                        <View style={styles.imageTag}>
-                                            <Text style={styles.tagText}>Sạch sẽ</Text>
-                                        </View>
-                                    </View>
-                                ))
-                            ) : (
-                                <View style={styles.galleryImageContainer}>
-                                    <View style={styles.placeholderGalleryImage}>
+                                ) : (
+                                    <View style={styles.placeholderImage}>
                                         <Ionicons
                                             name={getLocationIcon(location.categories[0] || 'location')}
-                                            size={48}
+                                            size={32}
                                             color="#9CA3AF"
                                         />
                                     </View>
+                                )}
+                            </View>
+
+                            {/* Right Section - Text Info */}
+                            <View style={styles.textContainer}>
+                                {/* Name */}
+                                <Text style={styles.locationName} numberOfLines={1}>
+                                    {location.name}
+                                </Text>
+
+                                {/* Rating */}
+                                {location.totalRating > 0 && (
+                                    <View style={styles.ratingRow}>
+                                        <View style={styles.stars}>
+                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                <Ionicons
+                                                    key={star}
+                                                    name={star <= location.totalRating ? 'star' : 'star-outline'}
+                                                    size={20}
+                                                    color="#FFD700"
+                                                />
+                                            ))}
+                                        </View>
+                                    </View>
+                                )}
+
+                                {/* Address */}
+                                <View style={styles.addressRow}>
+                                    <Text style={styles.addressText}>
+                                        {location.address}
+                                    </Text>
                                 </View>
-                            )}
-                        </ScrollView>
+                            </View>
+                        </View>
                     </View>
 
-                    {/* Share Experience Button */}
-                    <TouchableOpacity style={styles.shareExperienceButton}>
-                        <MapPin size={20} color="#F48C06" />
-                        <Text style={styles.shareExperienceText}>
-                            Chia sẻ trải nghiệm của bạn
-                        </Text>
-                    </TouchableOpacity>
-                </BottomSheetScrollView>
+                    {/* Content - Simplified */}
+                    <View style={styles.content}>
+                        {/* Description - Simple */}
+                        {location.description && (
+                            <View style={styles.descriptionSection}>
+                                <Text style={styles.descriptionText}>
+                                    <Text style={styles.descriptionTitle}>Mô tả: </Text>
+                                    {location.description}
+                                </Text>
+                                <View style={styles.divider} />
+                            </View>
+                        )}
 
-                {/* Bottom Action Bar */}
-                <View style={styles.bottomActionBar}>
-                    {/* Navigate Button */}
-                    <TouchableOpacity
-                        style={styles.navigateButton}
-                        onPress={handleNavigate}
-                    >
-                        <LinearGradient
-                            colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
-                            locations={[0, 0.31, 0.69, 1]}
-                            start={{ x: 0, y: 1 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.navigateButtonGradient}
+                        {/* Review Images Section */}
+                        <View style={styles.reviewImagesSection}>
+                            {loadingReviews ? (
+                                <View style={styles.loadingContainer}>
+                                    <ActivityIndicator size="small" color="#F48C06" />
+                                    <Text style={styles.loadingText}>Đang tải hình ảnh...</Text>
+                                </View>
+                            ) : reviewsWithImages.length > 0 ? (
+                                <FlatList
+                                    data={reviewsWithImages}
+                                    keyExtractor={(item) => item.id}
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={styles.reviewImagesList}
+                                    renderItem={({ item }) => (
+                                        <TouchableOpacity
+                                            style={[styles.reviewImageContainer, { width: reviewImageSize }]}
+                                            onPress={() => handleViewImageGallery(item)}
+                                            activeOpacity={0.8}
+                                        >
+                                            <View style={styles.reviewImageWrapper}>
+                                                <Image
+                                                    source={{ uri: item.imageUrls[0] }}
+                                                    style={[styles.reviewImage, {
+                                                        width: reviewImageSize,
+                                                        height: reviewImageSize
+                                                    }]}
+                                                    resizeMode="cover"
+                                                />
+                                                {item.imageUrls.length > 1 && (
+                                                    <View style={styles.moreImagesOverlay}>
+                                                        <Text style={styles.moreImagesText}>+{item.imageUrls.length - 1}</Text>
+                                                    </View>
+                                                )}
+                                                {/* Review text overlay - only show if text exists */}
+                                                {item.text && item.text.trim() && (
+                                                    <View style={styles.reviewTextOverlay}>
+                                                        <Text style={styles.reviewText} numberOfLines={2}>
+                                                            {item.text}
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                        </TouchableOpacity>
+                                    )}
+                                />
+                            ) : (
+                                <Text style={styles.noImagesText}>Chưa có hình ảnh đánh giá</Text>
+                            )}
+                        </View>
+                    </View>
+
+                    {/* Bottom Action Bar */}
+                    <View style={styles.bottomActionBar}>
+                        {/* Save Button */}
+                        <TouchableOpacity
+                            style={styles.saveButton}
+                            onPress={handleSave}
                         >
-                            <Navigation size={20} color="#FFFFFF" />
-                            <Text style={styles.navigateButtonText}>Chỉ đường</Text>
-                        </LinearGradient>
-                    </TouchableOpacity>
+                            <Bookmark size={20} color="#F48C06" />
+                            <Text style={styles.saveButtonText}>Lưu</Text>
+                        </TouchableOpacity>
+                    </View>
+                </BottomSheetView>
+            </BottomSheet>
 
-                    {/* Save Button */}
-                    <TouchableOpacity
-                        style={styles.saveButton}
-                        onPress={handleSave}
-                    >
-                        <Bookmark size={20} color="#F48C06" />
-                        <Text style={styles.saveButtonText}>Lưu</Text>
-                    </TouchableOpacity>
+            {/* Image Gallery Modal */}
+            {showImageGallery && selectedReview && (
+                <View style={styles.imageGalleryOverlay}>
+                    <View style={styles.imageGalleryContainer}>
+                        {/* Header */}
+                        <View style={styles.imageGalleryHeader}>
+                            <Text style={styles.imageGalleryTitle}>
+                                Hình ảnh đánh giá ({currentImageIndex + 1}/{selectedReview.imageUrls.length})
+                            </Text>
+                            <TouchableOpacity
+                                style={styles.imageGalleryCloseButton}
+                                onPress={handleCloseImageGallery}
+                            >
+                                <Ionicons name="close" size={24} color="#FFFFFF" />
+                            </TouchableOpacity>
+                        </View>
 
-                    {/* Share Button */}
-                    <TouchableOpacity
-                        style={styles.shareButton}
-                        onPress={handleShare}
-                    >
-                        <Share2 size={20} color="#F48C06" />
-                        <Text style={styles.shareButtonText}>Chia sẻ</Text>
-                    </TouchableOpacity>
+                        {/* Images Container */}
+                        <View style={styles.imageGalleryContent}>
+                            <FlatList
+                                data={selectedReview.imageUrls}
+                                keyExtractor={(item, index) => `${selectedReview.id}-${index}`}
+                                horizontal
+                                pagingEnabled
+                                showsHorizontalScrollIndicator={false}
+                                onMomentumScrollEnd={handleImageScroll}
+                                renderItem={({ item }) => (
+                                    <View style={styles.imageGalleryItem}>
+                                        <Image
+                                            source={{ uri: item }}
+                                            style={styles.imageGalleryImage}
+                                            resizeMode="contain"
+                                        />
+                                    </View>
+                                )}
+                            />
+                        </View>
+
+                        {/* Review Text - Fixed below images */}
+                        {selectedReview.text && selectedReview.text.trim() && (
+                            <View style={styles.imageGalleryTextContainer}>
+                                <Text style={styles.imageGalleryReviewText}>
+                                    {selectedReview.text}
+                                </Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
-            </BottomSheetView>
-        </BottomSheet>
+            )}
+        </FeatureErrorBoundary>
     );
 };
 
@@ -328,8 +425,8 @@ const styles = StyleSheet.create({
     },
     header: {
         paddingHorizontal: 16,
-        paddingTop: 16,
-        paddingBottom: 20,
+        paddingTop: 0,
+        paddingBottom: 12,
     },
     locationCard: {
         flexDirection: 'row',
@@ -394,136 +491,181 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
-    },
-    scrollContent: {
         paddingHorizontal: 16,
         paddingBottom: 20,
     },
     descriptionSection: {
-        marginBottom: 24,
+        marginBottom: 20,
         paddingHorizontal: 4,
     },
-    descriptionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    descriptionIconContainer: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(244, 140, 6, 0.15)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 12,
-    },
     descriptionTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#FFFFFF',
-        letterSpacing: 0.5,
-    },
-    descriptionContainer: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 16,
-        padding: 20,
-        borderLeftWidth: 3,
-        borderLeftColor: '#F48C06',
-        marginBottom: 20,
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#F48C06',
     },
     descriptionText: {
         fontSize: 16,
         color: '#E5E7EB',
-        lineHeight: 26,
-        letterSpacing: 0.3,
+        lineHeight: 20,
     },
     divider: {
         height: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        marginHorizontal: 8,
+        backgroundColor: 'rgba(255, 255, 255, 0.32)',
+        marginTop: 16,
+        marginHorizontal: 4,
     },
-    imageGallery: {
-        marginBottom: 20,
-    },
-    galleryContent: {
+    reviewImagesSection: {
+
         paddingHorizontal: 4,
     },
-    galleryImageContainer: {
-        width: screenWidth * 0.7,
-        height: 200,
-        marginRight: 12,
-        borderRadius: 12,
-        overflow: 'hidden',
-        position: 'relative',
+    reviewImagesTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#F48C06',
+        marginBottom: 12,
     },
-    galleryImage: {
-        width: '100%',
-        height: '100%',
-    },
-    placeholderGalleryImage: {
-        width: '100%',
-        height: '100%',
-        backgroundColor: '#1F2937',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    imageTag: {
-        position: 'absolute',
-        bottom: 12,
-        left: 12,
-        right: 12,
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        alignSelf: 'flex-start',
-    },
-    tagText: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: '#000000',
-    },
-    shareExperienceButton: {
+    loadingContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#F3F4F6',
-        paddingVertical: 16,
-        paddingHorizontal: 24,
-        borderRadius: 12,
-        marginBottom: 20,
+        paddingVertical: 20,
     },
-    shareExperienceText: {
-        fontSize: 16,
-        fontWeight: '500',
-        color: '#000000',
+    loadingText: {
+        fontSize: 14,
+        color: '#E5E7EB',
         marginLeft: 8,
     },
-    bottomActionBar: {
+    reviewImagesList: {
+        paddingRight: 16,
+    },
+    reviewImageContainer: {
+        marginRight: 16,
+        // width will be set dynamically based on screen size
+    },
+    reviewImageWrapper: {
+        position: 'relative',
+    },
+    reviewImage: {
+        // width and height will be set dynamically based on screen size
+        borderRadius: 24,
+    },
+    moreImagesOverlay: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        borderRadius: 20,
+        paddingHorizontal: 6,
+        paddingVertical: 3,
+        minWidth: 20,
+        alignItems: 'center',
+    },
+    moreImagesText: {
+        fontSize: 16,
+        color: '#FFFFFF',
+        fontWeight: '600',
+    },
+    reviewTextOverlay: {
+        position: 'absolute',
+        bottom: 10,
+        alignSelf: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.6)',
+        borderRadius: 16,
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        alignItems: 'center',
+        justifyContent: 'center',
+        maxWidth: '80%',
+    },
+    reviewText: {
+        fontSize: 14,
+        color: '#000000',
+        lineHeight: 16,
+        textAlign: 'center',
+        fontWeight: '500',
+    },
+    noImagesText: {
+        fontSize: 14,
+        color: '#9CA3AF',
+        textAlign: 'center',
+        paddingVertical: 20,
+        fontStyle: 'italic',
+    },
+    // Image Gallery Modal Styles
+    imageGalleryOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.95)',
+        zIndex: 1000,
+    },
+    imageGalleryContainer: {
+        flex: 1,
+        width: '100%',
+        backgroundColor: '#000000',
+        paddingBottom: 50, // Extra safe area for iPhone home indicator
+    },
+    imageGalleryHeader: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        paddingTop: 50, // Account for status bar
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    imageGalleryTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#FFFFFF',
+    },
+    imageGalleryCloseButton: {
+        padding: 8,
+    },
+    imageGalleryContent: {
+        flex: 1,
+    },
+    imageGalleryItem: {
+        width: Dimensions.get('window').width,
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 20,
+    },
+    imageGalleryImage: {
+        width: Dimensions.get('window').width - 10,
+        height: Dimensions.get('window').width - 10,
+        maxHeight: '60%',
+        borderRadius: 12,
+    },
+    imageGalleryTextContainer: {
+        backgroundColor: 'rgba(255, 255, 255, 0.6)',
+        borderRadius: 16,
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        maxWidth: '80%',
+        alignSelf: 'center',
+        marginHorizontal: 16,
+        marginBottom: 16,
+    },
+    imageGalleryReviewText: {
+        fontSize: 16,
+        color: '#000000',
+        lineHeight: 16,
+        textAlign: 'center',
+        fontWeight: '500',
+    },
+    bottomActionBar: {
         paddingHorizontal: 16,
         paddingVertical: 16,
         paddingBottom: 32,
-        gap: 12,
-    },
-    navigateButton: {
-        flex: 1,
-    },
-    navigateButtonGradient: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 16,
-        borderRadius: 12,
-    },
-    navigateButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#FFFFFF',
-        marginLeft: 8,
     },
     saveButton: {
-        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -532,21 +674,6 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     saveButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#F48C06',
-        marginLeft: 8,
-    },
-    shareButton: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#FFFFFF',
-        paddingVertical: 16,
-        borderRadius: 12,
-    },
-    shareButtonText: {
         fontSize: 16,
         fontWeight: '600',
         color: '#F48C06',

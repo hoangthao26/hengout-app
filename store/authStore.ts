@@ -317,6 +317,16 @@ export const useAuthStore = create<AuthState>()(
                     const searchStore = useSearchStore.getState();
                     searchStore.clearSearch();
 
+                    // 🚀 CLEAR DATABASE: Clear all local database data (like WhatsApp/Telegram)
+                    try {
+                        const { databaseService } = await import('../services/databaseService');
+                        await databaseService.clearAllData();
+                        console.log('✅ [AuthStore] Database cleared successfully');
+                    } catch (dbError) {
+                        console.error('❌ [AuthStore] Failed to clear database:', dbError);
+                        // Don't throw - database clear failure shouldn't block logout
+                    }
+
                     // 🚀 RESET APP STORE: Reset initialization state for fresh start
                     const { useAppStore } = await import('./appStore');
                     const appStore = useAppStore.getState();
@@ -396,6 +406,16 @@ export const useAuthStore = create<AuthState>()(
                             useCollectionStore.getState().resetCollections();
                             useCollectionStore.getState().resetCurrentCollection();
                             useSearchStore.getState().clearSearch();
+
+                            // 🚀 CLEAR DATABASE: Clear all local database data (like WhatsApp/Telegram)
+                            try {
+                                const { databaseService } = await import('../services/databaseService');
+                                await databaseService.clearAllData();
+                                console.log('✅ [AuthStore] Database cleared successfully (fast logout)');
+                            } catch (dbError) {
+                                console.error('❌ [AuthStore] Failed to clear database (fast logout):', dbError);
+                                // Don't throw - database clear failure shouldn't block logout
+                            }
 
                             const appStore = useAppStore.getState();
                             appStore.setDatabaseReady(false);
@@ -538,7 +558,8 @@ export const useAuthStore = create<AuthState>()(
                     console.log('❌ [AuthStore] Proactive refresh failed after all retries:', lastError);
                     return false;
                 } catch (error: any) {
-                    console.error('❌ [AuthStore] Proactive refresh error:', error);
+                    // Silent log for proactive refresh error - don't show error to user
+                    console.log('🔄 [AuthStore] Proactive refresh error:', (error as any)?.message || 'Unknown error');
                     return false;
                 }
             },

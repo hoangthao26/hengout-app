@@ -369,13 +369,13 @@ const EditGroupModal: React.FC<EditGroupModalProps> = ({
             backdropComponent={renderBackdrop}
             enablePanDownToClose
             backgroundStyle={{
-                backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+                backgroundColor: isDark ? '#000000' : '#FFFFFF',
             }}
             handleIndicatorStyle={{
                 backgroundColor: isDark ? '#4B5563' : '#D1D5DB',
             }}
         >
-            <BottomSheetView style={styles.container}>
+            <BottomSheetView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
                 {/* Header */}
                 <View style={[styles.header, { borderBottomColor: isDark ? '#374151' : '#E5E7EB' }]}>
                     <TouchableOpacity
@@ -492,6 +492,7 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         paddingHorizontal: 16,
+        backgroundColor: '#000000',
     },
     header: {
         flexDirection: 'row',

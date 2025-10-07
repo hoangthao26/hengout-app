@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { Search, UserPlus, Users, X } from 'lucide-react-native';
 import NavigationService from '../../services/navigationService';
 import React, { useCallback, useEffect, useState } from 'react';
+import { ChatErrorBoundary } from '../../components/errorBoundaries';
 import {
     ActivityIndicator,
     FlatList,

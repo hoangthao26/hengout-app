@@ -224,7 +224,8 @@ export class AuthHelper {
 
             return true;
         } catch (error) {
-            console.error('❌ [AuthHelper] Failed to refresh access token:', error);
+            // Silent log for refresh token failure - don't show error to user
+            console.log('🔄 [AuthHelper] Refresh access token failed:', (error as any)?.message || 'Unknown error');
             // If refresh fails, clear all tokens
             await this.clearTokens();
             return false;
@@ -273,6 +274,16 @@ export class AuthHelper {
             await this.clearTokens();
             await OnboardingService.clearOnboardingStatus();
             console.log('✅ Local tokens and onboarding status cleared');
+
+            // 🚀 CLEAR DATABASE: Clear all local database data (like WhatsApp/Telegram)
+            try {
+                const { databaseService } = await import('./databaseService');
+                await databaseService.clearAllData();
+                console.log('✅ [AuthHelper] Database cleared successfully');
+            } catch (dbError) {
+                console.error('❌ [AuthHelper] Failed to clear database:', dbError);
+                // Don't throw - database clear failure shouldn't block logout
+            }
 
             // 🚀 SET LOGOUT FLAGS: Prevent infinite 401 loops
             try {
@@ -329,6 +340,16 @@ export class AuthHelper {
 
             // Clear local tokens
             await this.clearTokens();
+
+            // 🚀 CLEAR DATABASE: Clear all local database data (like WhatsApp/Telegram)
+            try {
+                const { databaseService } = await import('./databaseService');
+                await databaseService.clearAllData();
+                console.log('✅ [AuthHelper] Database cleared successfully (force logout)');
+            } catch (dbError) {
+                console.error('❌ [AuthHelper] Failed to clear database (force logout):', dbError);
+                // Don't throw - database clear failure shouldn't block logout
+            }
         } catch (error) {
             console.error('Force logout failed:', error);
             throw error;
@@ -529,7 +550,8 @@ export class AuthHelper {
             }
             return true; // No refresh needed
         } catch (error) {
-            console.error('❌ Token pre-refresh error:', error);
+            // Silent log for token pre-refresh error - don't show error to user
+            console.log('🔄 Token pre-refresh error:', (error as any)?.message || 'Unknown error');
             return false;
         }
     }

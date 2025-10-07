@@ -65,9 +65,9 @@
       "eas": {
         "projectId": "20c98bc3-d234-463f-aaf0-84fabace9aca"
       },
-      "EXPO_PUBLIC_USER_SERVICE_URL": "https://hengout.tranquocdat.com/user-service/api/v1",
-      "EXPO_PUBLIC_API_BASE_URL": "https://hengout.tranquocdat.com/auth-service/api/v1",
-      "EXPO_PUBLIC_SOCIAL_SERVICE_URL": "https://hengout.tranquocdat.com/social-service/api/v1"
+      "EXPO_PUBLIC_USER_SERVICE_URL": "https://api.hengout.app/user-service/api/v1",
+      "EXPO_PUBLIC_API_BASE_URL": "https://api.hengout.app/auth-service/api/v1",
+      "EXPO_PUBLIC_SOCIAL_SERVICE_URL": "https://api.hengout.app/social-service/api/v1"
     },
     "oauth": {
       "redirectUrls": [

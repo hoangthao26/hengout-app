@@ -8,6 +8,7 @@ import CreateCollectionModal from '../../components/CreateCollectionModal';
 import CreateGroupModal from '../../components/CreateGroupModal';
 import DeleteCollectionsModal from '../../components/DeleteCollectionsModal';
 import LocationDetailModal from '../../components/LocationDetailModal';
+import SaveLocationModal from '../../components/SaveLocationModal';
 import { ModalProvider, useModal } from '../../contexts/ModalContext';
 
 function TabLayoutContent() {
@@ -25,16 +26,20 @@ function TabLayoutContent() {
         showDeleteModal,
         showCreateGroupModal,
         showLocationDetailModal,
+        showSaveLocationModal,
         deleteModalCollections,
         locationDetailModalData,
+        saveLocationModalData,
         closeCreateModal,
         closeDeleteModal,
         closeCreateGroupModal,
         closeLocationDetailModal,
+        closeSaveLocationModal,
         onCreateSuccess,
         onDeleteSuccess,
         onCreateGroupSuccess,
-        onLocationDetailSuccess
+        onLocationDetailSuccess,
+        onSaveLocationSuccess
     } = useModal();
 
     // State for native modules
@@ -212,7 +217,18 @@ function TabLayoutContent() {
                 location={locationDetailModalData}
                 onSuccess={() => {
                     onLocationDetailSuccess?.();
-                    closeLocationDetailModal();
+                    // Không tự động đóng LocationDetailModal khi onSuccess được gọi
+                    // closeLocationDetailModal();
+                }}
+            />
+
+            <SaveLocationModal
+                isVisible={showSaveLocationModal}
+                onClose={closeSaveLocationModal}
+                location={saveLocationModalData}
+                onSuccess={() => {
+                    onSaveLocationSuccess?.();
+                    closeSaveLocationModal();
                 }}
             />
         </>

@@ -65,6 +65,7 @@ export default function SettingsScreen() {
         );
     };
 
+
     return (
         <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
             {/* Header */}
@@ -95,6 +96,7 @@ export default function SettingsScreen() {
                         color={isDark ? '#9CA3AF' : '#6B7280'}
                     />
                 </TouchableOpacity>
+
 
                 {/* Logout Option */}
                 <TouchableOpacity

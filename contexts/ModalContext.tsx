@@ -3,7 +3,7 @@ import { LocationFolder } from '../types/locationFolder';
 import { LocationDetails } from '../types/location';
 
 // Enhanced types for enterprise-level type safety
-type ModalType = 'create-collection' | 'delete-collections' | 'create-group' | 'location-detail';
+type ModalType = 'create-collection' | 'delete-collections' | 'create-group' | 'location-detail' | 'save-location';
 
 interface ModalState {
     isVisible: boolean;
@@ -54,6 +54,16 @@ interface ModalContextType {
     closeLocationDetailModal: () => void;
     onLocationDetailSuccess?: () => void;
     setOnLocationDetailSuccess: (callback?: () => void) => void;
+
+    // Save Location Modal
+    showSaveLocationModal: boolean;
+    setShowSaveLocationModal: (show: boolean) => void;
+    saveLocationModalData: LocationDetails | null;
+    setSaveLocationModalData: (location: LocationDetails | null) => void;
+    openSaveLocationModal: (location: LocationDetails, onSuccess?: () => void) => void;
+    closeSaveLocationModal: () => void;
+    onSaveLocationSuccess?: () => void;
+    setOnSaveLocationSuccess: (callback?: () => void) => void;
 }
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
@@ -76,7 +86,8 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
         'create-collection': { isVisible: false },
         'delete-collections': { isVisible: false, data: [] },
         'create-group': { isVisible: false },
-        'location-detail': { isVisible: false, data: null }
+        'location-detail': { isVisible: false, data: null },
+        'save-location': { isVisible: false, data: null }
     });
 
     // Legacy state for backward compatibility
@@ -84,12 +95,15 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
     const [showLocationDetailModal, setShowLocationDetailModal] = useState(false);
+    const [showSaveLocationModal, setShowSaveLocationModal] = useState(false);
     const [deleteModalCollections, setDeleteModalCollections] = useState<LocationFolder[]>([]);
     const [locationDetailModalData, setLocationDetailModalData] = useState<LocationDetails | null>(null);
+    const [saveLocationModalData, setSaveLocationModalData] = useState<LocationDetails | null>(null);
     const [onCreateSuccess, setOnCreateSuccess] = useState<(() => void) | undefined>();
     const [onDeleteSuccess, setOnDeleteSuccess] = useState<(() => void) | undefined>();
     const [onCreateGroupSuccess, setOnCreateGroupSuccess] = useState<(() => void) | undefined>();
     const [onLocationDetailSuccess, setOnLocationDetailSuccess] = useState<(() => void) | undefined>();
+    const [onSaveLocationSuccess, setOnSaveLocationSuccess] = useState<(() => void) | undefined>();
 
     // Generic modal management (Enterprise approach)
     const openModal = (type: ModalType, data?: any, callbacks?: { onSuccess?: () => void; onError?: (error: Error) => void }) => {
@@ -167,17 +181,82 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
 
     // Location Detail Modal helpers
     const openLocationDetailModal = (location: LocationDetails, onSuccess?: () => void) => {
-        setLocationDetailModalData(location);
-        setOnLocationDetailSuccess(() => onSuccess);
-        setTimeout(() => {
-            setShowLocationDetailModal(true);
-        }, 150);
-    };
+        console.log('Opening LocationDetailModal for:', location.name);
 
-    const closeLocationDetailModal = () => {
+        // Prevent opening if already visible
+        if (showLocationDetailModal) {
+            console.log('Modal already visible, closing first');
+            closeLocationDetailModal();
+            // Wait a bit longer before opening new one
+            setTimeout(() => {
+                setLocationDetailModalData(location);
+                setOnLocationDetailSuccess(() => onSuccess);
+                setShowLocationDetailModal(true);
+            }, 300);
+            return;
+        }
+
+        // Close first to ensure clean state
         setShowLocationDetailModal(false);
         setLocationDetailModalData(null);
         setOnLocationDetailSuccess(undefined);
+
+        // Set data and open with minimal delay
+        setTimeout(() => {
+            setLocationDetailModalData(location);
+            setOnLocationDetailSuccess(() => onSuccess);
+            setShowLocationDetailModal(true);
+        }, 100);
+    };
+
+    const closeLocationDetailModal = () => {
+        console.log('Closing LocationDetailModal');
+        setShowLocationDetailModal(false);
+        // Clear data after a short delay to prevent flicker
+        setTimeout(() => {
+            setLocationDetailModalData(null);
+            setOnLocationDetailSuccess(undefined);
+        }, 200);
+    };
+
+    // Save Location Modal helpers
+    const openSaveLocationModal = (location: LocationDetails, onSuccess?: () => void) => {
+        console.log('Opening SaveLocationModal for:', location.name);
+
+        // Prevent opening if already visible
+        if (showSaveLocationModal) {
+            console.log('SaveLocationModal already visible, closing first');
+            closeSaveLocationModal();
+            // Wait a bit longer before opening new one
+            setTimeout(() => {
+                setSaveLocationModalData(location);
+                setOnSaveLocationSuccess(() => onSuccess);
+                setShowSaveLocationModal(true);
+            }, 300);
+            return;
+        }
+
+        // Close first to ensure clean state
+        setShowSaveLocationModal(false);
+        setSaveLocationModalData(null);
+        setOnSaveLocationSuccess(undefined);
+
+        // Set data and open with minimal delay
+        setTimeout(() => {
+            setSaveLocationModalData(location);
+            setOnSaveLocationSuccess(() => onSuccess);
+            setShowSaveLocationModal(true);
+        }, 100);
+    };
+
+    const closeSaveLocationModal = () => {
+        console.log('Closing SaveLocationModal');
+        setShowSaveLocationModal(false);
+        // Clear data after a short delay to prevent flicker
+        setTimeout(() => {
+            setSaveLocationModalData(null);
+            setOnSaveLocationSuccess(undefined);
+        }, 200);
     };
 
     const value: ModalContextType = {
@@ -216,6 +295,14 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
         closeLocationDetailModal,
         onLocationDetailSuccess,
         setOnLocationDetailSuccess,
+        showSaveLocationModal,
+        setShowSaveLocationModal,
+        saveLocationModalData,
+        setSaveLocationModalData,
+        openSaveLocationModal,
+        closeSaveLocationModal,
+        onSaveLocationSuccess,
+        setOnSaveLocationSuccess,
     };
 
     return (

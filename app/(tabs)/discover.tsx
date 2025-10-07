@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StyleSheet, View, Alert, TextInput, TouchableOpacity, useColorScheme, ActivityIndicator, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { Search, X, RefreshCw } from 'lucide-react-native';
+import { Search, X, MapPinHouse } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import MapView from '../../components/MapView';
 import MapPin from '../../components/MapPin';
-import LocationCard from '../../components/LocationDetailSheet';
+import LocationCard from '../../components/LocationCard';
 import { useLocation } from '../../hooks/useLocation';
 import { useRandomRecommendations } from '../../hooks/useRandomRecommendations';
+import { useNLPRecommendations } from '../../hooks/useNLPRecommendations';
 import { locationService } from '../../services/locationService';
 import { useAuthStore } from '../../store';
 import { LocationDetails } from '../../types/location';
@@ -55,20 +57,35 @@ export default function DiscoverScreen() {
     const [initialLocation, setInitialLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [isInitialized, setIsInitialized] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [searchLoading, setSearchLoading] = useState(false);
-    const [searchResults, setSearchResults] = useState<LocationDetails[]>([]);
     const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
-    const [mapController, setMapController] = useState<{ centerMapOnLocation: (latitude: number, longitude: number, delta?: number) => void } | null>(null);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const searchInputRef = useRef<TextInput>(null);
+    const [mapController, setMapController] = useState<{
+        centerMapOnLocation: (latitude: number, longitude: number, delta?: number) => void;
+        goToInitialLocation: () => void;
+    } | null>(null);
     const [selectedLocationForDetail, setSelectedLocationForDetail] = useState<LocationDetails | null>(null);
     const [isDetailSheetVisible, setIsDetailSheetVisible] = useState(false);
 
     // Use ModalContext for LocationDetailModal
     const { openLocationDetailModal } = useModal();
 
+    // NLP Search hook
+    const {
+        results: searchResults,
+        loading: searchLoading,
+        search: performNLPSearch,
+        clear: clearNLPSearch
+    } = useNLPRecommendations({
+        onError: (error) => {
+            Alert.alert('Lỗi tìm kiếm', 'Không thể tìm kiếm địa điểm. Vui lòng thử lại.');
+        }
+    });
+
     const handleLocationSelect = useCallback((location: { lat: number; lng: number }) => {
         console.log('handleLocationSelect called - closing modal');
         setSelectedLocation(location);
-        // Close modal when clicking on map
+        // Close LocationCard when clicking on map
         setIsDetailSheetVisible(false);
         setSelectedLocationForDetail(null);
         // Enterprise: Remove debug logs in production
@@ -76,8 +93,6 @@ export default function DiscoverScreen() {
 
     // Handle MapPin selection
     const handleMapPinSelect = useCallback((locationDetails: LocationDetails) => {
-        console.log('handleMapPinSelect called:', locationDetails.name);
-
         // Use setTimeout to ensure state updates happen after any map click events
         setTimeout(() => {
             setSelectedLocationDetails(locationDetails);
@@ -86,10 +101,9 @@ export default function DiscoverScreen() {
                 lng: locationDetails.longitude
             });
 
-            // Show detail sheet
+            // Show LocationCard
             setSelectedLocationForDetail(locationDetails);
-            setIsDetailSheetVisible(true);
-            console.log('Modal should be visible now');
+            console.log('LocationCard should be visible now');
         }, 100);
     }, []);
 
@@ -110,11 +124,6 @@ export default function DiscoverScreen() {
     }, [tokens.accessToken, getRandomRecommendations, getAddressFromCoordinates]);
 
     // Refresh recommendations
-    const handleRefreshRecommendations = useCallback(async () => {
-        if (location) {
-            await refreshRecommendations(location.latitude, location.longitude);
-        }
-    }, [location, refreshRecommendations]);
 
     // Search functions with debounce
     const performSearch = useCallback(async (query: string) => {
@@ -122,26 +131,14 @@ export default function DiscoverScreen() {
             return;
         }
 
-        try {
-            setSearchLoading(true);
+        // Clear random recommendations when searching
+        clearRecommendations();
 
-            const response = await locationService.getNLPRecommendations({
-                sessionId: `session_${Date.now()}`,
-                nlp: query.trim(),
-                latitude: location.latitude,
-                longitude: location.longitude,
-            });
-
-            if (response.status === 'success') {
-                setSearchResults(response.data);
-            }
-        } catch (error) {
-            console.error('Search error:', error);
-            Alert.alert('Lỗi tìm kiếm', 'Không thể tìm kiếm địa điểm. Vui lòng thử lại.');
-        } finally {
-            setSearchLoading(false);
-        }
-    }, [location, tokens.accessToken]);
+        await performNLPSearch(query, {
+            lat: location.latitude,
+            lng: location.longitude
+        });
+    }, [location, tokens.accessToken, performNLPSearch, clearRecommendations]);
 
     const handleSearch = useCallback((query: string) => {
         setSearchQuery(query);
@@ -152,7 +149,11 @@ export default function DiscoverScreen() {
         }
 
         if (!query.trim()) {
-            setSearchResults([]);
+            clearNLPSearch();
+            // Load random recommendations when input is empty
+            if (location) {
+                refreshRecommendations(location.latitude, location.longitude);
+            }
             return;
         }
 
@@ -162,20 +163,32 @@ export default function DiscoverScreen() {
         }, 500);
 
         setSearchTimeout(timeout);
-    }, [searchTimeout, performSearch]);
+    }, [searchTimeout, performSearch, clearNLPSearch, location, refreshRecommendations]);
 
     const clearSearch = useCallback(() => {
         setSearchQuery('');
-        setSearchResults([]);
+        clearNLPSearch();
         Keyboard.dismiss();
-    }, []);
+
+        // Reload random recommendations when clearing search
+        if (location) {
+            refreshRecommendations(location.latitude, location.longitude);
+        }
+    }, [clearNLPSearch, location, refreshRecommendations]);
 
     const dismissKeyboard = useCallback(() => {
         Keyboard.dismiss();
-    }, []);
+        // Only close search if no search query (empty input)
+        if (isSearchOpen && !searchQuery.trim()) {
+            setIsSearchOpen(false);
+        }
+    }, [isSearchOpen, searchQuery]);
 
     // Handle map controller reference
-    const handleMapRef = useCallback((controller: { centerMapOnLocation: (latitude: number, longitude: number, delta?: number) => void } | null) => {
+    const handleMapRef = useCallback((controller: {
+        centerMapOnLocation: (latitude: number, longitude: number, delta?: number) => void;
+        goToInitialLocation: () => void;
+    } | null) => {
         setMapController(controller);
     }, []);
 
@@ -187,7 +200,12 @@ export default function DiscoverScreen() {
 
     // Handle opening detail modal from card
     const handleOpenDetailModal = useCallback((locationDetails: LocationDetails) => {
-        openLocationDetailModal(locationDetails);
+        // Keep the LocationCard visible when opening modal
+        setSelectedLocationForDetail(locationDetails);
+        openLocationDetailModal(locationDetails, () => {
+            // Keep LocationCard visible after modal closes
+            console.log('LocationDetailModal closed, keeping LocationCard visible');
+        });
     }, [openLocationDetailModal]);
 
     // Handle navigation to location
@@ -197,8 +215,7 @@ export default function DiscoverScreen() {
             mapController.centerMapOnLocation(locationDetails.latitude, locationDetails.longitude, 0.005);
         }
 
-        // Close the detail sheet
-        handleDetailSheetClose();
+        // Keep LocationCard visible - don't close it
 
         // You can add navigation logic here (e.g., open external maps app)
         Alert.alert(
@@ -214,7 +231,43 @@ export default function DiscoverScreen() {
                 }
             ]
         );
-    }, [mapController, handleDetailSheetClose]);
+    }, [mapController]);
+
+    // Handle go to initial location
+    const handleGoToInitialLocation = useCallback(() => {
+        if (mapController) {
+            // Use current GPS location if available, otherwise use initial location
+            if (location) {
+                mapController.centerMapOnLocation(location.latitude, location.longitude, 0.01);
+            } else {
+                mapController.goToInitialLocation();
+            }
+        }
+    }, [mapController, location]);
+
+    // Stable callback for centering map
+    const handleCenterMap = useCallback((latitude: number, longitude: number, delta?: number) => {
+        if (mapController) {
+            mapController.centerMapOnLocation(latitude, longitude, delta);
+        }
+    }, [mapController]);
+
+    // Handle search button press
+    const handleSearchButtonPress = useCallback(() => {
+        setIsSearchOpen(true);
+        setTimeout(() => {
+            searchInputRef.current?.focus();
+        }, 100);
+    }, []);
+
+    // Auto focus when opening search
+    useEffect(() => {
+        if (isSearchOpen) {
+            setTimeout(() => {
+                searchInputRef.current?.focus();
+            }, 100);
+        }
+    }, [isSearchOpen]);
 
     // Handle call action
     const handleCallLocation = useCallback((phoneNumber: string) => {
@@ -377,49 +430,86 @@ export default function DiscoverScreen() {
     return (
         <TouchableWithoutFeedback onPress={dismissKeyboard}>
             <View style={styles.container}>
-                {/* Search Bar */}
-                <View style={styles.searchContainer}>
-                    <TextInput
-                        style={styles.searchInput}
-                        placeholder="Tìm kiếm địa điểm..."
-                        placeholderTextColor="#9CA3AF"
-                        value={searchQuery}
-                        onChangeText={handleSearch}
-                    />
-                    {searchLoading ? (
-                        <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
-                    ) : (
-                        <TouchableOpacity
-                            style={styles.searchButton}
-                            onPress={searchQuery ? clearSearch : undefined}
-                        >
-                            {searchQuery ? (
-                                <X
-                                    size={20}
-                                    color="#9CA3AF"
-                                />
-                            ) : (
-                                <Search
-                                    size={20}
-                                    color="#9CA3AF"
-                                />
-                            )}
-                        </TouchableOpacity>
-                    )}
-                </View>
+                {/* Search Bar (only when opened) */}
+                {isSearchOpen && (
+                    <View style={styles.searchContainer}>
+                        <TextInput
+                            ref={searchInputRef}
+                            style={styles.searchInput}
+                            placeholder="Tìm quán cà phê gần đây..."
+                            placeholderTextColor="#9CA3AF"
+                            value={searchQuery}
+                            onChangeText={handleSearch}
+                            autoFocus={true}
+                        />
+                        {searchLoading ? (
+                            <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
+                        ) : (
+                            <TouchableOpacity
+                                style={styles.searchButton}
+                                onPress={() => {
+                                    if (searchQuery) {
+                                        clearSearch();
+                                    } else {
+                                        setIsSearchOpen(false);
+                                        Keyboard.dismiss();
+                                    }
+                                }}
+                            >
+                                <X size={24} color="#9CA3AF" />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                )}
 
-                {/* Refresh Button */}
-                <TouchableOpacity
-                    style={styles.refreshButton}
-                    onPress={handleRefreshRecommendations}
-                    disabled={recommendationsLoading}
-                >
-                    {recommendationsLoading ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                        <RefreshCw size={20} color="#FFFFFF" />
-                    )}
-                </TouchableOpacity>
+                {/* Bottom Container - Buttons + LocationCard */}
+                <View style={styles.bottomContainer}>
+                    {/* Control Buttons */}
+                    <View style={styles.controlButtons}>
+                        {/* Search Button */}
+                        <TouchableOpacity
+                            style={styles.homeButton}
+                            onPress={handleSearchButtonPress}
+                        >
+                            <LinearGradient
+                                colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
+                                locations={[0, 0.31, 0.69, 1]}
+                                start={{ x: 0, y: 1 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.gradientButton}
+                            >
+                                <Search size={28} color="#FFFFFF" />
+                            </LinearGradient>
+                        </TouchableOpacity>
+
+
+                        {/* Go to Initial Location Button */}
+                        <TouchableOpacity
+                            style={styles.homeButton}
+                            onPress={handleGoToInitialLocation}
+                        >
+                            <LinearGradient
+                                colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
+                                locations={[0, 0.31, 0.69, 1]}
+                                start={{ x: 0, y: 1 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.gradientButton}
+                            >
+                                <MapPinHouse size={28} color="#FFFFFF" />
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Location Card */}
+                    <LocationCard
+                        location={selectedLocationForDetail}
+                        visible={!!selectedLocationForDetail}
+                        onClose={handleDetailSheetClose}
+                        onNavigate={handleNavigateToLocation}
+                        onCall={handleCallLocation}
+                        onOpenDetail={handleOpenDetailModal}
+                    />
+                </View>
 
                 <MapView
                     onLocationSelect={handleLocationSelect}
@@ -429,44 +519,34 @@ export default function DiscoverScreen() {
                     style={styles.fullMap}
                     onMapRef={handleMapRef}
                 >
-                    {/* Render MapPins for recommendations */}
-                    {recommendations.map((locationDetails) => {
-                        console.log('Rendering recommendation:', locationDetails.name);
-                        return (
+                    {/* Render MapPins - Show search results if searching, otherwise show random recommendations */}
+                    {searchResults.length > 0 ? (
+                        // Show search results when searching
+                        searchResults.map((locationDetails) => (
+                            <MapPin
+                                key={`search_${locationDetails.id}`}
+                                location={locationDetails}
+                                onPress={handleMapPinSelect}
+                                onCenterMap={handleCenterMap}
+                                isSelected={selectedLocationDetails?.id === locationDetails.id}
+                                size="medium"
+                            />
+                        ))
+                    ) : (
+                        // Show random recommendations when not searching
+                        recommendations.map((locationDetails) => (
                             <MapPin
                                 key={locationDetails.id}
                                 location={locationDetails}
                                 onPress={handleMapPinSelect}
-                                onCenterMap={mapController?.centerMapOnLocation}
+                                onCenterMap={handleCenterMap}
                                 isSelected={selectedLocationDetails?.id === locationDetails.id}
                                 size="medium"
                             />
-                        );
-                    })}
-
-                    {/* Render MapPins for search results */}
-                    {searchResults.map((locationDetails) => (
-                        <MapPin
-                            key={`search_${locationDetails.id}`}
-                            location={locationDetails}
-                            onPress={handleMapPinSelect}
-                            onCenterMap={mapController?.centerMapOnLocation}
-                            isSelected={selectedLocationDetails?.id === locationDetails.id}
-                            size="small"
-                            customIcon="search"
-                        />
-                    ))}
+                        ))
+                    )}
                 </MapView>
 
-                {/* Location Card */}
-                <LocationCard
-                    location={selectedLocationForDetail}
-                    visible={isDetailSheetVisible}
-                    onClose={handleDetailSheetClose}
-                    onNavigate={handleNavigateToLocation}
-                    onCall={handleCallLocation}
-                    onOpenDetail={handleOpenDetailModal}
-                />
 
             </View>
         </TouchableWithoutFeedback>
@@ -484,9 +564,9 @@ const styles = StyleSheet.create({
         right: 16,
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
+        paddingHorizontal: 20,
         paddingVertical: 12,
-        borderRadius: 25,
+        borderRadius: 24,
         backgroundColor: '#FFFFFF',
         shadowColor: '#000',
         shadowOffset: {
@@ -497,35 +577,51 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 2,
         zIndex: 1,
+        minHeight: 55,
     },
     searchInput: {
         flex: 1,
-        fontSize: 16,
-        paddingVertical: 0,
+        fontSize: 18,
+        paddingVertical: 4,
         color: '#000000',
     },
     searchButton: {
         marginLeft: 8,
     },
-    refreshButton: {
+    bottomContainer: {
         position: 'absolute',
-        top: 50,
+        bottom: 16,
+        left: 16,
         right: 16,
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: '#F48C06',
-        justifyContent: 'center',
-        alignItems: 'center',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        gap: 12,
+    },
+    controlButtons: {
+        flexDirection: 'column',
+        gap: 16,
+    },
+    homeButton: {
+        width: 55,
+        height: 55,
+        borderRadius: 16,
         shadowColor: '#000',
         shadowOffset: {
             width: 0,
-            height: 2,
+            height: 6,
         },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5,
+        shadowOpacity: 0.75,
+        shadowRadius: 12,
+        elevation: 12,
         zIndex: 1,
+        overflow: 'hidden',
+    },
+    gradientButton: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     fullMap: {
         flex: 1,

@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-    BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://hengout.tranquocdat.com/auth-service/api/v1',
+    BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.hengout.app/auth-service/api/v1',
     TIMEOUT: 15000, // 15 seconds (increased for better reliability)
     RETRY_ATTEMPTS: 3,
     // Add API key if needed

@@ -111,6 +111,8 @@ export default function EditGenderScreen() {
                                 { borderBottomColor: isDark ? '#374151' : '#E5E7EB' }
                             ]}
                             onPress={() => setSelectedGender(option.value)}
+                            activeOpacity={1}
+                            delayPressIn={0}
                         >
                             <Text style={[styles.optionLabel, { color: isDark ? '#FFFFFF' : '#000000' }]}>
                                 {option.label}

@@ -81,13 +81,13 @@ export default function ConfirmDeleteModal({
             enablePanDownToClose={false}
             backdropComponent={renderBackdrop}
             backgroundStyle={{
-                backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+                backgroundColor: isDark ? '#000000' : '#FFFFFF',
             }}
             handleIndicatorStyle={{
                 backgroundColor: isDark ? '#4B5563' : '#D1D5DB',
             }}
         >
-            <BottomSheetView style={styles.content}>
+            <BottomSheetView style={[styles.content, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
                 {/* Warning Icon */}
                 <View style={[styles.iconContainer, { backgroundColor: isDark ? '#FEE2E2' : '#FEF2F2' }]}>
                     <AlertTriangle size={32} color="#EF4444" />
@@ -137,6 +137,7 @@ const styles = StyleSheet.create({
         paddingTop: 20,
         paddingBottom: 40,
         alignItems: 'center',
+        backgroundColor: '#000000',
     },
     iconContainer: {
         width: 64,

@@ -360,11 +360,15 @@ class DatabaseService {
     async clearAllData(): Promise<void> {
         if (!this.db) throw new Error('Database not initialized');
 
+        console.log('🧹 [DatabaseService] Clearing all user data...');
+
         await this.db.execAsync(`
             DELETE FROM messages;
             DELETE FROM members;
             DELETE FROM conversations;
         `);
+
+        console.log('✅ [DatabaseService] All user data cleared successfully');
     }
 
     /**

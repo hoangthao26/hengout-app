@@ -90,7 +90,7 @@ axiosInstance.interceptors.request.use(
         return config;
     },
     (error) => {
-        console.error('❌ Request Error:', error);
+        console.warn('❌ Request Error:', error);
         return Promise.reject(error);
     }
 );
@@ -114,7 +114,8 @@ axiosInstance.interceptors.response.use(
                 return Promise.reject(new Error('User logged out - request cancelled'));
             }
 
-            console.error('🔐 401 Unauthorized - Attempting token refresh');
+            // Silent log for 401 - don't show error to user
+            console.log('🔐 401 Unauthorized - Attempting token refresh');
 
             if (originalRequest.url?.includes('/auth/user/register/verify-otp') ||
                 originalRequest.url?.includes('/auth/user/register/send-otp') ||
@@ -125,7 +126,8 @@ axiosInstance.interceptors.response.use(
             }
 
             if (originalRequest.url?.includes('/session/refresh')) {
-                console.error('❌ Refresh token failed - redirecting to login');
+                // Silent log for refresh token failure - don't show error to user
+                console.log('🔄 Refresh token expired - redirecting to login');
                 await AuthHelper.logoutAndNavigate();
                 return Promise.reject(error);
             }
@@ -140,7 +142,8 @@ axiosInstance.interceptors.response.use(
                     processQueue(null, newAccessToken);
                     return axiosInstance(originalRequest);
                 } catch (refreshError) {
-                    console.error('❌ Token refresh error:', refreshError);
+                    // Silent log for token refresh error - don't show error to user
+                    console.log('🔄 Token refresh failed:', (refreshError as any)?.message || 'Unknown error');
                     processQueue(refreshError, null);
 
                     const isAuthError = (refreshError as any)?.response?.status === 401 || (refreshError as any)?.message?.includes('401');
@@ -168,11 +171,11 @@ axiosInstance.interceptors.response.use(
                 });
             }
         } else if (error.response?.status === 400) {
-            console.error('📝 400 Bad Request - Check request data format');
+            console.warn('📝 400 Bad Request - Check request data format');
         } else if (error.response?.status === 404) {
-            console.error('🔍 404 Not Found - Check API endpoint');
+            console.warn('🔍 404 Not Found - Check API endpoint');
         } else if (error.response?.status === 500) {
-            console.error('💥 500 Server Error - Server issue');
+            console.warn('💥 500 Server Error - Server issue');
         }
 
         return Promise.reject(error);

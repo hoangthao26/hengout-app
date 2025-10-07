@@ -158,7 +158,7 @@ const EditCollectionModal: React.FC<EditCollectionModalProps> = ({
             backdropComponent={renderBackdrop}
             enablePanDownToClose={true}
             backgroundStyle={{
-                backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+                backgroundColor: isDark ? '#000000' : '#FFFFFF',
                 borderTopLeftRadius: 20,
                 borderTopRightRadius: 20,
             }}
@@ -168,7 +168,7 @@ const EditCollectionModal: React.FC<EditCollectionModalProps> = ({
                 height: 4,
             }}
         >
-            <BottomSheetView style={styles.container}>
+            <BottomSheetView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
                 {/* Header */}
                 <View style={[styles.header, { borderBottomColor: isDark ? '#374151' : '#E5E7EB' }]}>
                     <TouchableOpacity
@@ -381,6 +381,7 @@ const EditCollectionModal: React.FC<EditCollectionModalProps> = ({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: '#000000',
     },
     header: {
         flexDirection: 'row',

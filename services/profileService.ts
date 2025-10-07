@@ -1,5 +1,6 @@
 import axiosInstance from '../config/axios';
 import { buildEndpointUrl, SERVICES_CONFIG } from '../config/services';
+import { retryNetwork } from './retryService';
 import {
     InitializeProfileRequest,
     InitializeResponse,
@@ -16,9 +17,11 @@ class ProfileService {
      */
     async getUserProfile(): Promise<ProfileResponse> {
         try {
-            const endpoint = buildEndpointUrl('USER_SERVICE', 'PROFILE');
-            const response = await axiosInstance.get<ProfileResponse>(endpoint);
-            return response.data;
+            return await retryNetwork(async () => {
+                const endpoint = buildEndpointUrl('USER_SERVICE', 'PROFILE');
+                const response = await axiosInstance.get<ProfileResponse>(endpoint);
+                return response.data;
+            });
         } catch (error: any) {
             console.error('Failed to get user profile:', error);
             throw error;

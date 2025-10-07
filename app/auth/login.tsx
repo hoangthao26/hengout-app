@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, useColorScheme, View } from 'react-native';
 // import AuthBackButton from '../../components/AuthBackButton'; // 🚀 REMOVED: No back button on login screen
 import GradientText from '../../components/GradientText';
+import { AuthErrorBoundary } from '../../components/errorBoundaries';
 import { useToast } from '../../contexts/ToastContext';
 import EmailLoginForm from '../../modules/auth/components/EmailLoginForm';
 import { AuthHelper, authService } from '../../services';
@@ -64,7 +65,7 @@ export default function LoginScreen() {
                 NavigationService.secureNavigateToDiscover();
             }
         } catch (error: any) {
-            console.error('Login failed:', error);
+            console.log('Login failed:', error);
             showError('Đăng nhập thất bại', error.message || 'Vui lòng kiểm tra thông tin đăng nhập và thử lại.');
         } finally {
             setLoading(false);
@@ -115,52 +116,54 @@ export default function LoginScreen() {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={{
-                flex: 1,
-                backgroundColor: isDark ? '#000000' : '#FFFFFF'
-            }}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-        >
-            <View style={{
-                flex: 1,
-                paddingHorizontal: 24,
-                paddingTop: 60,
-                backgroundColor: isDark ? '#000000' : '#FFFFFF',
-                maxWidth: 500,
-                alignSelf: 'center',
-                width: '100%'
-            }}>
-                {/* 🚀 REMOVED: No back button on login screen */}
+        <AuthErrorBoundary>
+            <KeyboardAvoidingView
+                style={{
+                    flex: 1,
+                    backgroundColor: isDark ? '#000000' : '#FFFFFF'
+                }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+            >
+                <View style={{
+                    flex: 1,
+                    paddingHorizontal: 24,
+                    paddingTop: 60,
+                    backgroundColor: isDark ? '#000000' : '#FFFFFF',
+                    maxWidth: 500,
+                    alignSelf: 'center',
+                    width: '100%'
+                }}>
+                    {/* 🚀 REMOVED: No back button on login screen */}
 
-                {/* Logo Section - Reduced spacing */}
-                <View style={{ alignItems: 'center', marginTop: 20, marginBottom: 20 }}>
-                    <GradientText
-                        style={{
-                            fontSize: 120,
-                            fontWeight: 'bold',
-                            textAlign: 'center',
-                            fontFamily: 'Dongle',
-                        }}
-                        colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
-                    >
-                        Hengout
-                    </GradientText>
-                </View>
+                    {/* Logo Section - Reduced spacing */}
+                    <View style={{ alignItems: 'center', marginTop: 20, marginBottom: 20 }}>
+                        <GradientText
+                            style={{
+                                fontSize: 120,
+                                fontWeight: 'bold',
+                                textAlign: 'center',
+                                fontFamily: 'Dongle',
+                            }}
+                            colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
+                        >
+                            Hengout
+                        </GradientText>
+                    </View>
 
-                {/* Login Form Section */}
-                <View style={{ flex: 1, justifyContent: 'flex-start', paddingTop: 20 }}>
-                    <EmailLoginForm
-                        onSubmit={handleLogin}
-                        onGoogleSignIn={handleGoogleSignIn}
-                        onForgotPassword={handleForgotPassword}
-                        onSignUp={handleSignUp}
-                        loading={loading}
-                        googleLoading={googleLoading}
-                    />
+                    {/* Login Form Section */}
+                    <View style={{ flex: 1, justifyContent: 'flex-start', paddingTop: 20 }}>
+                        <EmailLoginForm
+                            onSubmit={handleLogin}
+                            onGoogleSignIn={handleGoogleSignIn}
+                            onForgotPassword={handleForgotPassword}
+                            onSignUp={handleSignUp}
+                            loading={loading}
+                            googleLoading={googleLoading}
+                        />
+                    </View>
                 </View>
-            </View>
-        </KeyboardAvoidingView>
+            </KeyboardAvoidingView>
+        </AuthErrorBoundary>
     );
 }

@@ -13,7 +13,7 @@ import {
     View
 } from 'react-native';
 import CollectionActionsModal from '../../components/CollectionActionsModal';
-import CollectionDetailCard from '../../components/CollectionDetailCard';
+import LocationCard from '../../components/LocationCard';
 import ConfirmDeleteModal from '../../components/ConfirmDeleteModal';
 import EditCollectionModal from '../../components/EditCollectionModal';
 import Header from '../../components/Header';
@@ -21,6 +21,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { locationFolderService } from '../../services/locationFolderService';
 import { useCollectionStore } from '../../store/collectionStore';
 import { LocationInFolder } from '../../types/locationFolder';
+import { LocationDetails } from '../../types/location';
 
 export default function CollectionDetailScreen() {
     const router = useRouter();
@@ -181,9 +182,27 @@ export default function CollectionDetailScreen() {
         initializeData();
     }, [loadLocations]);
 
-    const handleLocationPress = (location: LocationInFolder) => {
+    // Convert LocationInFolder to LocationDetails for LocationCard
+    const convertToLocationDetails = (locationInFolder: LocationInFolder): LocationDetails => {
+        return {
+            id: locationInFolder.locationId,
+            name: locationInFolder.locationName,
+            description: locationInFolder.note || '',
+            address: locationInFolder.address,
+            latitude: 0, // Not available in LocationInFolder
+            longitude: 0, // Not available in LocationInFolder
+            totalRating: 0, // Not available in LocationInFolder
+            categories: [], // Not available in LocationInFolder
+            purposes: [], // Not available in LocationInFolder
+            tags: [], // Not available in LocationInFolder
+            imageUrls: locationInFolder.imageUrl ? [locationInFolder.imageUrl] : [],
+            contacts: [], // Not available in LocationInFolder
+        };
+    };
+
+    const handleLocationPress = (location: LocationDetails) => {
         // TODO: Navigate to location detail screen
-        console.log('Navigate to location:', location.locationId);
+        console.log('Navigate to location:', location.id);
     };
 
     const handleRemoveLocation = (locationId: string) => {
@@ -218,10 +237,6 @@ export default function CollectionDetailScreen() {
     };
 
 
-    const handleEditLocation = (location: LocationInFolder) => {
-        // TODO: Navigate to edit location screen
-        console.log('Edit location:', location.id);
-    };
 
     // Modal handlers
     const handleEditCollection = () => {
@@ -290,16 +305,18 @@ export default function CollectionDetailScreen() {
     };
 
     const renderLocation = ({ item, index }: { item: LocationInFolder; index: number }) => {
-        const isProtected = currentCollection?.isDefault === true; // Protected if collection is default
+        const locationDetails = convertToLocationDetails(item);
         return (
-            <CollectionDetailCard
-                location={item}
-                onPress={handleLocationPress}
-                onRemove={handleRemoveLocation}
-                onEdit={handleEditLocation}
-                showActions={true} // Always show actions
-                isProtected={isProtected} // Disable actions if collection is default
-            />
+            <View style={{ paddingHorizontal: 4, paddingVertical: 4 }}>
+                <LocationCard
+                    location={locationDetails}
+                    variant="list"
+                    onOpenDetail={handleLocationPress}
+                    addedAt={item.addedAt}
+                    updatedAt={item.updatedAt}
+                    note={item.note}
+                />
+            </View>
         );
     };
 
@@ -363,7 +380,7 @@ export default function CollectionDetailScreen() {
             />
 
             {/* Collection Info - Similar to Profile */}
-            <TouchableOpacity style={[styles.collectionItem, { backgroundColor: isDark ? '#232024' : '#F3F4F6' }]}>
+            {/* <TouchableOpacity style={[styles.collectionItem, { backgroundColor: isDark ? '#232024' : '#F3F4F6' }]}>
                 <View style={styles.collectionIcon}>
                     <MapPin
                         size={46}
@@ -401,7 +418,7 @@ export default function CollectionDetailScreen() {
                         return <IconComponent size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />;
                     })()}
                 </View>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             {locations.length === 0 ? (
                 renderEmptyState()
@@ -410,10 +427,13 @@ export default function CollectionDetailScreen() {
                     data={locations}
                     renderItem={renderLocation}
                     keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContent}
+                    contentContainerStyle={[styles.listContent, { overflow: 'visible' }]}
                     showsVerticalScrollIndicator={false}
                     refreshing={refreshing}
                     onRefresh={onRefresh}
+                    style={{ overflow: 'visible' }}
+                    removeClippedSubviews={false}
+                    scrollEventThrottle={16}
                 />
             )}
 
@@ -514,6 +534,7 @@ const styles = StyleSheet.create({
     },
     listContent: {
         paddingBottom: 20,
+        overflow: 'visible',
     },
     emptyContainer: {
         flex: 1,

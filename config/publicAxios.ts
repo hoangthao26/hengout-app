@@ -24,7 +24,7 @@ publicAxios.interceptors.request.use(
         return config;
     },
     (error) => {
-        console.error('❌ Public API Request Error:', error);
+        console.warn('❌ Public API Request Error:', error);
         return Promise.reject(error);
     }
 );
@@ -40,12 +40,20 @@ publicAxios.interceptors.response.use(
         return response;
     },
     (error) => {
-        console.error('❌ Public API Response Error:', {
-            status: error.response?.status,
-            url: error.config?.url,
-            message: error.response?.data?.message || error.message
-        });
-        return Promise.reject(error);
+        // Normalize API error and surface backend message for UI
+        const status = error.response?.status;
+        const url = error.config?.url;
+        const backendMessage = error.response?.data?.message || error.response?.data?.error;
+        const message = backendMessage || error.message;
+
+        console.warn('❌ Public API Response Error:', { status, url, message });
+
+        const normalizedError = new Error(message);
+        (normalizedError as any).status = status;
+        (normalizedError as any).url = url;
+        (normalizedError as any).isApiError = true;
+        (normalizedError as any).raw = error;
+        return Promise.reject(normalizedError);
     }
 );
 

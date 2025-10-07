@@ -73,13 +73,13 @@ const CollectionActionsModal: React.FC<CollectionActionsModalProps> = ({
             backdropComponent={renderBackdrop}
             enablePanDownToClose
             backgroundStyle={{
-                backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+                backgroundColor: isDark ? '#000000' : '#FFFFFF',
             }}
             handleIndicatorStyle={{
                 backgroundColor: isDark ? '#4B5563' : '#D1D5DB',
             }}
         >
-            <BottomSheetView style={styles.content}>
+            <BottomSheetView style={[styles.content, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
                 <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#000000' }]}>
                     Quản lý Collection
                 </Text>
@@ -143,6 +143,7 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingHorizontal: 20,
         paddingBottom: 20,
+        backgroundColor: '#000000',
     },
     title: {
         fontSize: 18,
