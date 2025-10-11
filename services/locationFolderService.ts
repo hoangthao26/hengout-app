@@ -128,7 +128,6 @@ class LocationFolderService {
             const response = await axiosInstance.post<ApiResponse<{}>>(endpoint, locationData);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to add location to folder ${folderId}:`, error);
             throw error;
         }
     }

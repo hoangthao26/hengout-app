@@ -165,7 +165,7 @@ const SimpleToast: React.FC<SimpleToastProps> = ({ toast, onHide, onActionPress 
                             styles.title,
                             { color: '#FFFFFF' }, // White text như Figma
                         ]}
-                        numberOfLines={1}
+                        numberOfLines={2}
                     >
                         {toast.title}
                     </Text>
@@ -175,7 +175,7 @@ const SimpleToast: React.FC<SimpleToastProps> = ({ toast, onHide, onActionPress 
                                 styles.message,
                                 { color: '#C8C5C5' }, // Gray text như Figma
                             ]}
-                            numberOfLines={2}
+                            numberOfLines={3}
                         >
                             {toast.message}
                         </Text>
@@ -244,8 +244,8 @@ const styles = StyleSheet.create({
     toastContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 10, // Giảm padding
-        minHeight: 56, // Giảm min height
+        padding: 12, // Tăng padding một chút
+        minHeight: 60, // Tăng min height để chứa text
     },
     iconContainer: {
         marginRight: 12,
@@ -281,16 +281,16 @@ const styles = StyleSheet.create({
         marginRight: 8,
     },
     title: {
-        fontSize: 17, // Font size theo Figma
+        fontSize: 14, // Giảm font size để text không bị cắt
         fontWeight: '600', // Semibold như Figma
-        lineHeight: 22, // Line height theo Figma
+        lineHeight: 18, // Giảm line height
         marginBottom: 2,
-        letterSpacing: -0.408, // Letter spacing theo Figma
+        letterSpacing: -0.2, // Giảm letter spacing
     },
     message: {
-        fontSize: 13, // Font size theo Figma
-        lineHeight: 18, // Line height theo Figma
-        letterSpacing: -0.078, // Letter spacing theo Figma
+        fontSize: 12, // Giảm font size
+        lineHeight: 16, // Giảm line height
+        letterSpacing: -0.05, // Giảm letter spacing
     },
     actionButton: {
         paddingHorizontal: 12,

@@ -119,7 +119,11 @@ class GlobalErrorHandler {
                 'Warning:',
                 'Deprecation warning:',
                 'React DevTools',
-                'Remote debugger'
+                'Remote debugger',
+                'SaveLocationModal',
+                'Failed to save location to folder',
+                'addLocationToFolder',
+                'Request failed with status code 409'
             ];
 
             const shouldSkip = skipPatterns.some(pattern =>

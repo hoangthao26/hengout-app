@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import NavigationService from '../../services/navigationService';
 import { Globe, Lock, MapPin, MoreHorizontal, Plus, Trash2 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -15,6 +15,13 @@ import {
     View
 } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
+import Reanimated, {
+    SharedValue,
+    useAnimatedStyle,
+    LinearTransition,
+    SlideOutLeft,
+} from 'react-native-reanimated';
 import CollectionActionsModal from '../../components/CollectionActionsModal';
 import LocationCard from '../../components/LocationCard';
 import ConfirmDeleteModal from '../../components/ConfirmDeleteModal';
@@ -48,6 +55,10 @@ export default function CollectionDetailScreen() {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [contextMenuVisible, setContextMenuVisible] = useState(false);
     const [selectedLocation, setSelectedLocation] = useState<LocationInFolder | null>(null);
+    const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+
+    // Swipeable refs for managing multiple swipeable items
+    const itemRefs = useRef<{ [key: string]: any }>({});
 
     // Zustand store
     const {
@@ -206,14 +217,69 @@ export default function CollectionDetailScreen() {
         );
     };
 
+    // RightAction component for swipe to delete
+    const RightAction = (prog: SharedValue<number>, drag: SharedValue<number>, onDelete: () => void) => {
+        const styleAnimation = useAnimatedStyle(() => {
+            return {
+                transform: [{ translateX: drag.value + 80 }], // Adjusted for icon width
+            };
+        });
+
+        return (
+            <Reanimated.View style={styleAnimation}>
+                <TouchableOpacity style={styles.rightAction} onPress={onDelete}>
+                    <Trash2 size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+            </Reanimated.View>
+        );
+    };
+
     const removeLocation = async (locationId: string) => {
         try {
+            // Mark item as deleting
+            setDeletingIds(prev => new Set(prev).add(locationId));
+
+            // Call API to remove location
             await locationFolderService.removeLocationFromFolder(collectionId, locationId);
-            setLocations(prev => prev.filter(loc => loc.id !== locationId));
+
+            // Delay to allow SlideOutLeft animation to complete
+            setTimeout(() => {
+                setLocations(prev => prev.filter(loc => loc.locationId !== locationId));
+                setDeletingIds(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(locationId);
+                    return newSet;
+                });
+            }, 350);
+
             showSuccess('Đã xóa địa điểm khỏi collection');
         } catch (error: any) {
             console.error('Failed to remove location:', error);
-            showError('Không thể xóa địa điểm');
+
+            // Handle 404 error gracefully - location might already be removed
+            if (error.response?.status === 404) {
+                console.log('📍 [CollectionDetail] Location already removed (404), removing from UI');
+                showSuccess('Địa điểm đã được xóa');
+
+                // Still remove from UI since it's already gone from server
+                setTimeout(() => {
+                    setLocations(prev => prev.filter(loc => loc.locationId !== locationId));
+                    setDeletingIds(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(locationId);
+                        return newSet;
+                    });
+                }, 350);
+            } else {
+                showError('Không thể xóa địa điểm');
+
+                // Remove from deleting set on error
+                setDeletingIds(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(locationId);
+                    return newSet;
+                });
+            }
         }
     };
 
@@ -321,32 +387,39 @@ export default function CollectionDetailScreen() {
     const renderLocation = ({ item, index }: { item: LocationInFolder; index: number }) => {
         const locationDetails = convertToLocationDetails(item);
 
-
-        const longPressGesture = Gesture.LongPress()
-            .minDuration(500)
-            .onEnd((e, success) => {
-                if (success) {
-                    console.log(`Long pressed location for ${e.duration} ms!`);
-                    handleLongPress(item);
-                }
-            });
-
         return (
-            <View style={{ paddingHorizontal: 4, paddingVertical: 4 }}>
-                <GestureDetector gesture={longPressGesture}>
-                    <View>
-                        <LocationCard
-                            location={locationDetails}
-                            variant="list"
-                            onOpenDetail={handleLocationPress}
-                            addedAt={item.addedAt}
-                            updatedAt={item.updatedAt}
-                            note={item.note}
-                        />
-                    </View>
-                </GestureDetector>
-
-            </View>
+            <Reanimated.View
+                style={styles.swipeableWrapper}
+                exiting={SlideOutLeft.duration(300)}
+                layout={LinearTransition.springify().stiffness(200)}>
+                <ReanimatedSwipeable
+                    key={item.id}
+                    friction={2}
+                    enableTrackpadTwoFingerGesture
+                    rightThreshold={40}
+                    renderRightActions={(prog, drag) =>
+                        RightAction(prog, drag, () => removeLocation(item.locationId))
+                    }
+                    {...({ ref: (ref: any) => (itemRefs.current[item.id] = ref) } as any)}
+                    onSwipeableOpenStartDrag={async () => {
+                        const keys = Object.keys(itemRefs.current);
+                        keys.map(async key => {
+                            if (key !== item.id) {
+                                await itemRefs.current[key]?.close();
+                            }
+                        });
+                    }}
+                >
+                    <LocationCard
+                        location={locationDetails}
+                        variant="list"
+                        onOpenDetail={handleLocationPress}
+                        addedAt={item.addedAt}
+                        updatedAt={item.updatedAt}
+                        note={item.note}
+                    />
+                </ReanimatedSwipeable>
+            </Reanimated.View>
         );
     };
 
@@ -462,7 +535,7 @@ export default function CollectionDetailScreen() {
                             data={locations}
                             renderItem={renderLocation}
                             keyExtractor={(item) => item.id}
-                            contentContainerStyle={[styles.listContent, { overflow: 'visible' }]}
+                            contentContainerStyle={styles.listContent}
                             showsVerticalScrollIndicator={false}
                             refreshing={refreshing}
                             onRefresh={onRefresh}
@@ -586,8 +659,18 @@ const styles = StyleSheet.create({
         lineHeight: 20,
     },
     listContent: {
-        paddingBottom: 20,
-        overflow: 'visible',
+        padding: 8,
+    },
+    rightAction: {
+        width: 80,
+        height: '100%',
+        backgroundColor: '#ff4444',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 20,
+    },
+    swipeableWrapper: {
+        marginVertical: 4,
     },
     emptyContainer: {
         flex: 1,
