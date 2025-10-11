@@ -3,6 +3,7 @@ import { StyleSheet, View, Alert, TextInput, TouchableOpacity, useColorScheme, A
 import { useLocalSearchParams } from 'expo-router';
 import { Search, X, MapPinHouse, Filter } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MapErrorBoundary } from '../../components/errorBoundaries';
 import { useFilterRecommendations } from '../../hooks/useFilterRecommendations';
 import MapView from '../../components/MapView';
 import MapPin from '../../components/MapPin';
@@ -441,187 +442,189 @@ export default function DiscoverScreen() {
     }, [lat, lng, accuracy]); // ✅ Dependencies include splash location data
 
     return (
-        <TouchableWithoutFeedback onPress={dismissKeyboard}>
-            <View style={styles.container}>
-                {/* Search Bar (only when opened) */}
-                {isSearchOpen && (
-                    <View style={styles.searchContainer}>
-                        <TextInput
-                            ref={searchInputRef}
-                            style={styles.searchInput}
-                            placeholder="Tìm quán cà phê gần đây..."
-                            placeholderTextColor="#9CA3AF"
-                            value={searchQuery}
-                            onChangeText={handleSearch}
-                            autoFocus={true}
-                        />
-                        {searchLoading ? (
-                            <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
-                        ) : (
-                            <TouchableOpacity
-                                style={styles.searchButton}
-                                onPress={() => {
-                                    if (searchQuery) {
-                                        clearSearch();
-                                    } else {
-                                        setIsSearchOpen(false);
-                                        Keyboard.dismiss();
-                                    }
-                                }}
-                            >
-                                <X size={24} color="#9CA3AF" />
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                )}
-
-                {/* Floating Filter Button - always on the right of search area */}
-                <TouchableOpacity
-                    style={styles.filterFloating}
-                    onPress={() => {
-                        if (!location) return;
-                        openFilterVibesModal(async ({ categories, purposes, tags }) => {
-                            const isEmpty = (!categories || categories.length === 0) && (!purposes || purposes.length === 0) && (!tags || tags.length === 0);
-
-                            if (isEmpty) {
-                                // Clear filter results and reload random recommendations
-                                clearFilter();
-                                clearNLPSearch();
-                                clearRecommendations();
-                                await refreshRecommendations(location.latitude, location.longitude);
-                                console.log('[Filter] Cleared filters -> reload random recommendations');
-                                return;
-                            }
-
-                            // Hide random results while filter is active
-                            clearRecommendations();
-
-                            try {
-                                const res = await fetchByFilter({
-                                    categories,
-                                    purposes,
-                                    tags,
-                                    latitude: location.latitude,
-                                    longitude: location.longitude,
-                                    address: ''
-                                });
-                                console.log('[Filter] API response:', JSON.stringify(res, null, 2));
-                            } catch (err) {
-                                console.log('[Filter] API error:', err);
-                            }
-                        });
-                    }}
-                    activeOpacity={0.85}
-                >
-                    <LinearGradient
-                        colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
-                        locations={[0, 0.31, 0.69, 1]}
-                        start={{ x: 0, y: 1 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.gradientButton}
-                    >
-                        <Filter size={28} color="#FFFFFF" />
-                    </LinearGradient>
-                </TouchableOpacity>
-
-                {/* Bottom Container - Buttons + LocationCard */}
-                <View style={styles.bottomContainer}>
-                    {/* Control Buttons */}
-                    <View style={styles.controlButtons}>
-                        {/* Search Button */}
-                        <TouchableOpacity
-                            style={styles.homeButton}
-                            onPress={handleSearchButtonPress}
-                        >
-                            <LinearGradient
-                                colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
-                                locations={[0, 0.31, 0.69, 1]}
-                                start={{ x: 0, y: 1 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.gradientButton}
-                            >
-                                <Search size={28} color="#FFFFFF" />
-                            </LinearGradient>
-                        </TouchableOpacity>
-
-
-                        {/* Go to Initial Location Button */}
-                        <TouchableOpacity
-                            style={styles.homeButton}
-                            onPress={handleGoToInitialLocation}
-                        >
-                            <LinearGradient
-                                colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
-                                locations={[0, 0.31, 0.69, 1]}
-                                start={{ x: 0, y: 1 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.gradientButton}
-                            >
-                                <MapPinHouse size={28} color="#FFFFFF" />
-                            </LinearGradient>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Location Card */}
-                    <LocationCard
-                        location={selectedLocationForDetail}
-                        visible={!!selectedLocationForDetail}
-                        onClose={handleDetailSheetClose}
-                        onNavigate={handleNavigateToLocation}
-                        onCall={handleCallLocation}
-                        onOpenDetail={handleOpenDetailModal}
-                    />
-                </View>
-
-                <MapView
-                    onLocationSelect={handleLocationSelect}
-                    showUserLocation={true}
-                    initialLocation={initialLocation || undefined}
-                    currentLocation={location}
-                    style={styles.fullMap}
-                    onMapRef={handleMapRef}
-                >
-                    {/* Render MapPins - Show search results if searching, otherwise show random recommendations */}
-                    {searchResults.length > 0 ? (
-                        // Show search results when searching
-                        searchResults.map((locationDetails) => (
-                            <MapPin
-                                key={`search_${locationDetails.id}`}
-                                location={locationDetails}
-                                onPress={handleMapPinSelect}
-                                onCenterMap={handleCenterMap}
-                                isSelected={selectedLocationDetails?.id === locationDetails.id}
-                                size="medium"
+        <MapErrorBoundary>
+            <TouchableWithoutFeedback onPress={dismissKeyboard}>
+                <View style={styles.container}>
+                    {/* Search Bar (only when opened) */}
+                    {isSearchOpen && (
+                        <View style={styles.searchContainer}>
+                            <TextInput
+                                ref={searchInputRef}
+                                style={styles.searchInput}
+                                placeholder="Tìm quán cà phê gần đây..."
+                                placeholderTextColor="#9CA3AF"
+                                value={searchQuery}
+                                onChangeText={handleSearch}
+                                autoFocus={true}
                             />
-                        ))
-                    ) : filterResults.length > 0 ? (
-                        filterResults.map((locationDetails) => (
-                            <MapPin
-                                key={`filter_${locationDetails.id}`}
-                                location={locationDetails}
-                                onPress={handleMapPinSelect}
-                                onCenterMap={handleCenterMap}
-                                isSelected={selectedLocationDetails?.id === locationDetails.id}
-                                size="medium"
-                            />
-                        ))
-                    ) : (
-                        // Show random recommendations when not searching
-                        recommendations.map((locationDetails) => (
-                            <MapPin
-                                key={locationDetails.id}
-                                location={locationDetails}
-                                onPress={handleMapPinSelect}
-                                onCenterMap={handleCenterMap}
-                                isSelected={selectedLocationDetails?.id === locationDetails.id}
-                                size="medium"
-                            />
-                        ))
+                            {searchLoading ? (
+                                <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
+                            ) : (
+                                <TouchableOpacity
+                                    style={styles.searchButton}
+                                    onPress={() => {
+                                        if (searchQuery) {
+                                            clearSearch();
+                                        } else {
+                                            setIsSearchOpen(false);
+                                            Keyboard.dismiss();
+                                        }
+                                    }}
+                                >
+                                    <X size={24} color="#9CA3AF" />
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     )}
-                </MapView>
 
-            </View>
-        </TouchableWithoutFeedback>
+                    {/* Floating Filter Button - always on the right of search area */}
+                    <TouchableOpacity
+                        style={styles.filterFloating}
+                        onPress={() => {
+                            if (!location) return;
+                            openFilterVibesModal(async ({ categories, purposes, tags }) => {
+                                const isEmpty = (!categories || categories.length === 0) && (!purposes || purposes.length === 0) && (!tags || tags.length === 0);
+
+                                if (isEmpty) {
+                                    // Clear filter results and reload random recommendations
+                                    clearFilter();
+                                    clearNLPSearch();
+                                    clearRecommendations();
+                                    await refreshRecommendations(location.latitude, location.longitude);
+                                    console.log('[Filter] Cleared filters -> reload random recommendations');
+                                    return;
+                                }
+
+                                // Hide random results while filter is active
+                                clearRecommendations();
+
+                                try {
+                                    const res = await fetchByFilter({
+                                        categories,
+                                        purposes,
+                                        tags,
+                                        latitude: location.latitude,
+                                        longitude: location.longitude,
+                                        address: ''
+                                    });
+                                    console.log('[Filter] API response:', JSON.stringify(res, null, 2));
+                                } catch (err) {
+                                    console.log('[Filter] API error:', err);
+                                }
+                            });
+                        }}
+                        activeOpacity={0.85}
+                    >
+                        <LinearGradient
+                            colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
+                            locations={[0, 0.31, 0.69, 1]}
+                            start={{ x: 0, y: 1 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.gradientButton}
+                        >
+                            <Filter size={28} color="#FFFFFF" />
+                        </LinearGradient>
+                    </TouchableOpacity>
+
+                    {/* Bottom Container - Buttons + LocationCard */}
+                    <View style={styles.bottomContainer}>
+                        {/* Control Buttons */}
+                        <View style={styles.controlButtons}>
+                            {/* Search Button */}
+                            <TouchableOpacity
+                                style={styles.homeButton}
+                                onPress={handleSearchButtonPress}
+                            >
+                                <LinearGradient
+                                    colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
+                                    locations={[0, 0.31, 0.69, 1]}
+                                    start={{ x: 0, y: 1 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.gradientButton}
+                                >
+                                    <Search size={28} color="#FFFFFF" />
+                                </LinearGradient>
+                            </TouchableOpacity>
+
+
+                            {/* Go to Initial Location Button */}
+                            <TouchableOpacity
+                                style={styles.homeButton}
+                                onPress={handleGoToInitialLocation}
+                            >
+                                <LinearGradient
+                                    colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
+                                    locations={[0, 0.31, 0.69, 1]}
+                                    start={{ x: 0, y: 1 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.gradientButton}
+                                >
+                                    <MapPinHouse size={28} color="#FFFFFF" />
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Location Card */}
+                        <LocationCard
+                            location={selectedLocationForDetail}
+                            visible={!!selectedLocationForDetail}
+                            onClose={handleDetailSheetClose}
+                            onNavigate={handleNavigateToLocation}
+                            onCall={handleCallLocation}
+                            onOpenDetail={handleOpenDetailModal}
+                        />
+                    </View>
+
+                    <MapView
+                        onLocationSelect={handleLocationSelect}
+                        showUserLocation={true}
+                        initialLocation={initialLocation || undefined}
+                        currentLocation={location}
+                        style={styles.fullMap}
+                        onMapRef={handleMapRef}
+                    >
+                        {/* Render MapPins - Show search results if searching, otherwise show random recommendations */}
+                        {searchResults.length > 0 ? (
+                            // Show search results when searching
+                            searchResults.map((locationDetails) => (
+                                <MapPin
+                                    key={`search_${locationDetails.id}`}
+                                    location={locationDetails}
+                                    onPress={handleMapPinSelect}
+                                    onCenterMap={handleCenterMap}
+                                    isSelected={selectedLocationDetails?.id === locationDetails.id}
+                                    size="medium"
+                                />
+                            ))
+                        ) : filterResults.length > 0 ? (
+                            filterResults.map((locationDetails) => (
+                                <MapPin
+                                    key={`filter_${locationDetails.id}`}
+                                    location={locationDetails}
+                                    onPress={handleMapPinSelect}
+                                    onCenterMap={handleCenterMap}
+                                    isSelected={selectedLocationDetails?.id === locationDetails.id}
+                                    size="medium"
+                                />
+                            ))
+                        ) : (
+                            // Show random recommendations when not searching
+                            recommendations.map((locationDetails) => (
+                                <MapPin
+                                    key={locationDetails.id}
+                                    location={locationDetails}
+                                    onPress={handleMapPinSelect}
+                                    onCenterMap={handleCenterMap}
+                                    isSelected={selectedLocationDetails?.id === locationDetails.id}
+                                    size="medium"
+                                />
+                            ))
+                        )}
+                    </MapView>
+
+                </View>
+            </TouchableWithoutFeedback>
+        </MapErrorBoundary>
     );
 }
 

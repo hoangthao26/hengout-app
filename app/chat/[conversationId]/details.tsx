@@ -12,6 +12,7 @@ import {
 } from 'lucide-react-native';
 import NavigationService from '../../../services/navigationService';
 import React, { useEffect, useState } from 'react';
+import { ChatErrorBoundary } from '../../../components/errorBoundaries';
 import {
     Image,
     ScrollView,
@@ -214,211 +215,213 @@ export default function ConversationDetailsScreen() {
     const isGroup = conversation.type === 'GROUP';
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <ChatErrorBoundary>
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                <StatusBar barStyle="light-content" backgroundColor="#000000" />
 
-            {/* Header */}
-            <Header
-                title=""
-                showBackButton={true}
-                onBackPress={handleBack}
-            />
+                {/* Header */}
+                <Header
+                    title=""
+                    showBackButton={true}
+                    onBackPress={handleBack}
+                />
 
-            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-                {/* Profile Section */}
-                <View style={styles.profileSection}>
-                    {/* Avatar */}
-                    <View style={styles.avatarContainer}>
-                        {conversation.avatarUrl ? (
-                            <Image
-                                source={{ uri: conversation.avatarUrl }}
-                                style={styles.avatar}
-                                resizeMode="contain"
-                            />
-                        ) : (
-                            <View style={[styles.defaultAvatar, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
-                                <Users size={60} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+                    {/* Profile Section */}
+                    <View style={styles.profileSection}>
+                        {/* Avatar */}
+                        <View style={styles.avatarContainer}>
+                            {conversation.avatarUrl ? (
+                                <Image
+                                    source={{ uri: conversation.avatarUrl }}
+                                    style={styles.avatar}
+                                    resizeMode="contain"
+                                />
+                            ) : (
+                                <View style={[styles.defaultAvatar, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
+                                    <Users size={60} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Name */}
+                        <Text style={[styles.conversationName, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            {conversation.name}
+                        </Text>
+
+                        {/* Change name or photo (only for groups) */}
+                        {isGroup && (
+                            <TouchableOpacity onPress={handleChangeNameOrPhoto}>
+                                <Text style={styles.changeNameText}>Đổi tên hoặc ảnh</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        {/* Action buttons (only for groups) */}
+                        {isGroup && (
+                            <View style={styles.actionButtons}>
+                                <TouchableOpacity style={styles.actionButton} onPress={handleAddMember}>
+                                    <UserPlus size={28} color={isDark ? '#FFFFFF' : '#000000'} />
+                                    <Text style={[styles.actionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                                        Thêm
+                                    </Text>
+                                </TouchableOpacity>
+
+                                {/* Tạm thời ẩn các action buttons này */}
+                                {false && (
+                                    <>
+                                        <TouchableOpacity style={styles.actionButton} onPress={handleSearch}>
+                                            <Search size={28} color={isDark ? '#FFFFFF' : '#000000'} />
+                                            <Text style={[styles.actionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                                                Tìm kiếm
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity style={styles.actionButton} onPress={handleMute}>
+                                            <Bell size={28} color={isDark ? '#FFFFFF' : '#000000'} />
+                                            <Text style={[styles.actionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                                                Tắt
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity style={styles.actionButton} onPress={handleOptions}>
+                                            <MoreHorizontal size={28} color={isDark ? '#FFFFFF' : '#000000'} />
+                                            <Text style={[styles.actionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                                                Lựa chọn
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </>
+                                )}
                             </View>
                         )}
                     </View>
 
-                    {/* Name */}
-                    <Text style={[styles.conversationName, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                        {conversation.name}
-                    </Text>
-
-                    {/* Change name or photo (only for groups) */}
-                    {isGroup && (
-                        <TouchableOpacity onPress={handleChangeNameOrPhoto}>
-                            <Text style={styles.changeNameText}>Đổi tên hoặc ảnh</Text>
-                        </TouchableOpacity>
-                    )}
-
-                    {/* Action buttons (only for groups) */}
-                    {isGroup && (
-                        <View style={styles.actionButtons}>
-                            <TouchableOpacity style={styles.actionButton} onPress={handleAddMember}>
-                                <UserPlus size={28} color={isDark ? '#FFFFFF' : '#000000'} />
-                                <Text style={[styles.actionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                                    Thêm
-                                </Text>
-                            </TouchableOpacity>
-
-                            {/* Tạm thời ẩn các action buttons này */}
-                            {false && (
-                                <>
-                                    <TouchableOpacity style={styles.actionButton} onPress={handleSearch}>
-                                        <Search size={28} color={isDark ? '#FFFFFF' : '#000000'} />
-                                        <Text style={[styles.actionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                                            Tìm kiếm
-                                        </Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity style={styles.actionButton} onPress={handleMute}>
-                                        <Bell size={28} color={isDark ? '#FFFFFF' : '#000000'} />
-                                        <Text style={[styles.actionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                                            Tắt
-                                        </Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity style={styles.actionButton} onPress={handleOptions}>
-                                        <MoreHorizontal size={28} color={isDark ? '#FFFFFF' : '#000000'} />
-                                        <Text style={[styles.actionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                                            Lựa chọn
-                                        </Text>
-                                    </TouchableOpacity>
-                                </>
-                            )}
-                        </View>
-                    )}
-                </View>
-
-                {/* Options List */}
-                <View style={styles.optionsList}>
-                    {isGroup && (
-                        <TouchableOpacity style={styles.optionItem} onPress={handleViewMembers}>
-                            <View style={styles.optionLeft}>
-                                <Users size={28} color={isDark ? '#FFFFFF' : '#000000'} />
-                                <View style={styles.optionTextContainer}>
-                                    <Text style={[styles.optionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                                        Mọi người
-                                    </Text>
-                                    <Text style={[styles.optionSubtext, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                        Thành viên nhóm
-                                    </Text>
-                                </View>
-                            </View>
-                            <ChevronRight size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
-                        </TouchableOpacity>
-                    )}
-
-                    {!isGroup && (
-                        <TouchableOpacity style={styles.optionItem} onPress={handleCreateGroup}>
-                            <View style={styles.optionLeft}>
-                                <UserPlus size={28} color={isDark ? '#FFFFFF' : '#000000'} />
-                                <View style={styles.optionTextContainer}>
-                                    <Text style={[styles.optionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                                        Tạo nhóm chat mới
-                                    </Text>
-                                </View>
-                            </View>
-                            <ChevronRight size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
-                        </TouchableOpacity>
-                    )}
-
-                    {/* Tạm thời ẩn các options này */}
-                    {false && (
-                        <>
-                            <TouchableOpacity style={styles.optionItem} onPress={handleTheme}>
+                    {/* Options List */}
+                    <View style={styles.optionsList}>
+                        {isGroup && (
+                            <TouchableOpacity style={styles.optionItem} onPress={handleViewMembers}>
                                 <View style={styles.optionLeft}>
-                                    <View style={styles.themeIcon}>
-                                        <View style={styles.themeGradient} />
-                                    </View>
+                                    <Users size={28} color={isDark ? '#FFFFFF' : '#000000'} />
                                     <View style={styles.optionTextContainer}>
                                         <Text style={[styles.optionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                                            Chủ đề
+                                            Mọi người
                                         </Text>
                                         <Text style={[styles.optionSubtext, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                            Mặc định
+                                            Thành viên nhóm
                                         </Text>
                                     </View>
                                 </View>
                                 <ChevronRight size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
                             </TouchableOpacity>
+                        )}
 
-                            <TouchableOpacity style={styles.optionItem} onPress={handleInviteLink}>
+                        {!isGroup && (
+                            <TouchableOpacity style={styles.optionItem} onPress={handleCreateGroup}>
                                 <View style={styles.optionLeft}>
-                                    <Link size={28} color={isDark ? '#FFFFFF' : '#000000'} />
+                                    <UserPlus size={28} color={isDark ? '#FFFFFF' : '#000000'} />
                                     <View style={styles.optionTextContainer}>
                                         <Text style={[styles.optionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                                            Liên kết mời
-                                        </Text>
-                                        <Text style={[styles.optionSubtext, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                            Đang tắt
+                                            Tạo nhóm chat mới
                                         </Text>
                                     </View>
                                 </View>
                                 <ChevronRight size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
                             </TouchableOpacity>
+                        )}
 
-                            <TouchableOpacity style={styles.optionItem} onPress={handleNickname}>
-                                <View style={styles.optionLeft}>
-                                    <Type size={28} color={isDark ? '#FFFFFF' : '#000000'} />
-                                    <View style={styles.optionTextContainer}>
-                                        <Text style={[styles.optionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                                            Biệt danh
-                                        </Text>
+                        {/* Tạm thời ẩn các options này */}
+                        {false && (
+                            <>
+                                <TouchableOpacity style={styles.optionItem} onPress={handleTheme}>
+                                    <View style={styles.optionLeft}>
+                                        <View style={styles.themeIcon}>
+                                            <View style={styles.themeGradient} />
+                                        </View>
+                                        <View style={styles.optionTextContainer}>
+                                            <Text style={[styles.optionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                                                Chủ đề
+                                            </Text>
+                                            <Text style={[styles.optionSubtext, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                                Mặc định
+                                            </Text>
+                                        </View>
                                     </View>
-                                </View>
-                                <ChevronRight size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
-                            </TouchableOpacity>
+                                    <ChevronRight size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                                </TouchableOpacity>
 
-                            <TouchableOpacity style={styles.optionItem} onPress={handlePrivacy}>
-                                <View style={styles.optionLeft}>
-                                    <Shield size={28} color={isDark ? '#FFFFFF' : '#000000'} />
-                                    <View style={styles.optionTextContainer}>
-                                        <Text style={[styles.optionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                                            Quyền riêng tư và an toàn
-                                        </Text>
+                                <TouchableOpacity style={styles.optionItem} onPress={handleInviteLink}>
+                                    <View style={styles.optionLeft}>
+                                        <Link size={28} color={isDark ? '#FFFFFF' : '#000000'} />
+                                        <View style={styles.optionTextContainer}>
+                                            <Text style={[styles.optionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                                                Liên kết mời
+                                            </Text>
+                                            <Text style={[styles.optionSubtext, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                                Đang tắt
+                                            </Text>
+                                        </View>
                                     </View>
-                                </View>
-                                <ChevronRight size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
-                            </TouchableOpacity>
-                        </>
-                    )}
-                </View>
-            </ScrollView>
+                                    <ChevronRight size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                                </TouchableOpacity>
 
-            {/* Add Member Modal */}
-            {conversation && (
-                <AddMemberModal
-                    isVisible={showAddMemberModal}
-                    onClose={handleCloseAddMemberModal}
-                    onSuccess={handleAddMemberSuccess}
-                    conversationId={conversation.id}
-                    conversationName={conversation.name}
+                                <TouchableOpacity style={styles.optionItem} onPress={handleNickname}>
+                                    <View style={styles.optionLeft}>
+                                        <Type size={28} color={isDark ? '#FFFFFF' : '#000000'} />
+                                        <View style={styles.optionTextContainer}>
+                                            <Text style={[styles.optionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                                                Biệt danh
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    <ChevronRight size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={styles.optionItem} onPress={handlePrivacy}>
+                                    <View style={styles.optionLeft}>
+                                        <Shield size={28} color={isDark ? '#FFFFFF' : '#000000'} />
+                                        <View style={styles.optionTextContainer}>
+                                            <Text style={[styles.optionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                                                Quyền riêng tư và an toàn
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    <ChevronRight size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                                </TouchableOpacity>
+                            </>
+                        )}
+                    </View>
+                </ScrollView>
+
+                {/* Add Member Modal */}
+                {conversation && (
+                    <AddMemberModal
+                        isVisible={showAddMemberModal}
+                        onClose={handleCloseAddMemberModal}
+                        onSuccess={handleAddMemberSuccess}
+                        conversationId={conversation.id}
+                        conversationName={conversation.name}
+                    />
+                )}
+
+                {/* Create Group Modal */}
+                <CreateGroupModal
+                    isVisible={showCreateGroupModal}
+                    onClose={handleCloseCreateGroupModal}
+                    onSuccess={handleCreateGroupSuccess}
                 />
-            )}
 
-            {/* Create Group Modal */}
-            <CreateGroupModal
-                isVisible={showCreateGroupModal}
-                onClose={handleCloseCreateGroupModal}
-                onSuccess={handleCreateGroupSuccess}
-            />
-
-            {/* Edit Group Modal */}
-            {conversation && (
-                <EditGroupModal
-                    isVisible={showEditGroupModal}
-                    onClose={handleCloseEditGroupModal}
-                    onSuccess={handleEditGroupSuccess}
-                    conversationId={conversation.id}
-                    currentName={conversation.name}
-                    currentAvatar={conversation.avatarUrl}
-                />
-            )}
-        </View>
+                {/* Edit Group Modal */}
+                {conversation && (
+                    <EditGroupModal
+                        isVisible={showEditGroupModal}
+                        onClose={handleCloseEditGroupModal}
+                        onSuccess={handleEditGroupSuccess}
+                        conversationId={conversation.id}
+                        currentName={conversation.name}
+                        currentAvatar={conversation.avatarUrl}
+                    />
+                )}
+            </View>
+        </ChatErrorBoundary>
     );
 }
 

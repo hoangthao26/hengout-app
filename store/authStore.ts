@@ -43,8 +43,6 @@ export interface AuthState {
     fetchUserProfile: () => Promise<void>;
     initializeUserServices: () => Promise<void>;
     fastLogout: () => Promise<void>;
-    scheduleProactiveRefresh: (timeUntilExpiry: number) => void;
-    performProactiveRefresh: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -441,136 +439,18 @@ export const useAuthStore = create<AuthState>()(
             refreshTokens: async () => {
                 console.log('🔄 [AuthStore] Starting token refresh...');
 
-                // 🚀 PROACTIVE: Check if refresh token exists first
-                const refreshToken = await AuthHelper.getRefreshToken();
-                if (!refreshToken) {
-                    console.log('🔐 [AuthStore] No refresh token available - logging out user');
-                    await AuthHelper.logoutAndNavigate();
-                    return;
-                }
-
-                // 🚀 USE REFRESH TOKEN MANAGER: Delegate to consolidated service
-                const success = await refreshTokenManager.performRefresh();
+                // 🚀 DELEGATE TO REFRESH TOKEN MANAGER: With store update
+                const success = await refreshTokenManager.performRefresh(true);
 
                 if (success) {
                     console.log('✅ [AuthStore] Token refresh successful via RefreshTokenManager');
-
-                    // Update Zustand store with new tokens
-                    const newTokens = await AuthHelper.getTokens();
-                    if (newTokens) {
-                        set({
-                            tokens: {
-                                accessToken: newTokens.accessToken,
-                                refreshToken: newTokens.refreshToken,
-                            }
-                        });
-                    }
                 } else {
                     console.log('❌ [AuthStore] Token refresh failed via RefreshTokenManager');
                     // Don't throw error - let RefreshTokenManager handle logout
                 }
             },
 
-            // 🚀 OPTIMIZED PROACTIVE REFRESH: Smart scheduling with retry logic
-            scheduleProactiveRefresh: (timeUntilExpiry: number) => {
-                const REFRESH_BEFORE_EXPIRY = 7 * 60 * 1000; // 7 minutes before expiry
-                const scheduleTime = Math.max(0, timeUntilExpiry - REFRESH_BEFORE_EXPIRY);
 
-                console.log('⏰ [AuthStore] Scheduling proactive refresh:', {
-                    timeUntilExpiry: Math.round(timeUntilExpiry / 1000) + ' seconds',
-                    scheduleTime: Math.round(scheduleTime / 1000) + ' seconds',
-                    refreshBeforeExpiry: Math.round(REFRESH_BEFORE_EXPIRY / 1000) + ' seconds'
-                });
-
-                setTimeout(async () => {
-                    console.log('🔄 [AuthStore] Executing scheduled proactive refresh...');
-                    const success = await get().performProactiveRefresh();
-
-                    if (!success) {
-                        console.log('⚠️ [AuthStore] Proactive refresh failed, will fallback to lazy refresh');
-                        // Fallback: Schedule another attempt closer to expiry
-                        const fallbackTime = Math.max(0, timeUntilExpiry - (2 * 60 * 1000)); // 2 minutes before
-                        setTimeout(() => {
-                            get().performProactiveRefresh().catch(error => {
-                                console.log('❌ [AuthStore] Fallback proactive refresh also failed:', error);
-                            });
-                        }, fallbackTime);
-                    }
-                }, scheduleTime);
-            },
-
-            // 🚀 ENHANCED PROACTIVE REFRESH: With retry logic and fallback
-            performProactiveRefresh: async (): Promise<boolean> => {
-                try {
-                    console.log('🔄 [AuthStore] Performing proactive token refresh...');
-
-                    // Check if token still needs refresh
-                    const storedTokens = await AuthHelper.getTokens();
-                    if (!storedTokens || !storedTokens.refreshToken) {
-                        console.log('❌ [AuthStore] No tokens available for proactive refresh');
-                        return false;
-                    }
-
-                    // Check if token is still close to expiry
-                    if (storedTokens.expiresIn > 10 * 60 * 1000) { // More than 10 minutes left
-                        console.log('✅ [AuthStore] Token still has plenty of time, skipping proactive refresh');
-                        return true;
-                    }
-
-                    // Perform refresh with retry logic
-                    const maxRetries = 2; // Fewer retries for proactive refresh
-                    let lastError: any;
-
-                    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                        try {
-                            console.log(`🔄 [AuthStore] Proactive refresh attempt ${attempt}/${maxRetries}...`);
-
-                            const response = await sessionService.refreshToken(storedTokens.refreshToken);
-
-                            // Save new tokens
-                            await AuthHelper.saveTokens({
-                                accessToken: response.data.accessToken,
-                                refreshToken: response.data.refreshToken,
-                                tokenType: response.data.tokenType,
-                                expiresIn: response.data.expiresIn,
-                                expiresAt: Date.now() + response.data.expiresIn,
-                                role: response.data.role,
-                            });
-
-                            // Update store
-                            set({
-                                tokens: {
-                                    accessToken: response.data.accessToken,
-                                    refreshToken: response.data.refreshToken,
-                                },
-                            });
-
-                            console.log('✅ [AuthStore] Proactive refresh successful');
-
-                            // Schedule next proactive refresh
-                            get().scheduleProactiveRefresh(response.data.expiresIn);
-
-                            return true;
-                        } catch (error: any) {
-                            lastError = error;
-                            console.log(`❌ [AuthStore] Proactive refresh attempt ${attempt} failed:`, error.message);
-
-                            if (attempt < maxRetries) {
-                                const waitTime = attempt * 2000; // 2s, 4s
-                                console.log(`⏳ [AuthStore] Waiting ${waitTime / 1000} seconds before retry...`);
-                                await new Promise(resolve => setTimeout(resolve, waitTime));
-                            }
-                        }
-                    }
-
-                    console.log('❌ [AuthStore] Proactive refresh failed after all retries:', lastError);
-                    return false;
-                } catch (error: any) {
-                    // Silent log for proactive refresh error - don't show error to user
-                    console.log('🔄 [AuthStore] Proactive refresh error:', (error as any)?.message || 'Unknown error');
-                    return false;
-                }
-            },
 
             forgotPassword: async (email: string) => {
                 try {
@@ -635,16 +515,15 @@ export const useAuthStore = create<AuthState>()(
                         const isTokenExpired = storedTokens.expiresIn <= 0;
                         const timeUntilExpiry = storedTokens.expiresIn;
 
-                        // 🚀 OPTIMIZED TIMING: More flexible refresh windows
+                        // 🚀 STANDARDIZED TIMING: Consistent 5-minute proactive refresh
                         const CRITICAL_THRESHOLD = 2 * 60 * 1000; // 2 minutes - critical
-                        const WARNING_THRESHOLD = 5 * 60 * 1000; // 5 minutes - warning
-                        const PROACTIVE_THRESHOLD = 10 * 60 * 1000; // 10 minutes - proactive
+                        const PROACTIVE_THRESHOLD = 5 * 60 * 1000; // 5 minutes - proactive refresh
 
                         if (isTokenExpired) {
                             console.log('⏰ [AuthStore] Token expired, attempting immediate refresh...');
                         } else if (timeUntilExpiry < CRITICAL_THRESHOLD) {
                             console.log('🚨 [AuthStore] Token expires in <2 minutes, refreshing immediately...');
-                        } else if (timeUntilExpiry < WARNING_THRESHOLD) {
+                        } else if (timeUntilExpiry < PROACTIVE_THRESHOLD) {
                             console.log('⚠️ [AuthStore] Token expires in <5 minutes, refreshing proactively...');
                         } else {
                             console.log('✅ [AuthStore] Token still valid, using fast path');

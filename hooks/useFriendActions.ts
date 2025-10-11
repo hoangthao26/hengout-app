@@ -3,7 +3,6 @@ import { useToast } from '../contexts/ToastContext';
 import { socialService } from '../services/socialService';
 import { useFriendStore } from '../store/friendStore';
 import { SearchUser } from '../types/social';
-import { useRetry } from './useRetry';
 
 export const useFriendActions = (
     searchResults: SearchUser[],
@@ -11,9 +10,6 @@ export const useFriendActions = (
 ) => {
     const [processingUser, setProcessingUser] = useState<string | null>(null);
     const { success: showSuccess, error: showError } = useToast();
-    const { executeWithRetry, isRetrying } = useRetry({
-        strategy: 'network'
-    });
 
     // Get global friend actions
     const {
@@ -44,9 +40,7 @@ export const useFriendActions = (
             // 2. Send friend request to server with retry logic
             console.log('🔗 [Friend Request] Send URL:', `POST /api/social/friend-requests`);
             console.log('📝 [Friend Request] Send User ID:', userId);
-            const response = await executeWithRetry(
-                () => socialService.sendFriendRequest(userId)
-            );
+            const response = await socialService.sendFriendRequest(userId);
             showSuccess('Friend request sent!');
 
             // 3. Update relationshipStatus first (optimistic)
@@ -65,9 +59,7 @@ export const useFriendActions = (
                 // Get the user's name to search for them specifically
                 const currentUser = searchResultsRef.current.find(u => u.id === userId);
                 if (currentUser?.name) {
-                    const searchResponse = await executeWithRetry(
-                        () => socialService.searchUsersDetail(currentUser.name, 0, 10)
-                    );
+                    const searchResponse = await socialService.searchUsersDetail(currentUser.name, 0, 10);
 
                     // Find the user in search results and get their friendRequestId
                     const updatedUser = searchResponse.data.content.find((u: any) => u.id === userId);
@@ -137,9 +129,7 @@ export const useFriendActions = (
 
             console.log('🔗 [Friend Request] Cancel URL:', `DELETE /api/social/friend-requests/${friendRequestId}`);
             console.log('📝 [Friend Request] Cancel Request ID:', friendRequestId);
-            await executeWithRetry(
-                () => socialService.cancelSentFriendRequest(friendRequestId!)
-            );
+            await socialService.cancelSentFriendRequest(friendRequestId!);
             showSuccess('Friend request cancelled!');
         } catch (error: any) {
             console.error('Failed to cancel friend request:', error);

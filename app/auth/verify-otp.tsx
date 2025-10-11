@@ -1,6 +1,7 @@
 import AuthBackButton from '@/components/AuthBackButton';
 import GradientButton from '@/components/GradientButton';
 import GradientText from '@/components/GradientText';
+import { AuthErrorBoundary } from '@/components/errorBoundaries';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -50,7 +51,7 @@ export default function VerifyOTPScreen() {
             setHasAutoSubmitted(true);
             // Use setTimeout to ensure state is updated before calling handleVerifyOTP
             setTimeout(() => {
-                handleVerifyOTP();
+                handleVerifyOTPWithValue(value); // Pass the value directly
             }, 100);
         }
 
@@ -60,8 +61,8 @@ export default function VerifyOTPScreen() {
         }
     };
 
-    const handleVerifyOTP = async () => {
-        if (otp.length !== 6) {
+    const handleVerifyOTPWithValue = async (otpValue: string) => {
+        if (otpValue.length !== 6) {
             showError('Please enter a valid 6-digit OTP',);
             return;
         }
@@ -72,7 +73,7 @@ export default function VerifyOTPScreen() {
         setLoading(true);
         setHasError(false);
         try {
-            const response = await authService.registerVerifyOTP(sessionToken, otp);
+            const response = await authService.registerVerifyOTP(sessionToken, otpValue);
             console.log('OTP verification successful:', response);
 
             // Save tokens to secure storage (including onboardingComplete)
@@ -107,6 +108,11 @@ export default function VerifyOTPScreen() {
         }
     };
 
+    // Keep original function for manual button submission
+    const handleVerifyOTP = async () => {
+        await handleVerifyOTPWithValue(otp);
+    };
+
     const handleResendOTP = async () => {
         if (!canResend || loading) return;
 
@@ -132,179 +138,181 @@ export default function VerifyOTPScreen() {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={{
-                flex: 1,
-                backgroundColor: isDark ? '#000000' : '#FFFFFF'
-            }}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-        >
-            <View style={{
-                flex: 1,
-                paddingHorizontal: 24,
-                paddingTop: 60,
-                backgroundColor: isDark ? '#000000' : '#FFFFFF',
-                maxWidth: 500,
-                alignSelf: 'center',
-                width: '100%'
-            }}>
-                {/* Header */}
-                <AuthBackButton onPress={() => router.back()} />
+        <AuthErrorBoundary>
+            <KeyboardAvoidingView
+                style={{
+                    flex: 1,
+                    backgroundColor: isDark ? '#000000' : '#FFFFFF'
+                }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+            >
+                <View style={{
+                    flex: 1,
+                    paddingHorizontal: 24,
+                    paddingTop: 60,
+                    backgroundColor: isDark ? '#000000' : '#FFFFFF',
+                    maxWidth: 500,
+                    alignSelf: 'center',
+                    width: '100%'
+                }}>
+                    {/* Header */}
+                    <AuthBackButton onPress={() => router.back()} />
 
-                {/* Main Content - Moved higher up */}
-                <View style={{ flex: 1, justifyContent: 'flex-start', alignItems: 'center', paddingTop: 30 }}>
-                    {/* Logo Section */}
-                    <View style={{ alignItems: 'center', marginBottom: 40 }}>
-                        <GradientText
-                            style={{
-                                fontSize: 64,
-                                fontWeight: 'bold',
-                                textAlign: 'center',
-                                fontFamily: 'Dongle',
-                            }}
-                            colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
-                        >
-                            {isRegistration ? t('verify_otp') : 'Verify OTP'}
-                        </GradientText>
-
-                        <View style={{
-                            backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
-                            paddingHorizontal: 20,
-                            paddingVertical: 10,
-                            borderRadius: 20,
-                            borderWidth: 1,
-                            borderColor: isDark ? '#374151' : '#E5E7EB'
-                        }}>
-                            <Text style={{
-                                fontSize: 16,
-                                color: isDark ? '#9CA3AF' : '#6B7280',
-                                textAlign: 'center',
-                                fontFamily: 'System',
-                                fontWeight: '400'
-                            }}>
-                                {t('otp_sent')}
-                            </Text>
-                        </View>
-                    </View>
-
-                    {/* OTP Input Section */}
-                    <View style={{ width: '100%', alignItems: 'center', marginBottom: 30 }}>
-                        <OtpInput
-                            numberOfDigits={6}
-                            onTextChange={setOtp}
-                            onFilled={handleOtpComplete}
-                            focusColor="#F48C06"
-                            autoFocus={true}
-                            blurOnFilled={false}
-                            type="numeric"
-                            secureTextEntry={false}
-                            theme={{
-                                containerStyle: {
-                                    width: 'auto',
-                                    gap: 4, // Tăng khoảng cách giữa các ô
-                                },
-                                pinCodeContainerStyle: {
-                                    width: 50,
-                                    height: 50,
-                                    borderRadius: 12,
-                                    borderWidth: 2,
-                                    backgroundColor: isDark ? '#374151' : '#F9FAFB',
-                                    borderColor: hasError ? '#EF4444' : (isDark ? '#6B7280' : '#D1D5DB'),
-                                    marginHorizontal: 6, // Thêm margin ngang
-                                },
-                                pinCodeTextStyle: {
-                                    fontSize: 24,
-                                    fontWeight: '600',
-                                    color: isDark ? '#FFFFFF' : '#000000',
-                                },
-                                focusedPinCodeContainerStyle: {
-                                    borderColor: '#F48C06',
-                                    backgroundColor: isDark ? '#374151' : '#F9FAFB',
-                                },
-                                filledPinCodeContainerStyle: {
-                                    borderColor: hasError ? '#EF4444' : '#10B981',
-                                    backgroundColor: isDark ? '#374151' : '#F9FAFB',
-                                },
-                            }}
-                        />
-
-                        {/* Error Message */}
-                        {hasError && (
-                            <View style={{
-                                backgroundColor: isDark ? '#991B1B' : '#FEF2F2',
-                                paddingHorizontal: 16,
-                                paddingVertical: 8,
-                                borderRadius: 12,
-                                marginTop: 12,
-                                borderWidth: 1,
-                                borderColor: isDark ? '#DC2626' : '#FECACA'
-                            }}>
-                                <Text style={{
-                                    fontSize: 14,
-                                    color: isDark ? '#FCA5A5' : '#DC2626',
-                                    fontFamily: 'System',
-                                    fontWeight: '500',
-                                    textAlign: 'center'
-                                }}>
-                                    Invalid OTP. Please try again.
-                                </Text>
-                            </View>
-                        )}
-                    </View>
-
-                    {/* Action Buttons */}
-                    <View style={{ width: '100%', alignItems: 'center' }}>
-                        {/* Verify Button */}
-                        <View style={{ width: '100%', marginBottom: 20 }}>
-                            <GradientButton
-                                title={loading ? t('verifying') : t('verify_otp')}
-                                onPress={handleVerifyOTP}
-                                disabled={otp.length !== 6 || loading}
-                                textFontSize={18}
-                            />
-                        </View>
-
-                        {/* Resend Section */}
-                        <View style={{ alignItems: 'center' }}>
-                            <Text style={{
-                                fontSize: 14,
-                                color: isDark ? '#9CA3AF' : '#6B7280',
-                                fontFamily: 'System',
-                                fontWeight: '400',
-                                marginBottom: 8,
-                                textAlign: 'center'
-                            }}>
-                                Didn&apos;t receive the code?
-                            </Text>
-
-                            <TouchableOpacity
-                                onPress={handleResendOTP}
-                                disabled={!canResend || resendLoading}
+                    {/* Main Content - Moved higher up */}
+                    <View style={{ flex: 1, justifyContent: 'flex-start', alignItems: 'center', paddingTop: 30 }}>
+                        {/* Logo Section */}
+                        <View style={{ alignItems: 'center', marginBottom: 40 }}>
+                            <GradientText
                                 style={{
-                                    paddingVertical: 10,
-                                    paddingHorizontal: 20,
-                                    borderRadius: 20,
-                                    backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
-                                    borderWidth: 1,
-                                    borderColor: isDark ? '#374151' : '#E5E7EB',
-                                    opacity: (!canResend || resendLoading) ? 0.5 : 1
+                                    fontSize: 64,
+                                    fontWeight: 'bold',
+                                    textAlign: 'center',
+                                    fontFamily: 'Dongle',
                                 }}
+                                colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
                             >
+                                {isRegistration ? t('verify_otp') : 'Verify OTP'}
+                            </GradientText>
+
+                            <View style={{
+                                backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+                                paddingHorizontal: 20,
+                                paddingVertical: 10,
+                                borderRadius: 20,
+                                borderWidth: 1,
+                                borderColor: isDark ? '#374151' : '#E5E7EB'
+                            }}>
                                 <Text style={{
                                     fontSize: 16,
-                                    color: isDark ? '#60A5FA' : '#3B82F6',
+                                    color: isDark ? '#9CA3AF' : '#6B7280',
+                                    textAlign: 'center',
                                     fontFamily: 'System',
-                                    fontWeight: '600',
+                                    fontWeight: '400'
+                                }}>
+                                    {t('otp_sent')}
+                                </Text>
+                            </View>
+                        </View>
+
+                        {/* OTP Input Section */}
+                        <View style={{ width: '100%', alignItems: 'center', marginBottom: 30 }}>
+                            <OtpInput
+                                numberOfDigits={6}
+                                onTextChange={setOtp}
+                                onFilled={handleOtpComplete}
+                                focusColor="#F48C06"
+                                autoFocus={true}
+                                blurOnFilled={false}
+                                type="numeric"
+                                secureTextEntry={false}
+                                theme={{
+                                    containerStyle: {
+                                        width: 'auto',
+                                        gap: 4, // Tăng khoảng cách giữa các ô
+                                    },
+                                    pinCodeContainerStyle: {
+                                        width: 50,
+                                        height: 50,
+                                        borderRadius: 12,
+                                        borderWidth: 2,
+                                        backgroundColor: isDark ? '#374151' : '#F9FAFB',
+                                        borderColor: hasError ? '#EF4444' : (isDark ? '#6B7280' : '#D1D5DB'),
+                                        marginHorizontal: 6, // Thêm margin ngang
+                                    },
+                                    pinCodeTextStyle: {
+                                        fontSize: 24,
+                                        fontWeight: '600',
+                                        color: isDark ? '#FFFFFF' : '#000000',
+                                    },
+                                    focusedPinCodeContainerStyle: {
+                                        borderColor: '#F48C06',
+                                        backgroundColor: isDark ? '#374151' : '#F9FAFB',
+                                    },
+                                    filledPinCodeContainerStyle: {
+                                        borderColor: hasError ? '#EF4444' : '#10B981',
+                                        backgroundColor: isDark ? '#374151' : '#F9FAFB',
+                                    },
+                                }}
+                            />
+
+                            {/* Error Message */}
+                            {hasError && (
+                                <View style={{
+                                    backgroundColor: isDark ? '#991B1B' : '#FEF2F2',
+                                    paddingHorizontal: 16,
+                                    paddingVertical: 8,
+                                    borderRadius: 12,
+                                    marginTop: 12,
+                                    borderWidth: 1,
+                                    borderColor: isDark ? '#DC2626' : '#FECACA'
+                                }}>
+                                    <Text style={{
+                                        fontSize: 14,
+                                        color: isDark ? '#FCA5A5' : '#DC2626',
+                                        fontFamily: 'System',
+                                        fontWeight: '500',
+                                        textAlign: 'center'
+                                    }}>
+                                        Invalid OTP. Please try again.
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Action Buttons */}
+                        <View style={{ width: '100%', alignItems: 'center' }}>
+                            {/* Verify Button */}
+                            <View style={{ width: '100%', marginBottom: 20 }}>
+                                <GradientButton
+                                    title={loading ? t('verifying') : t('verify_otp')}
+                                    onPress={handleVerifyOTP}
+                                    disabled={otp.length !== 6 || loading}
+                                    textFontSize={18}
+                                />
+                            </View>
+
+                            {/* Resend Section */}
+                            <View style={{ alignItems: 'center' }}>
+                                <Text style={{
+                                    fontSize: 14,
+                                    color: isDark ? '#9CA3AF' : '#6B7280',
+                                    fontFamily: 'System',
+                                    fontWeight: '400',
+                                    marginBottom: 8,
                                     textAlign: 'center'
                                 }}>
-                                    {resendLoading ? t('sending') : !canResend ? `Resend in ${resendCountdown}s` : t('resend_otp')}
+                                    Didn&apos;t receive the code?
                                 </Text>
-                            </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    onPress={handleResendOTP}
+                                    disabled={!canResend || resendLoading}
+                                    style={{
+                                        paddingVertical: 10,
+                                        paddingHorizontal: 20,
+                                        borderRadius: 20,
+                                        backgroundColor: isDark ? '#1F2937' : '#F3F4F6',
+                                        borderWidth: 1,
+                                        borderColor: isDark ? '#374151' : '#E5E7EB',
+                                        opacity: (!canResend || resendLoading) ? 0.5 : 1
+                                    }}
+                                >
+                                    <Text style={{
+                                        fontSize: 16,
+                                        color: isDark ? '#60A5FA' : '#3B82F6',
+                                        fontFamily: 'System',
+                                        fontWeight: '600',
+                                        textAlign: 'center'
+                                    }}>
+                                        {resendLoading ? t('sending') : !canResend ? `Resend in ${resendCountdown}s` : t('resend_otp')}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
                 </View>
-            </View>
-        </KeyboardAvoidingView>
+            </KeyboardAvoidingView>
+        </AuthErrorBoundary>
     );
 }

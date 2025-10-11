@@ -1,6 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
-import { useError } from '../contexts/ErrorContext';
 import {
     AppError,
     ErrorCategory,

@@ -77,7 +77,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
             type: 'success',
             title,
             message,
-            duration: 2000, // Giảm từ 3s xuống 2s
+            duration: 2500,
             ...options
         });
     }, [showToast]);
@@ -87,7 +87,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
             type: 'error',
             title,
             message,
-            duration: 3000, // Giảm từ 5s xuống 3s
+            duration: 4000,
             ...options
         });
     }, [showToast]);
@@ -97,7 +97,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
             type: 'warning',
             title,
             message,
-            duration: 2500, // Giảm từ 4s xuống 2.5s
+            duration: 3500,
             ...options
         });
     }, [showToast]);
@@ -107,7 +107,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
             type: 'info',
             title,
             message,
-            duration: 2000, // Giảm từ 3s xuống 2s
+            duration: 2500,
             ...options
         });
     }, [showToast]);

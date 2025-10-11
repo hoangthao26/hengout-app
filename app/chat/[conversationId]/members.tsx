@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import AddMemberModal from '../../../components/AddMemberModal';
 import Header from '../../../components/Header';
+import { ChatErrorBoundary } from '../../../components/errorBoundaries';
 import { useToast } from '../../../contexts/ToastContext';
 import { chatService } from '../../../services/chatService';
 import { ChatMember } from '../../../types/chat';
@@ -348,40 +349,42 @@ const GroupMembersScreen: React.FC = () => {
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <ChatErrorBoundary>
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                <StatusBar barStyle="light-content" backgroundColor="#000000" />
 
-            {/* Header */}
-            <Header
-                title={`Thành viên (${members.length} người)`}
-                showBackButton={true}
-                onBackPress={() => router.back()}
-                rightIcon={{
-                    icon: Plus,
-                    size: 28,
-                    onPress: handleAddMember
-                }}
-            />
+                {/* Header */}
+                <Header
+                    title={`Thành viên (${members.length} người)`}
+                    showBackButton={true}
+                    onBackPress={() => router.back()}
+                    rightIcon={{
+                        icon: Plus,
+                        size: 28,
+                        onPress: handleAddMember
+                    }}
+                />
 
-            {/* Members List */}
-            <FlatList
-                data={members}
-                keyExtractor={(item) => item.userId}
-                renderItem={renderMemberItem}
-                style={styles.membersList}
-                contentContainerStyle={styles.membersContent}
-                showsVerticalScrollIndicator={false}
-            />
+                {/* Members List */}
+                <FlatList
+                    data={members}
+                    keyExtractor={(item) => item.userId}
+                    renderItem={renderMemberItem}
+                    style={styles.membersList}
+                    contentContainerStyle={styles.membersContent}
+                    showsVerticalScrollIndicator={false}
+                />
 
-            {/* Add Member Modal */}
-            <AddMemberModal
-                isVisible={showAddMemberModal}
-                onClose={handleCloseAddMemberModal}
-                onSuccess={handleAddMemberSuccess}
-                conversationId={conversationId!}
-                conversationName={conversationName}
-            />
-        </View>
+                {/* Add Member Modal */}
+                <AddMemberModal
+                    isVisible={showAddMemberModal}
+                    onClose={handleCloseAddMemberModal}
+                    onSuccess={handleAddMemberSuccess}
+                    conversationId={conversationId!}
+                    conversationName={conversationName}
+                />
+            </View>
+        </ChatErrorBoundary>
     );
 };
 

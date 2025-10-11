@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import Header from '../../components/Header';
 import SimpleAvatar from '../../components/SimpleAvatar';
+import { FeatureErrorBoundary } from '../../components/FeatureErrorBoundary';
 import { useToast } from '../../contexts/ToastContext';
 import NavigationService from '../../services/navigationService';
 import { socialService } from '../../services/socialService';
@@ -179,65 +180,67 @@ export default function SentRequestsScreen() {
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            {/* Header */}
-            <Header
-                title="Lời mời đã gửi"
-                onBackPress={() => NavigationService.goBack()}
-            />
-
-            {/* Search Bar */}
-            <View style={styles.searchContainer}>
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Tìm kiếm lời mời đã gửi"
-                    placeholderTextColor="#9CA3AF"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
+        <FeatureErrorBoundary feature="Friends">
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                {/* Header */}
+                <Header
+                    title="Lời mời đã gửi"
+                    onBackPress={() => NavigationService.goBack()}
                 />
-                {searchLoading ? (
-                    <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
-                ) : (
-                    <TouchableOpacity
-                        style={styles.searchButton}
-                        onPress={searchQuery ? clearSearch : undefined}
-                    >
-                        {searchQuery ? (
-                            <X
-                                size={20}
-                                color="#9CA3AF"
-                            />
-                        ) : (
-                            <Search
-                                size={20}
-                                color="#9CA3AF"
-                            />
-                        )}
-                    </TouchableOpacity>
-                )}
-            </View>
 
-            {/* Content */}
-            <FlatList
-                data={filteredRequests}
-                renderItem={renderSentRequest}
-                keyExtractor={(item) => item.id}
-                style={styles.friendsList}
-                contentContainerStyle={styles.friendsListContent}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Send
-                            size={64}
-                            color={isDark ? '#4B5563' : '#9CA3AF'}
-                        />
-                        <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                            {searchQuery ? 'Không tìm thấy lời mời nào' : 'Chưa gửi lời mời kết bạn nào'}
-                        </Text>
-                    </View>
-                }
-            />
-        </View>
+                {/* Search Bar */}
+                <View style={styles.searchContainer}>
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Tìm kiếm lời mời đã gửi"
+                        placeholderTextColor="#9CA3AF"
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                    />
+                    {searchLoading ? (
+                        <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
+                    ) : (
+                        <TouchableOpacity
+                            style={styles.searchButton}
+                            onPress={searchQuery ? clearSearch : undefined}
+                        >
+                            {searchQuery ? (
+                                <X
+                                    size={20}
+                                    color="#9CA3AF"
+                                />
+                            ) : (
+                                <Search
+                                    size={20}
+                                    color="#9CA3AF"
+                                />
+                            )}
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {/* Content */}
+                <FlatList
+                    data={filteredRequests}
+                    renderItem={renderSentRequest}
+                    keyExtractor={(item) => item.id}
+                    style={styles.friendsList}
+                    contentContainerStyle={styles.friendsListContent}
+                    showsVerticalScrollIndicator={false}
+                    ListEmptyComponent={
+                        <View style={styles.emptyContainer}>
+                            <Send
+                                size={64}
+                                color={isDark ? '#4B5563' : '#9CA3AF'}
+                            />
+                            <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                {searchQuery ? 'Không tìm thấy lời mời nào' : 'Chưa gửi lời mời kết bạn nào'}
+                            </Text>
+                        </View>
+                    }
+                />
+            </View>
+        </FeatureErrorBoundary>
     );
 }
 

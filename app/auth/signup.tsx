@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { View, useColorScheme } from 'react-native';
 import AuthBackButton from '../../components/AuthBackButton';
+import { AuthErrorBoundary } from '../../components/errorBoundaries';
 import { useToast } from '../../contexts/ToastContext';
 import SignupForm from '../../modules/auth/components/SignupForm';
 import { authService } from '../../services';
@@ -42,21 +43,23 @@ export default function SignupScreen() {
     };
 
     return (
-        <View style={{
-            flex: 1,
-            backgroundColor: isDark ? '#000000' : '#FFFFFF',
-            paddingHorizontal: 24,
-            paddingTop: 60,
-            maxWidth: 500,
-            alignSelf: 'center',
-            width: '100%'
-        }}>
-            <AuthBackButton onPress={() => router.back()} />
-            <SignupForm
-                onSubmit={handleSignup}
-                onSignIn={handleSignIn}
-                loading={loading}
-            />
-        </View>
+        <AuthErrorBoundary>
+            <View style={{
+                flex: 1,
+                backgroundColor: isDark ? '#000000' : '#FFFFFF',
+                paddingHorizontal: 24,
+                paddingTop: 60,
+                maxWidth: 500,
+                alignSelf: 'center',
+                width: '100%'
+            }}>
+                <AuthBackButton onPress={() => router.back()} />
+                <SignupForm
+                    onSubmit={handleSignup}
+                    onSignIn={handleSignIn}
+                    loading={loading}
+                />
+            </View>
+        </AuthErrorBoundary>
     );
 }

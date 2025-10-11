@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackButton from '../../components/BackButton';
+import { ChatErrorBoundary } from '../../components/errorBoundaries';
 import { useToast } from '../../contexts/ToastContext';
 import { chatService } from '../../services/chatService';
 import { useChatStore } from '../../store/chatStore';
@@ -474,103 +475,105 @@ export default function ChatConversationScreen() {
 
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <ChatErrorBoundary>
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                <StatusBar barStyle="light-content" backgroundColor="#000000" />
 
-            {/* Header */}
-            <View style={[styles.header, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-                <BackButton onPress={handleBack} />
-                <TouchableOpacity
-                    style={styles.headerContent}
-                    onPress={() => NavigationService.goToChatDetails(conversationId)}
-                    activeOpacity={0.7}
-                >
-                    <View style={styles.avatarContainer}>
-                        {conversation?.avatarUrl ? (
-                            <Image
-                                source={{ uri: conversation.avatarUrl }}
-                                style={styles.conversationAvatar}
-                                resizeMode="contain"
-                            />
-                        ) : (
-                            <View style={styles.defaultConversationAvatar}>
-                                <Users size={20} color="#9CA3AF" />
-                            </View>
-                        )}
-                    </View>
-                    <Text style={[styles.headerTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                        {conversation?.name || 'Cuộc trò chuyện'}
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.compassButton}>
-                    <Compass size={28} color={isDark ? '#FFFFFF' : '#000000'} />
-                </TouchableOpacity>
-            </View>
-
-            {/* Messages List */}
-            <FlatList
-                ref={flatListRef}
-                data={messages}
-                keyExtractor={(item) => item.id}
-                renderItem={renderMessage}
-                inverted
-                onEndReached={() => {
-                    const nextPage = page + 1;
-                    setPage(nextPage);
-                    loadMessages(nextPage); // load older khi kéo lên
-                }}
-                onEndReachedThreshold={0.2}
-                contentContainerStyle={{
-                    paddingVertical: 8,
-                    flexGrow: 1,
-                    justifyContent: 'flex-start'
-                }}
-                style={{ flex: 1 }}
-            />
-
-            {/* Message Input */}
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? -20 : 0}
-            >
-                <View
-                    style={[
-                        styles.inputContainer,
-                        {
-                            backgroundColor: isDark ? '#000000' : '#FFFFFF',
-                            paddingBottom: Math.max(insets.bottom, 16)
-                        }
-                    ]}
-                >
-                    <View style={styles.inputWrapper}>
-                        <TextInput
-                            style={[
-                                styles.messageInput,
-                                {
-                                    backgroundColor: '#FFFFFF',
-                                    color: '#000000'
-                                }
-                            ]}
-                            placeholder="Gửi tin nhắn..."
-                            placeholderTextColor="#9CA3AF"
-                            value={messageText}
-                            onChangeText={setMessageText}
-                            multiline
-                            maxLength={1000}
-                        />
-                        {messageText.trim() && (
-                            <TouchableOpacity
-                                style={styles.sendButton}
-                                onPress={sendMessage}
-                                disabled={sending}
-                            >
-                                <SendHorizontal size={32} color={isDark ? '#FFFFFF' : '#000000'} />
-                            </TouchableOpacity>
-                        )}
-                    </View>
+                {/* Header */}
+                <View style={[styles.header, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                    <BackButton onPress={handleBack} />
+                    <TouchableOpacity
+                        style={styles.headerContent}
+                        onPress={() => NavigationService.goToChatDetails(conversationId)}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.avatarContainer}>
+                            {conversation?.avatarUrl ? (
+                                <Image
+                                    source={{ uri: conversation.avatarUrl }}
+                                    style={styles.conversationAvatar}
+                                    resizeMode="contain"
+                                />
+                            ) : (
+                                <View style={styles.defaultConversationAvatar}>
+                                    <Users size={20} color="#9CA3AF" />
+                                </View>
+                            )}
+                        </View>
+                        <Text style={[styles.headerTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            {conversation?.name || 'Cuộc trò chuyện'}
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.compassButton}>
+                        <Compass size={28} color={isDark ? '#FFFFFF' : '#000000'} />
+                    </TouchableOpacity>
                 </View>
-            </KeyboardAvoidingView>
-        </View>
+
+                {/* Messages List */}
+                <FlatList
+                    ref={flatListRef}
+                    data={messages}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderMessage}
+                    inverted
+                    onEndReached={() => {
+                        const nextPage = page + 1;
+                        setPage(nextPage);
+                        loadMessages(nextPage); // load older khi kéo lên
+                    }}
+                    onEndReachedThreshold={0.2}
+                    contentContainerStyle={{
+                        paddingVertical: 8,
+                        flexGrow: 1,
+                        justifyContent: 'flex-start'
+                    }}
+                    style={{ flex: 1 }}
+                />
+
+                {/* Message Input */}
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? -20 : 0}
+                >
+                    <View
+                        style={[
+                            styles.inputContainer,
+                            {
+                                backgroundColor: isDark ? '#000000' : '#FFFFFF',
+                                paddingBottom: Math.max(insets.bottom, 16)
+                            }
+                        ]}
+                    >
+                        <View style={styles.inputWrapper}>
+                            <TextInput
+                                style={[
+                                    styles.messageInput,
+                                    {
+                                        backgroundColor: '#FFFFFF',
+                                        color: '#000000'
+                                    }
+                                ]}
+                                placeholder="Gửi tin nhắn..."
+                                placeholderTextColor="#9CA3AF"
+                                value={messageText}
+                                onChangeText={setMessageText}
+                                multiline
+                                maxLength={1000}
+                            />
+                            {messageText.trim() && (
+                                <TouchableOpacity
+                                    style={styles.sendButton}
+                                    onPress={sendMessage}
+                                    disabled={sending}
+                                >
+                                    <SendHorizontal size={32} color={isDark ? '#FFFFFF' : '#000000'} />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
+            </View>
+        </ChatErrorBoundary>
     );
 }
 

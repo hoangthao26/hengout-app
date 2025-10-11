@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { MapPin, Navigation, User } from 'lucide-react-native';
 import Header from '../../components/Header';
 import MapView from '../../components/MapView';
+import { MapErrorBoundary } from '../../components/errorBoundaries';
 import { useLocation } from '../../hooks/useLocation';
 
 export default function MapScreen() {
@@ -44,77 +45,79 @@ export default function MapScreen() {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            <Header
-                title="Map"
-                showBackButton
-                onBackPress={() => router.back()}
-                rightIcon={{
-                    icon: Navigation,
-                    size: 28,
-                    onPress: handleGetCurrentLocation
-                }}
-            />
-
-            {/* Map Container */}
-            <View style={styles.mapContainer}>
-                <MapView
-                    onLocationSelect={handleLocationSelect}
-                    showUserLocation={true}
-                    style={styles.map}
+        <MapErrorBoundary>
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                <Header
+                    title="Map"
+                    showBackButton
+                    onBackPress={() => router.back()}
+                    rightIcon={{
+                        icon: Navigation,
+                        size: 28,
+                        onPress: handleGetCurrentLocation
+                    }}
                 />
-            </View>
 
-            {/* Bottom Panel */}
-            <View style={[styles.bottomPanel, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}>
-                {selectedLocation ? (
-                    <View style={styles.selectedLocationInfo}>
-                        <View style={styles.locationHeader}>
-                            <MapPin size={20} color="#F48C06" />
-                            <Text style={[styles.locationTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                                Selected Location
+                {/* Map Container */}
+                <View style={styles.mapContainer}>
+                    <MapView
+                        onLocationSelect={handleLocationSelect}
+                        showUserLocation={true}
+                        style={styles.map}
+                    />
+                </View>
+
+                {/* Bottom Panel */}
+                <View style={[styles.bottomPanel, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}>
+                    {selectedLocation ? (
+                        <View style={styles.selectedLocationInfo}>
+                            <View style={styles.locationHeader}>
+                                <MapPin size={20} color="#F48C06" />
+                                <Text style={[styles.locationTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                                    Selected Location
+                                </Text>
+                            </View>
+                            <Text style={[styles.locationText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                Lat: {selectedLocation.lat.toFixed(6)}
+                            </Text>
+                            <Text style={[styles.locationText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                Lng: {selectedLocation.lng.toFixed(6)}
+                            </Text>
+                            <TouchableOpacity
+                                style={[styles.shareButton, { backgroundColor: '#F48C06' }]}
+                                onPress={handleShareLocation}
+                            >
+                                <Text style={styles.shareButtonText}>Share Location</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <View style={styles.instructionPanel}>
+                            <MapPin size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                            <Text style={[styles.instructionText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                Tap on the map to select a location
                             </Text>
                         </View>
-                        <Text style={[styles.locationText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                            Lat: {selectedLocation.lat.toFixed(6)}
-                        </Text>
-                        <Text style={[styles.locationText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                            Lng: {selectedLocation.lng.toFixed(6)}
-                        </Text>
-                        <TouchableOpacity
-                            style={[styles.shareButton, { backgroundColor: '#F48C06' }]}
-                            onPress={handleShareLocation}
-                        >
-                            <Text style={styles.shareButtonText}>Share Location</Text>
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <View style={styles.instructionPanel}>
-                        <MapPin size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
-                        <Text style={[styles.instructionText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                            Tap on the map to select a location
-                        </Text>
-                    </View>
-                )}
+                    )}
 
-                {location && (
-                    <View style={styles.currentLocationInfo}>
-                        <View style={styles.locationHeader}>
-                            <User size={16} color="#3B82F6" />
-                            <Text style={[styles.currentLocationText, { color: isDark ? '#3B82F6' : '#2563EB' }]}>
-                                Your Location
+                    {location && (
+                        <View style={styles.currentLocationInfo}>
+                            <View style={styles.locationHeader}>
+                                <User size={16} color="#3B82F6" />
+                                <Text style={[styles.currentLocationText, { color: isDark ? '#3B82F6' : '#2563EB' }]}>
+                                    Your Location
+                                </Text>
+                            </View>
+                            <Text style={[styles.locationText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                Lat: {location.latitude.toFixed(6)}
+                            </Text>
+                            <Text style={[styles.locationText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                Lng: {location.longitude.toFixed(6)}
                             </Text>
                         </View>
-                        <Text style={[styles.locationText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                            Lat: {location.latitude.toFixed(6)}
-                        </Text>
-                        <Text style={[styles.locationText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                            Lng: {location.longitude.toFixed(6)}
-                        </Text>
-                    </View>
-                )}
+                    )}
+                </View>
             </View>
-        </View>
+        </MapErrorBoundary>
     );
 }
 

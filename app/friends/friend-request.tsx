@@ -15,6 +15,7 @@ import GradientButton from '../../components/GradientButton';
 import Header from '../../components/Header';
 import SearchUserItem from '../../components/SearchUserItem';
 import SimpleAvatar from '../../components/SimpleAvatar';
+import { FeatureErrorBoundary } from '../../components/FeatureErrorBoundary';
 import { useToast } from '../../contexts/ToastContext';
 import { useFriendActions } from '../../hooks/useFriendActions';
 import NavigationService from '../../services/navigationService';
@@ -209,96 +210,98 @@ export default function FriendRequestScreen() {
     );
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            {/* Header */}
-            <Header
-                title="Lời mời kết bạn"
-                onBackPress={() => NavigationService.goBack()}
-                rightIcon={{
-                    icon: MoreHorizontal,
-                    size: 28,
-                    onPress: () => setShowBottomSheet(true)
-                }}
-            />
-
-            {/* Search Bar */}
-            <View style={styles.searchContainer}>
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Thêm bạn mới"
-                    placeholderTextColor="#9CA3AF"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
+        <FeatureErrorBoundary feature="Friends">
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                {/* Header */}
+                <Header
+                    title="Lời mời kết bạn"
+                    onBackPress={() => NavigationService.goBack()}
+                    rightIcon={{
+                        icon: MoreHorizontal,
+                        size: 28,
+                        onPress: () => setShowBottomSheet(true)
+                    }}
                 />
-                {searchLoading ? (
-                    <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
+
+                {/* Search Bar */}
+                <View style={styles.searchContainer}>
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Thêm bạn mới"
+                        placeholderTextColor="#9CA3AF"
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                    />
+                    {searchLoading ? (
+                        <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
+                    ) : (
+                        <TouchableOpacity
+                            style={styles.searchButton}
+                            onPress={searchQuery ? clearSearch : undefined}
+                        >
+                            {searchQuery ? (
+                                <X
+                                    size={20}
+                                    color="#9CA3AF"
+                                />
+                            ) : (
+                                <UserPlus
+                                    size={20}
+                                    color="#9CA3AF"
+                                />
+                            )}
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {/* Content */}
+                {searchQuery ? (
+                    <FlatList
+                        data={searchResults}
+                        renderItem={renderSearchResult}
+                        keyExtractor={(item) => item.id}
+                        style={styles.friendsList}
+                        contentContainerStyle={styles.friendsListContent}
+                        showsVerticalScrollIndicator={false}
+                        ListEmptyComponent={
+                            <View style={styles.emptyContainer}>
+                                <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                    Không tìm thấy người dùng nào
+                                </Text>
+                            </View>
+                        }
+                    />
                 ) : (
-                    <TouchableOpacity
-                        style={styles.searchButton}
-                        onPress={searchQuery ? clearSearch : undefined}
-                    >
-                        {searchQuery ? (
-                            <X
-                                size={20}
-                                color="#9CA3AF"
-                            />
-                        ) : (
-                            <UserPlus
-                                size={20}
-                                color="#9CA3AF"
-                            />
-                        )}
-                    </TouchableOpacity>
+                    <FlatList
+                        data={pendingRequests}
+                        renderItem={renderFriendRequest}
+                        keyExtractor={(item) => item.id}
+                        style={styles.friendsList}
+                        contentContainerStyle={styles.friendsListContent}
+                        showsVerticalScrollIndicator={false}
+                        ListEmptyComponent={
+                            <View style={styles.emptyContainer}>
+                                <Users
+                                    size={64}
+                                    color={isDark ? '#4B5563' : '#9CA3AF'}
+                                />
+                                <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                    Không có lời mời kết bạn nào
+                                </Text>
+                            </View>
+                        }
+                    />
                 )}
+
+                {/* Bottom Sheet Modal */}
+                <BottomSheetModal
+                    isOpen={showBottomSheet}
+                    onClose={() => setShowBottomSheet(false)}
+                    onSentRequests={() => NavigationService.goToSentRequests()}
+                    onFriendsList={() => NavigationService.goToFriendsList()}
+                />
             </View>
-
-            {/* Content */}
-            {searchQuery ? (
-                <FlatList
-                    data={searchResults}
-                    renderItem={renderSearchResult}
-                    keyExtractor={(item) => item.id}
-                    style={styles.friendsList}
-                    contentContainerStyle={styles.friendsListContent}
-                    showsVerticalScrollIndicator={false}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                Không tìm thấy người dùng nào
-                            </Text>
-                        </View>
-                    }
-                />
-            ) : (
-                <FlatList
-                    data={pendingRequests}
-                    renderItem={renderFriendRequest}
-                    keyExtractor={(item) => item.id}
-                    style={styles.friendsList}
-                    contentContainerStyle={styles.friendsListContent}
-                    showsVerticalScrollIndicator={false}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Users
-                                size={64}
-                                color={isDark ? '#4B5563' : '#9CA3AF'}
-                            />
-                            <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                Không có lời mời kết bạn nào
-                            </Text>
-                        </View>
-                    }
-                />
-            )}
-
-            {/* Bottom Sheet Modal */}
-            <BottomSheetModal
-                isOpen={showBottomSheet}
-                onClose={() => setShowBottomSheet(false)}
-                onSentRequests={() => NavigationService.goToSentRequests()}
-                onFriendsList={() => NavigationService.goToFriendsList()}
-            />
-        </View>
+        </FeatureErrorBoundary>
     );
 }
 

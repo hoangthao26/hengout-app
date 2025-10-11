@@ -6,6 +6,7 @@ import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableO
 import AuthBackButton from '../../components/AuthBackButton';
 import GradientButton from '../../components/GradientButton';
 import GradientText from '../../components/GradientText';
+import { AuthErrorBoundary } from '../../components/errorBoundaries';
 import { useToast } from '../../contexts/ToastContext';
 import { CATEGORY_TERMS, PURPOSE_TERMS, TAG_TERMS } from '../../data/onboardingTerms';
 import NavigationService from '../../services/navigationService';
@@ -326,70 +327,72 @@ export default function OnboardingWizardScreen() {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-        >
-            <View style={styles.container}>
-                {/* Back Button - Only show if not first step */}
-                {!isFirstStep && <AuthBackButton onPress={handleBack} />}
+        <AuthErrorBoundary>
+            <KeyboardAvoidingView
+                style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+            >
+                <View style={styles.container}>
+                    {/* Back Button - Only show if not first step */}
+                    {!isFirstStep && <AuthBackButton onPress={handleBack} />}
 
-                {/* Header */}
-                <View style={styles.header}>
-                    <GradientText
-                        style={styles.title}
-                        colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
-                    >
-                        {t('setup_profile')}
-                    </GradientText>
+                    {/* Header */}
+                    <View style={styles.header}>
+                        <GradientText
+                            style={styles.title}
+                            colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
+                        >
+                            {t('setup_profile')}
+                        </GradientText>
 
-                    {/* Progress Bar */}
-                    <View style={[styles.progressContainer, { backgroundColor: isDark ? '#1F2937' : '#F3F4F6' }]}>
-                        <View
-                            style={[
-                                styles.progressBar,
-                                {
-                                    width: `${((currentStep + 1) / ONBOARDING_STEPS.length) * 100}%`,
-                                    backgroundColor: '#F48C06'
-                                }
-                            ]}
-                        />
+                        {/* Progress Bar */}
+                        <View style={[styles.progressContainer, { backgroundColor: isDark ? '#1F2937' : '#F3F4F6' }]}>
+                            <View
+                                style={[
+                                    styles.progressBar,
+                                    {
+                                        width: `${((currentStep + 1) / ONBOARDING_STEPS.length) * 100}%`,
+                                        backgroundColor: '#F48C06'
+                                    }
+                                ]}
+                            />
+                        </View>
+
+                        <Text style={[styles.stepTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            Bước {currentStep + 1} trong {ONBOARDING_STEPS.length}: {currentStepInfo.title}
+                        </Text>
                     </View>
 
-                    <Text style={[styles.stepTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                        Bước {currentStep + 1} trong {ONBOARDING_STEPS.length}: {currentStepInfo.title}
-                    </Text>
-                </View>
+                    {/* Step Content */}
+                    {renderStepContent()}
 
-                {/* Step Content */}
-                {renderStepContent()}
+                    {/* Navigation Buttons */}
+                    <View style={styles.buttonContainer}>
+                        <View style={styles.mainButtons}>
+                            {!currentStepInfo.required && (
+                                <TouchableOpacity
+                                    style={styles.skipButton}
+                                    onPress={handleSkip}
+                                    disabled={loading}
+                                >
+                                    <Text style={[styles.skipText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                        Bỏ qua
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
 
-                {/* Navigation Buttons */}
-                <View style={styles.buttonContainer}>
-                    <View style={styles.mainButtons}>
-                        {!currentStepInfo.required && (
-                            <TouchableOpacity
-                                style={styles.skipButton}
-                                onPress={handleSkip}
-                                disabled={loading}
-                            >
-                                <Text style={[styles.skipText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                    Bỏ qua
-                                </Text>
-                            </TouchableOpacity>
-                        )}
-
-                        <GradientButton
-                            title={loading ? 'Đang khởi tạo...' : (isLastStep ? 'Hoàn tất' : 'Tiếp theo')}
-                            onPress={handleNext}
-                            textFontSize={18}
-                            disabled={loading || !isStepValid()}
-                        />
+                            <GradientButton
+                                title={loading ? 'Đang khởi tạo...' : (isLastStep ? 'Hoàn tất' : 'Tiếp theo')}
+                                onPress={handleNext}
+                                textFontSize={18}
+                                disabled={loading || !isStepValid()}
+                            />
+                        </View>
                     </View>
                 </View>
-            </View>
-        </KeyboardAvoidingView>
+            </KeyboardAvoidingView>
+        </AuthErrorBoundary>
     );
 }
 

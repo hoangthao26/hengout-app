@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import CollectionCard from '../../components/CollectionCard';
 import Header from '../../components/Header';
+import { FeatureErrorBoundary } from '../../components/FeatureErrorBoundary';
 import { useToast } from '../../contexts/ToastContext';
 import { locationFolderService } from '../../services/locationFolderService';
 import { useCollectionStore } from '../../store/collectionStore';
@@ -113,38 +114,40 @@ export default function CollectionsScreen() {
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            <Header
-                title="Collections"
-                showBackButton
-                rightIcon={{
-                    icon: Plus,
-                    size: 28,
-                    onPress: handleCreateCollection
-                }}
-            />
-
-            {collections.length === 0 ? (
-                renderEmptyState()
-            ) : (
-                <FlatList
-                    data={collections}
-                    renderItem={renderCollection}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                    refreshing={refreshing}
-                    onRefresh={onRefresh}
-                    ListHeaderComponent={
-                        <View style={styles.headerContainer}>
-                            <Text style={[styles.headerSubtitle, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                {collections.length} collections
-                            </Text>
-                        </View>
-                    }
+        <FeatureErrorBoundary feature="Collections">
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                <Header
+                    title="Collections"
+                    showBackButton
+                    rightIcon={{
+                        icon: Plus,
+                        size: 28,
+                        onPress: handleCreateCollection
+                    }}
                 />
-            )}
-        </View>
+
+                {collections.length === 0 ? (
+                    renderEmptyState()
+                ) : (
+                    <FlatList
+                        data={collections}
+                        renderItem={renderCollection}
+                        keyExtractor={(item) => item.id}
+                        contentContainerStyle={styles.listContent}
+                        showsVerticalScrollIndicator={false}
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        ListHeaderComponent={
+                            <View style={styles.headerContainer}>
+                                <Text style={[styles.headerSubtitle, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                    {collections.length} collections
+                                </Text>
+                            </View>
+                        }
+                    />
+                )}
+            </View>
+        </FeatureErrorBoundary>
     );
 }
 

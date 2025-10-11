@@ -28,6 +28,7 @@ import ConfirmDeleteModal from '../../components/ConfirmDeleteModal';
 import EditCollectionModal from '../../components/EditCollectionModal';
 import Header from '../../components/Header';
 import ContextMenu, { MenuAction } from '../../components/ContextMenu';
+import { FeatureErrorBoundary } from '../../components/FeatureErrorBoundary';
 import { useToast } from '../../contexts/ToastContext';
 import { locationFolderService } from '../../services/locationFolderService';
 import { useCollectionStore } from '../../store/collectionStore';
@@ -467,27 +468,28 @@ export default function CollectionDetailScreen() {
     }
 
     return (
-        <TouchableWithoutFeedback onPress={() => {
-            setContextMenuVisible(false);
-            setSelectedLocation(null);
-        }}>
-            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-                <Header
-                    title={currentCollection?.name || 'Collection'}
-                    showBackButton
-                    onBackPress={handleBackPress}
-                    rightIcon={{
-                        icon: MoreHorizontal,
-                        size: 28,
-                        onPress: () => {
-                            console.log('🔍 Icon pressed, setting showActionsModal to true');
-                            setShowActionsModal(true);
-                        }
-                    }}
-                />
+        <FeatureErrorBoundary feature="Collections">
+            <TouchableWithoutFeedback onPress={() => {
+                setContextMenuVisible(false);
+                setSelectedLocation(null);
+            }}>
+                <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                    <Header
+                        title={currentCollection?.name || 'Collection'}
+                        showBackButton
+                        onBackPress={handleBackPress}
+                        rightIcon={{
+                            icon: MoreHorizontal,
+                            size: 28,
+                            onPress: () => {
+                                console.log('🔍 Icon pressed, setting showActionsModal to true');
+                                setShowActionsModal(true);
+                            }
+                        }}
+                    />
 
-                {/* Collection Info - Similar to Profile */}
-                {/* <TouchableOpacity style={[styles.collectionItem, { backgroundColor: isDark ? '#232024' : '#F3F4F6' }]}>
+                    {/* Collection Info - Similar to Profile */}
+                    {/* <TouchableOpacity style={[styles.collectionItem, { backgroundColor: isDark ? '#232024' : '#F3F4F6' }]}>
                 <View style={styles.collectionIcon}>
                     <MapPin
                         size={46}
@@ -527,83 +529,84 @@ export default function CollectionDetailScreen() {
                 </View>
             </TouchableOpacity> */}
 
-                {locations.length === 0 ? (
-                    renderEmptyState()
-                ) : (
-                    <GestureHandlerRootView style={{ flex: 1 }}>
-                        <FlatList
-                            data={locations}
-                            renderItem={renderLocation}
-                            keyExtractor={(item) => item.id}
-                            contentContainerStyle={styles.listContent}
-                            showsVerticalScrollIndicator={false}
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                            style={{ overflow: 'visible' }}
-                            removeClippedSubviews={false}
-                            scrollEventThrottle={16}
+                    {locations.length === 0 ? (
+                        renderEmptyState()
+                    ) : (
+                        <GestureHandlerRootView style={{ flex: 1 }}>
+                            <FlatList
+                                data={locations}
+                                renderItem={renderLocation}
+                                keyExtractor={(item) => item.id}
+                                contentContainerStyle={styles.listContent}
+                                showsVerticalScrollIndicator={false}
+                                refreshing={refreshing}
+                                onRefresh={onRefresh}
+                                style={{ overflow: 'visible' }}
+                                removeClippedSubviews={false}
+                                scrollEventThrottle={16}
+                            />
+                        </GestureHandlerRootView>
+                    )}
+
+                    {/* Collection Actions Modal */}
+                    {showActionsModal && (
+                        <>
+                            {console.log('🔍 Rendering CollectionActionsModal with isVisible:', showActionsModal)}
+                            <CollectionActionsModal
+                                isVisible={showActionsModal}
+                                onClose={() => {
+                                    console.log('🔍 Closing CollectionActionsModal');
+                                    setShowActionsModal(false);
+                                }}
+                                onEdit={handleEditCollection}
+                                onDelete={handleDeleteCollection}
+                                isDefault={currentCollection?.isDefault === true}
+                            />
+                        </>
+                    )}
+
+                    {/* Edit Collection Modal */}
+                    {showEditModal && (
+                        <EditCollectionModal
+                            isVisible={showEditModal}
+                            onClose={() => setShowEditModal(false)}
+                            onSuccess={handleEditSuccess}
+                            collectionId={collectionId}
+                            collectionName={currentCollection?.name || ''}
+                            collectionDescription={currentCollection?.description || ''}
+                            visibility={currentCollection?.visibility || 'PRIVATE'}
                         />
-                    </GestureHandlerRootView>
-                )}
+                    )}
 
-                {/* Collection Actions Modal */}
-                {showActionsModal && (
-                    <>
-                        {console.log('🔍 Rendering CollectionActionsModal with isVisible:', showActionsModal)}
-                        <CollectionActionsModal
-                            isVisible={showActionsModal}
-                            onClose={() => {
-                                console.log('🔍 Closing CollectionActionsModal');
-                                setShowActionsModal(false);
-                            }}
-                            onEdit={handleEditCollection}
-                            onDelete={handleDeleteCollection}
-                            isDefault={currentCollection?.isDefault === true}
+                    {/* Confirm Delete Modal */}
+                    {showDeleteModal && (
+                        <ConfirmDeleteModal
+                            isVisible={showDeleteModal}
+                            onClose={() => setShowDeleteModal(false)}
+                            onConfirm={handleDeleteSuccess}
+                            collectionName={currentCollection?.name || ''}
                         />
-                    </>
-                )}
+                    )}
 
-                {/* Edit Collection Modal */}
-                {showEditModal && (
-                    <EditCollectionModal
-                        isVisible={showEditModal}
-                        onClose={() => setShowEditModal(false)}
-                        onSuccess={handleEditSuccess}
-                        collectionId={collectionId}
-                        collectionName={currentCollection?.name || ''}
-                        collectionDescription={currentCollection?.description || ''}
-                        visibility={currentCollection?.visibility || 'PRIVATE'}
-                    />
-                )}
+                    {/* Context Menu for Location Actions */}
+                    {contextMenuVisible && selectedLocation && (
+                        <ContextMenu
+                            actions={[
+                                {
+                                    id: 'delete',
+                                    title: 'Xóa khỏi collection',
+                                    icon: Trash2,
+                                    onPress: () => handleContextMenuAction('delete'),
+                                    destructive: true,
+                                },
+                            ]}
+                            disabled={false}
+                        />
+                    )}
 
-                {/* Confirm Delete Modal */}
-                {showDeleteModal && (
-                    <ConfirmDeleteModal
-                        isVisible={showDeleteModal}
-                        onClose={() => setShowDeleteModal(false)}
-                        onConfirm={handleDeleteSuccess}
-                        collectionName={currentCollection?.name || ''}
-                    />
-                )}
-
-                {/* Context Menu for Location Actions */}
-                {contextMenuVisible && selectedLocation && (
-                    <ContextMenu
-                        actions={[
-                            {
-                                id: 'delete',
-                                title: 'Xóa khỏi collection',
-                                icon: Trash2,
-                                onPress: () => handleContextMenuAction('delete'),
-                                destructive: true,
-                            },
-                        ]}
-                        disabled={false}
-                    />
-                )}
-
-            </View>
-        </TouchableWithoutFeedback>
+                </View>
+            </TouchableWithoutFeedback>
+        </FeatureErrorBoundary>
     );
 }
 

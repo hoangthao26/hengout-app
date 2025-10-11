@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { View, useColorScheme } from 'react-native';
 import AuthBackButton from '../../components/AuthBackButton';
+import { AuthErrorBoundary } from '../../components/errorBoundaries';
 import { useToast } from '../../contexts/ToastContext';
 import ForgotPasswordForm from '../../modules/auth/components/ForgotPasswordForm';
 import { authService } from '../../services';
@@ -36,20 +37,22 @@ export default function ForgotPasswordScreen() {
     };
 
     return (
-        <View style={{
-            flex: 1,
-            backgroundColor: isDark ? '#000000' : '#FFFFFF',
-            paddingHorizontal: 24,
-            paddingTop: 60,
-            maxWidth: 500,
-            alignSelf: 'center',
-            width: '100%'
-        }}>
-            <AuthBackButton onPress={() => router.back()} />
-            <ForgotPasswordForm
-                onSubmit={handleSendResetOTP}
-                loading={loading}
-            />
-        </View>
+        <AuthErrorBoundary>
+            <View style={{
+                flex: 1,
+                backgroundColor: isDark ? '#000000' : '#FFFFFF',
+                paddingHorizontal: 24,
+                paddingTop: 60,
+                maxWidth: 500,
+                alignSelf: 'center',
+                width: '100%'
+            }}>
+                <AuthBackButton onPress={() => router.back()} />
+                <ForgotPasswordForm
+                    onSubmit={handleSendResetOTP}
+                    loading={loading}
+                />
+            </View>
+        </AuthErrorBoundary>
     );
 }

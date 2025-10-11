@@ -15,6 +15,7 @@ import ContextMenu from '../../components/ContextMenu';
 import Header from '../../components/Header';
 import SearchUserItem from '../../components/SearchUserItem';
 import SimpleAvatar from '../../components/SimpleAvatar';
+import { FeatureErrorBoundary } from '../../components/FeatureErrorBoundary';
 import { useToast } from '../../contexts/ToastContext';
 import { useFriendActions } from '../../hooks/useFriendActions';
 import NavigationService from '../../services/navigationService';
@@ -222,95 +223,97 @@ export default function FriendsListScreen() {
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            {/* Header */}
-            <Header
-                title="Bạn bè của bạn"
-                onBackPress={() => NavigationService.goBack()}
-            />
-
-            {/* Search Bar */}
-            <View style={styles.searchContainer}>
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Thêm bạn mới"
-                    placeholderTextColor="#9CA3AF"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
+        <FeatureErrorBoundary feature="Friends">
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                {/* Header */}
+                <Header
+                    title="Bạn bè của bạn"
+                    onBackPress={() => NavigationService.goBack()}
                 />
-                {searchLoading ? (
-                    <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
-                ) : (
-                    <TouchableOpacity
-                        style={styles.searchButton}
-                        onPress={searchQuery ? clearSearch : undefined}
-                    >
-                        {searchQuery ? (
-                            <X
-                                size={20}
-                                color="#9CA3AF"
-                            />
-                        ) : (
-                            <UserPlus
-                                size={20}
-                                color="#9CA3AF"
+
+                {/* Search Bar */}
+                <View style={styles.searchContainer}>
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Thêm bạn mới"
+                        placeholderTextColor="#9CA3AF"
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                    />
+                    {searchLoading ? (
+                        <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
+                    ) : (
+                        <TouchableOpacity
+                            style={styles.searchButton}
+                            onPress={searchQuery ? clearSearch : undefined}
+                        >
+                            {searchQuery ? (
+                                <X
+                                    size={20}
+                                    color="#9CA3AF"
+                                />
+                            ) : (
+                                <UserPlus
+                                    size={20}
+                                    color="#9CA3AF"
+                                />
+                            )}
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {/* Content */}
+                {searchQuery ? (
+                    <FlatList
+                        data={searchResults}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => (
+                            <SearchUserItem
+                                user={item}
+                                onAddFriend={handleSendFriendRequest}
+                                onRemoveFriend={handleRemoveFriend}
+                                onCancelRequest={handleCancelRequest}
+                                onAcceptRequest={handleAcceptRequestFromSearch}
+                                onRejectRequest={handleRejectRequestFromSearch}
+                                onBlock={handleBlockUser}
+                                loading={processingUser === item.id}
+                                disabled={processingUser === item.id}
                             />
                         )}
-                    </TouchableOpacity>
+                        style={styles.friendsList}
+                        contentContainerStyle={styles.friendsListContent}
+                        showsVerticalScrollIndicator={false}
+                        ListEmptyComponent={
+                            <View style={styles.emptyContainer}>
+                                <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                    Không tìm thấy người dùng nào
+                                </Text>
+                            </View>
+                        }
+                    />
+                ) : (
+                    <FlatList
+                        data={filteredFriends}
+                        keyExtractor={(item) => item.friendId}
+                        renderItem={renderFriendItem}
+                        style={styles.friendsList}
+                        contentContainerStyle={styles.friendsListContent}
+                        showsVerticalScrollIndicator={false}
+                        ListEmptyComponent={
+                            <View style={styles.emptyContainer}>
+                                <Users
+                                    size={64}
+                                    color={isDark ? '#4B5563' : '#9CA3AF'}
+                                />
+                                <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                    Chưa có bạn bè nào
+                                </Text>
+                            </View>
+                        }
+                    />
                 )}
             </View>
-
-            {/* Content */}
-            {searchQuery ? (
-                <FlatList
-                    data={searchResults}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                        <SearchUserItem
-                            user={item}
-                            onAddFriend={handleSendFriendRequest}
-                            onRemoveFriend={handleRemoveFriend}
-                            onCancelRequest={handleCancelRequest}
-                            onAcceptRequest={handleAcceptRequestFromSearch}
-                            onRejectRequest={handleRejectRequestFromSearch}
-                            onBlock={handleBlockUser}
-                            loading={processingUser === item.id}
-                            disabled={processingUser === item.id}
-                        />
-                    )}
-                    style={styles.friendsList}
-                    contentContainerStyle={styles.friendsListContent}
-                    showsVerticalScrollIndicator={false}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                Không tìm thấy người dùng nào
-                            </Text>
-                        </View>
-                    }
-                />
-            ) : (
-                <FlatList
-                    data={filteredFriends}
-                    keyExtractor={(item) => item.friendId}
-                    renderItem={renderFriendItem}
-                    style={styles.friendsList}
-                    contentContainerStyle={styles.friendsListContent}
-                    showsVerticalScrollIndicator={false}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Users
-                                size={64}
-                                color={isDark ? '#4B5563' : '#9CA3AF'}
-                            />
-                            <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                Chưa có bạn bè nào
-                            </Text>
-                        </View>
-                    }
-                />
-            )}
-        </View>
+        </FeatureErrorBoundary>
     );
 }
 

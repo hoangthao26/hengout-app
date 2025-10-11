@@ -1,6 +1,5 @@
 import { publicAxios } from '../config/publicAxios';
 import { buildEndpointUrl, SERVICES_CONFIG } from '../config/services';
-import { retryCritical } from './retryService';
 import {
     AuthResponse,
     LogoutRequest,
@@ -23,23 +22,21 @@ class SessionService {
      */
     async refreshToken(refreshToken: string): Promise<AuthResponse> {
         try {
-            return await retryCritical(async () => {
-                const request: RefreshTokenRequest = { refreshToken };
-                const endpoint = buildEndpointUrl('AUTH_SERVICE', 'REFRESH_TOKEN');
+            const request: RefreshTokenRequest = { refreshToken };
+            const endpoint = buildEndpointUrl('AUTH_SERVICE', 'REFRESH_TOKEN');
 
-                // 🔥 ENTERPRISE BEST PRACTICE: No Authorization header needed
-                // Backend supports refresh token rotation independently
-                console.log('🔄 [SessionService] Refreshing token with rotation:', {
-                    hasRefreshToken: !!refreshToken,
-                    refreshTokenLength: refreshToken?.length || 0,
-                    endpoint: endpoint,
-                    enterpriseMode: true,
-                });
-
-                // Use publicAxios - no Authorization header will be added
-                const response = await publicAxios.post<AuthResponse>(endpoint, request);
-                return response.data;
+            // 🔥 ENTERPRISE BEST PRACTICE: No Authorization header needed
+            // Backend supports refresh token rotation independently
+            console.log('🔄 [SessionService] Refreshing token with rotation:', {
+                hasRefreshToken: !!refreshToken,
+                refreshTokenLength: refreshToken?.length || 0,
+                endpoint: endpoint,
+                enterpriseMode: true,
             });
+
+            // Use publicAxios - no Authorization header will be added
+            const response = await publicAxios.post<AuthResponse>(endpoint, request);
+            return response.data;
         } catch (error: any) {
             // Silent log for refresh token failure - don't show error to user
             console.log('🔄 [SessionService] Refresh token failed:', error?.message || 'Unknown error');

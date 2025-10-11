@@ -202,10 +202,12 @@ class InitializationService {
 
             // Check token expiry and refresh if needed
             const tokens = await AuthHelper.getTokens();
-            if (tokens && tokens.expiresIn < 5 * 60 * 1000) { // 5 minutes
+            if (tokens && tokens.expiresIn < 5 * 60 * 1000) { // 5 minutes - consistent with RefreshTokenManager
                 console.log('⏰ [InitializationService] Token expiring soon, refreshing proactively');
                 try {
-                    await AuthHelper.refreshAccessToken();
+                    // Use RefreshTokenManager for consistent refresh logic
+                    const { refreshTokenManager } = await import('./refreshTokenManager');
+                    await refreshTokenManager.performRefresh();
                     console.log('✅ [InitializationService] Token refreshed successfully');
                 } catch (error) {
                     console.log('⚠️ [InitializationService] Token refresh failed, will retry later');

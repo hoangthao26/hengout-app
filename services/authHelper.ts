@@ -110,10 +110,7 @@ export class AuthHelper {
      * Get all stored tokens
      */
     static async getTokens(): Promise<AuthTokens | null> {
-        const AUTH_DEBUG = false; // Toggle verbose token logs
         try {
-            if (AUTH_DEBUG) console.log('🔍 [AuthHelper] Reading tokens from SecureStore...');
-
             const [accessToken, refreshToken, tokenType, expirationTime, role] = await Promise.all([
                 SecureStore.getItemAsync(this.ACCESS_TOKEN_KEY),
                 SecureStore.getItemAsync(this.REFRESH_TOKEN_KEY),
@@ -122,19 +119,7 @@ export class AuthHelper {
                 SecureStore.getItemAsync(this.ROLE_KEY),
             ]);
 
-            if (AUTH_DEBUG) console.log('📖 [AuthHelper] Raw tokens from SecureStore:', {
-                hasAccessToken: !!accessToken,
-                hasRefreshToken: !!refreshToken,
-                hasTokenType: !!tokenType,
-                hasExpirationTime: !!expirationTime,
-                hasRole: !!role,
-                accessTokenLength: accessToken?.length || 0,
-                refreshTokenLength: refreshToken?.length || 0,
-                expirationTime: expirationTime,
-            });
-
             if (!accessToken || !refreshToken) {
-                console.log('❌ [AuthHelper] Missing access or refresh token');
                 return null;
             }
 
@@ -145,23 +130,15 @@ export class AuthHelper {
             // Calculate remaining duration
             const remainingDuration = Math.max(0, expirationTimestamp - currentTime);
 
-            if (AUTH_DEBUG) console.log('⏰ [AuthHelper] Token timing info:', {
-                currentTime: new Date(currentTime).toLocaleString(),
-                expirationTimestamp: new Date(expirationTimestamp).toLocaleString(),
-                remainingDuration: Math.round(remainingDuration / 1000) + ' seconds',
-                isExpired: remainingDuration <= 0,
-            });
-
             const tokens = {
                 accessToken,
                 refreshToken,
                 tokenType: tokenType || 'Bearer',
                 expiresIn: remainingDuration, // Return remaining duration (for backward compatibility)
-                expiresAt: expirationTimestamp, // ✅ ENTERPRISE BEST PRACTICE: Return actual expiration timestamp
+                expiresAt: expirationTimestamp, // Return actual expiration timestamp
                 role: role || '',
             };
 
-            if (AUTH_DEBUG) console.log('✅ [AuthHelper] Successfully retrieved tokens');
             return tokens;
         } catch (error) {
             console.error('❌ [AuthHelper] Failed to get tokens:', error);
@@ -199,41 +176,6 @@ export class AuthHelper {
         }
     }
 
-    /**
-     * Refresh access token using refresh token - ENTERPRISE BEST PRACTICE
-     * Supports refresh token rotation without requiring access token
-     */
-    static async refreshAccessToken(): Promise<boolean> {
-        try {
-            const refreshToken = await this.getRefreshToken();
-
-            if (!refreshToken) {
-                console.log('🔐 [AuthHelper] No refresh token available - logging out user');
-                await this.logoutAndNavigate();
-                return false;
-            }
-
-
-            const response = await sessionService.refreshToken(refreshToken);
-
-            await this.saveTokens({
-                accessToken: response.data.accessToken,
-                refreshToken: response.data.refreshToken,
-                tokenType: response.data.tokenType,
-                expiresIn: response.data.expiresIn,
-                expiresAt: Date.now() + response.data.expiresIn,
-                role: response.data.role,
-            });
-
-            return true;
-        } catch (error) {
-            // Silent log for refresh token failure - don't show error to user
-            console.log('🔄 [AuthHelper] Refresh access token failed:', (error as any)?.message || 'Unknown error');
-            // If refresh fails, clear all tokens
-            await this.clearTokens();
-            return false;
-        }
-    }
 
     /**
      * Logout with smart API decision
@@ -542,7 +484,9 @@ export class AuthHelper {
             const shouldRefresh = await this.shouldPreRefreshToken();
             if (shouldRefresh) {
                 console.log('🔄 Pre-refreshing token (expires soon)');
-                const success = await this.refreshAccessToken();
+                // Use RefreshTokenManager for consistent refresh logic
+                const { refreshTokenManager } = await import('./refreshTokenManager');
+                const success = await refreshTokenManager.performRefresh();
                 if (success) {
                     console.log('✅ Token pre-refresh successful');
                     return true;

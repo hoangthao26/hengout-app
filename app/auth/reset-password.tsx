@@ -1,5 +1,6 @@
 import AuthBackButton from '@/components/AuthBackButton';
 import ResetPasswordForm from '@/modules/auth/components/ResetPasswordForm';
+import { AuthErrorBoundary } from '@/components/errorBoundaries';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { View, useColorScheme } from 'react-native';
@@ -37,20 +38,22 @@ export default function ResetPasswordScreen() {
     };
 
     return (
-        <View style={{
-            flex: 1,
-            backgroundColor: isDark ? '#000000' : '#FFFFFF',
-            paddingHorizontal: 24,
-            paddingTop: 60,
-            maxWidth: 500,
-            alignSelf: 'center',
-            width: '100%'
-        }}>
-            <AuthBackButton onPress={() => router.back()} />
-            <ResetPasswordForm
-                onSubmit={handleResetPassword}
-                loading={loading}
-            />
-        </View>
+        <AuthErrorBoundary>
+            <View style={{
+                flex: 1,
+                backgroundColor: isDark ? '#000000' : '#FFFFFF',
+                paddingHorizontal: 24,
+                paddingTop: 60,
+                maxWidth: 500,
+                alignSelf: 'center',
+                width: '100%'
+            }}>
+                <AuthBackButton onPress={() => router.back()} />
+                <ResetPasswordForm
+                    onSubmit={handleResetPassword}
+                    loading={loading}
+                />
+            </View>
+        </AuthErrorBoundary>
     );
 }

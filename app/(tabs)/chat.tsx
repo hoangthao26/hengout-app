@@ -279,85 +279,87 @@ export default function ChatScreen() {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            {/* Header */}
-            <Header
-                title="Chat"
-                showBackButton={false}
-                rightIcons={[
-                    {
-                        icon: UserPlus,
-                        size: 28,
-                        onPress: handleCreateGroup,
-                    }
-                ]}
-            />
-
-            {/* Search Bar */}
-            <View style={styles.searchContainer}>
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Tìm kiếm cuộc trò chuyện..."
-                    placeholderTextColor="#9CA3AF"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
+        <ChatErrorBoundary>
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                {/* Header */}
+                <Header
+                    title="Chat"
+                    showBackButton={false}
+                    rightIcons={[
+                        {
+                            icon: UserPlus,
+                            size: 28,
+                            onPress: handleCreateGroup,
+                        }
+                    ]}
                 />
-                {searchLoading ? (
-                    <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
-                ) : (
-                    <TouchableOpacity
-                        style={styles.searchButton}
-                        onPress={searchQuery ? clearSearch : undefined}
-                    >
-                        {searchQuery ? (
-                            <X
-                                size={20}
-                                color="#9CA3AF"
-                            />
-                        ) : (
-                            <Search
-                                size={20}
-                                color="#9CA3AF"
-                            />
-                        )}
-                    </TouchableOpacity>
-                )}
-            </View>
 
-            {/* Conversations List - Scrollable between header and tabs */}
-            <FlatList
-                data={filteredConversations}
-                keyExtractor={(item) => item.id}
-                renderItem={renderConversationItem}
-                style={styles.conversationsList}
-                contentContainerStyle={styles.conversationsContent}
-                showsVerticalScrollIndicator={true}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={handleRefresh}
-                        tintColor={isDark ? '#FFFFFF' : '#000000'}
+                {/* Search Bar */}
+                <View style={styles.searchContainer}>
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Tìm kiếm cuộc trò chuyện..."
+                        placeholderTextColor="#9CA3AF"
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
                     />
-                }
-                ListEmptyComponent={
-                    !conversationsLoading ? (
-                        <View style={styles.emptyState}>
-                            <Users
-                                size={48}
-                                color={isDark ? '#4B5563' : '#9CA3AF'}
-                            />
-                            <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                {searchQuery ? 'Không tìm thấy cuộc trò chuyện nào' : 'Chưa có cuộc trò chuyện nào'}
-                            </Text>
-                        </View>
-                    ) : null
-                }
-            />
+                    {searchLoading ? (
+                        <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
+                    ) : (
+                        <TouchableOpacity
+                            style={styles.searchButton}
+                            onPress={searchQuery ? clearSearch : undefined}
+                        >
+                            {searchQuery ? (
+                                <X
+                                    size={20}
+                                    color="#9CA3AF"
+                                />
+                            ) : (
+                                <Search
+                                    size={20}
+                                    color="#9CA3AF"
+                                />
+                            )}
+                        </TouchableOpacity>
+                    )}
+                </View>
 
-            {/* Temporary Database Reset Button for Testing */}
-            {/* <DatabaseResetButton /> */}
+                {/* Conversations List - Scrollable between header and tabs */}
+                <FlatList
+                    data={filteredConversations}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderConversationItem}
+                    style={styles.conversationsList}
+                    contentContainerStyle={styles.conversationsContent}
+                    showsVerticalScrollIndicator={true}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={handleRefresh}
+                            tintColor={isDark ? '#FFFFFF' : '#000000'}
+                        />
+                    }
+                    ListEmptyComponent={
+                        !conversationsLoading ? (
+                            <View style={styles.emptyState}>
+                                <Users
+                                    size={48}
+                                    color={isDark ? '#4B5563' : '#9CA3AF'}
+                                />
+                                <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                    {searchQuery ? 'Không tìm thấy cuộc trò chuyện nào' : 'Chưa có cuộc trò chuyện nào'}
+                                </Text>
+                            </View>
+                        ) : null
+                    }
+                />
 
-        </View>
+                {/* Temporary Database Reset Button for Testing */}
+                {/* <DatabaseResetButton /> */}
+
+            </View>
+        </ChatErrorBoundary>
     );
 }
 

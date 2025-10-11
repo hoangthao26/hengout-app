@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, useColorScheme, View } from 'react-native';
 import GradientButton from '../../components/GradientButton';
 import GradientText from '../../components/GradientText';
+import { AuthErrorBoundary } from '../../components/errorBoundaries';
 import { useToast } from '../../contexts/ToastContext';
 import NavigationService from '../../services/navigationService';
 import { useProfileStore } from '../../store';
@@ -67,96 +68,98 @@ export default function InitializeProfileScreen() {
     };
 
     return (
-        <ScrollView
-            style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}
-            contentContainerStyle={styles.contentContainer}
-        >
-            <View style={styles.header}>
-                {/* No back button - user must complete profile setup */}
-            </View>
-
-            {/* Logo Section */}
-            <View style={styles.logoSection}>
-                <GradientText
-                    style={styles.logo}
-                    colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
-                >
-                    Hengout
-                </GradientText>
-                <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                    Complete Your Profile
-                </Text>
-                <Text style={[styles.subtitle, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                    Tell us about yourself to get personalized recommendations
-                </Text>
-            </View>
-
-            {/* Form Section */}
-            <View style={styles.formSection}>
-                {/* Display Name */}
-                <View style={styles.inputGroup}>
-                    <Text style={[styles.label, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                        Display Name *
-                    </Text>
-                    <View style={[styles.inputContainer, {
-                        backgroundColor: isDark ? '#1F2937' : '#F9FAFB',
-                        borderColor: isDark ? '#374151' : '#E5E7EB'
-                    }]}>
-                        <TextInput
-                            style={[styles.input, { color: isDark ? '#FFFFFF' : '#000000' }]}
-                            placeholder="Enter your display name"
-                            placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
-                            value={formData.displayName}
-                            onChangeText={(text: string) => setFormData(prev => ({ ...prev, displayName: text }))}
-                        />
-                    </View>
+        <AuthErrorBoundary>
+            <ScrollView
+                style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}
+                contentContainerStyle={styles.contentContainer}
+            >
+                <View style={styles.header}>
+                    {/* No back button - user must complete profile setup */}
                 </View>
 
-                {/* Gender Selection */}
-                <View style={styles.inputGroup}>
-                    <Text style={[styles.label, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                        Gender
+                {/* Logo Section */}
+                <View style={styles.logoSection}>
+                    <GradientText
+                        style={styles.logo}
+                        colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
+                    >
+                        Hengout
+                    </GradientText>
+                    <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                        Complete Your Profile
                     </Text>
-                    <View style={styles.genderContainer}>
-                        {(['MALE', 'FEMALE', 'OTHER'] as const).map((gender) => (
-                            <GradientButton
-                                key={gender}
-                                title={gender === 'MALE' ? 'Male' : gender === 'FEMALE' ? 'Female' : 'Other'}
-                                onPress={() => setFormData(prev => ({ ...prev, gender }))}
-                                textFontSize={16}
-                                className={`${formData.gender === gender ? 'opacity-100' : 'opacity-50'}`}
+                    <Text style={[styles.subtitle, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                        Tell us about yourself to get personalized recommendations
+                    </Text>
+                </View>
+
+                {/* Form Section */}
+                <View style={styles.formSection}>
+                    {/* Display Name */}
+                    <View style={styles.inputGroup}>
+                        <Text style={[styles.label, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            Display Name *
+                        </Text>
+                        <View style={[styles.inputContainer, {
+                            backgroundColor: isDark ? '#1F2937' : '#F9FAFB',
+                            borderColor: isDark ? '#374151' : '#E5E7EB'
+                        }]}>
+                            <TextInput
+                                style={[styles.input, { color: isDark ? '#FFFFFF' : '#000000' }]}
+                                placeholder="Enter your display name"
+                                placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
+                                value={formData.displayName}
+                                onChangeText={(text: string) => setFormData(prev => ({ ...prev, displayName: text }))}
                             />
-                        ))}
+                        </View>
+                    </View>
+
+                    {/* Gender Selection */}
+                    <View style={styles.inputGroup}>
+                        <Text style={[styles.label, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            Gender
+                        </Text>
+                        <View style={styles.genderContainer}>
+                            {(['MALE', 'FEMALE', 'OTHER'] as const).map((gender) => (
+                                <GradientButton
+                                    key={gender}
+                                    title={gender === 'MALE' ? 'Male' : gender === 'FEMALE' ? 'Female' : 'Other'}
+                                    onPress={() => setFormData(prev => ({ ...prev, gender }))}
+                                    textFontSize={16}
+                                    className={`${formData.gender === gender ? 'opacity-100' : 'opacity-50'}`}
+                                />
+                            ))}
+                        </View>
+                    </View>
+
+                    {/* Coming Soon Message */}
+                    <View style={styles.comingSoonSection}>
+                        <Text style={[styles.comingSoonTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            More Options Coming Soon
+                        </Text>
+                        <Text style={[styles.comingSoonText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                            Categories, purposes, and tags will be available after Cloudinary setup
+                        </Text>
                     </View>
                 </View>
 
-                {/* Coming Soon Message */}
-                <View style={styles.comingSoonSection}>
-                    <Text style={[styles.comingSoonTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                        More Options Coming Soon
-                    </Text>
-                    <Text style={[styles.comingSoonText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                        Categories, purposes, and tags will be available after Cloudinary setup
-                    </Text>
+                {/* Action Buttons */}
+                <View style={styles.actionSection}>
+                    <GradientButton
+                        title={loading ? "Setting up..." : "Complete Profile"}
+                        onPress={handleInitializeProfile}
+                        textFontSize={18}
+                        disabled={loading || !formData.displayName.trim()}
+                    />
+
+                    <GradientButton
+                        title="Skip for Now"
+                        onPress={handleSkip}
+                        textFontSize={18}
+                    />
                 </View>
-            </View>
-
-            {/* Action Buttons */}
-            <View style={styles.actionSection}>
-                <GradientButton
-                    title={loading ? "Setting up..." : "Complete Profile"}
-                    onPress={handleInitializeProfile}
-                    textFontSize={18}
-                    disabled={loading || !formData.displayName.trim()}
-                />
-
-                <GradientButton
-                    title="Skip for Now"
-                    onPress={handleSkip}
-                    textFontSize={18}
-                />
-            </View>
-        </ScrollView>
+            </ScrollView>
+        </AuthErrorBoundary>
     );
 }
 

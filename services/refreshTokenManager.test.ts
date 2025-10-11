@@ -22,15 +22,15 @@ export const testRefreshTokenManager = {
     },
 
     /**
-     * Test force refresh
+     * Test perform refresh
      */
-    async testForceRefresh() {
-        console.log('🧪 Testing forceRefresh...');
+    async testPerformRefresh() {
+        console.log('🧪 Testing performRefresh...');
         try {
-            const result = await refreshTokenManager.forceRefresh();
-            console.log('✅ forceRefresh test passed, result:', result);
+            const result = await refreshTokenManager.performRefresh();
+            console.log('✅ performRefresh test passed, result:', result);
         } catch (error) {
-            console.error('❌ forceRefresh test failed:', error);
+            console.error('❌ performRefresh test failed:', error);
         }
     },
 
@@ -82,7 +82,7 @@ export const testRefreshTokenManager = {
         await this.testGetRefreshStatus();
         await this.testStartMonitoring();
         await this.testCheckAndRefreshOnResume();
-        await this.testForceRefresh();
+        await this.testPerformRefresh();
         this.testStopMonitoring();
 
         console.log('🏁 All tests completed');

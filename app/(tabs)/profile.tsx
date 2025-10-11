@@ -12,6 +12,7 @@ import {
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Image, RefreshControl, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
+import { ProfileErrorBoundary } from '../../components/errorBoundaries';
 import Animated, {
     useAnimatedScrollHandler,
     useSharedValue,
@@ -310,194 +311,196 @@ export default function ProfileScreen() {
     // }
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            {/* Header with 2 Icons */}
-            <Header
-                title=""
-                showBackButton={false}
-                variant="profile"
-                rightIcons={[
-                    {
-                        icon: UserPlus,
-                        size: 28,
-                        onPress: () => NavigationService.goToFriendRequest()
-                    },
-                    {
-                        icon: Settings,
-                        size: 28,
-                        onPress: () => NavigationService.goToSettings()
-                    }
-                ]}
-            />
-
-
-            {/* Scrollable Profile Content */}
-            <Animated.ScrollView
-                style={styles.scrollContainer}
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-                onScroll={scrollHandler}
-                scrollEventThrottle={16}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={handleRefresh}
-                        tintColor={isDark ? '#FFFFFF' : '#000000'}
-                    />
-                }
-            >
-                {/* Profile Info Section - Avatar Left, Name/Bio Below, Edit Icon Right */}
-                <View style={styles.profileInfoSection}>
-                    {/* Avatar */}
-                    <View style={styles.avatarContainer}>
-                        {profile?.avatarUrl ? (
-                            <Image
-                                source={{ uri: profile.avatarUrl }}
-                                style={styles.avatarImage}
-                                resizeMode="contain"
-                            />
-                        ) : (
-                            <User
-                                size={90}
-                                color={isDark ? '#9CA3AF' : '#6B7280'}
-                            />
-                        )}
-                    </View>
-
-                    {/* Name and Bio - Centered below avatar */}
-                    <View style={styles.nameBioSection}>
-                        <Text style={[styles.displayName, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                            {profile?.displayName || 'User'}
-                        </Text>
-                        {profile?.bio && (
-                            <Text style={[styles.bio, { color: isDark ? '#CCCCCC' : '#666666' }]}>
-                                {profile.bio}
-                            </Text>
-                        )}
-                    </View>
-
-                    {/* Edit Icon - Right side */}
-                    <View style={styles.editIconContainer}>
-                        <TouchableOpacity
-                            style={[styles.editIconButton, { backgroundColor: isDark ? '#262626' : '#F5F5F5' }]}
-                            onPress={() => NavigationService.goToEditProfile()}
-                        >
-                            <UserPen
-                                size={24}
-                                color={isDark ? '#FFFFFF' : '#000000'}
-                            />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                {/* Collections Section */}
-                <View style={styles.tabContent}>
-                    {/* Collections Section */}
-                    <View style={[
-                        styles.collectionsSection,
+        <ProfileErrorBoundary>
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                {/* Header with 2 Icons */}
+                <Header
+                    title=""
+                    showBackButton={false}
+                    variant="profile"
+                    rightIcons={[
                         {
-                            backgroundColor: isDark ? '#232024' : '#F3F4F6'
+                            icon: UserPlus,
+                            size: 28,
+                            onPress: () => NavigationService.goToFriendRequest()
+                        },
+                        {
+                            icon: Settings,
+                            size: 28,
+                            onPress: () => NavigationService.goToSettings()
                         }
-                    ]}>
-                        <View style={styles.collectionsHeader}>
-                            <Text style={[styles.collectionsTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                                Collections ({collections.length})
-                            </Text>
-                            <View style={styles.collectionsHeaderActions}>
-                                <TouchableOpacity
-                                    style={styles.headerActionButton}
-                                    onPress={handleCreateCollection}
-                                >
-                                    <PlusCircle
-                                        size={28}
-                                        color={isDark ? '#FFFFFF' : '#000000'}
-                                    />
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.headerActionButton}
-                                    onPress={handleOpenDeleteModal}
+                    ]}
+                />
 
-                                >
-                                    <List
-                                        size={28}
-                                        color={isDark ? '#FFFFFF' : '#000000'}
-                                    />
-                                </TouchableOpacity>
-                            </View>
+
+                {/* Scrollable Profile Content */}
+                <Animated.ScrollView
+                    style={styles.scrollContainer}
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                    onScroll={scrollHandler}
+                    scrollEventThrottle={16}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={handleRefresh}
+                            tintColor={isDark ? '#FFFFFF' : '#000000'}
+                        />
+                    }
+                >
+                    {/* Profile Info Section - Avatar Left, Name/Bio Below, Edit Icon Right */}
+                    <View style={styles.profileInfoSection}>
+                        {/* Avatar */}
+                        <View style={styles.avatarContainer}>
+                            {profile?.avatarUrl ? (
+                                <Image
+                                    source={{ uri: profile.avatarUrl }}
+                                    style={styles.avatarImage}
+                                    resizeMode="contain"
+                                />
+                            ) : (
+                                <User
+                                    size={90}
+                                    color={isDark ? '#9CA3AF' : '#6B7280'}
+                                />
+                            )}
                         </View>
 
-                        {collectionsLoading ? (
-                            <View style={styles.collectionsLoading}>
-                                <Text style={[styles.loadingText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                    Đang tải collections...
+                        {/* Name and Bio - Centered below avatar */}
+                        <View style={styles.nameBioSection}>
+                            <Text style={[styles.displayName, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                                {profile?.displayName || 'User'}
+                            </Text>
+                            {profile?.bio && (
+                                <Text style={[styles.bio, { color: isDark ? '#CCCCCC' : '#666666' }]}>
+                                    {profile.bio}
                                 </Text>
-                            </View>
-                        ) : collections.length === 0 ? (
-                            <View style={styles.emptyCollections}>
-                                <MapPin
-                                    size={32}
-                                    color={isDark ? '#4B5563' : '#9CA3AF'}
+                            )}
+                        </View>
+
+                        {/* Edit Icon - Right side */}
+                        <View style={styles.editIconContainer}>
+                            <TouchableOpacity
+                                style={[styles.editIconButton, { backgroundColor: isDark ? '#262626' : '#F5F5F5' }]}
+                                onPress={() => NavigationService.goToEditProfile()}
+                            >
+                                <UserPen
+                                    size={24}
+                                    color={isDark ? '#FFFFFF' : '#000000'}
                                 />
-                                <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                    Chưa có collections nào
-                                </Text>
-                            </View>
-                        ) : (
-                            <View style={styles.collectionsList}>
-                                {collections.map((item) => (
-                                    <TouchableOpacity
-                                        key={item.id}
-                                        style={[
-                                            styles.collectionItem,
-                                            {
-                                                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-                                            }
-                                        ]}
-                                        onPress={() => handleCollectionPress(item)}
-                                    >
-                                        <View style={styles.collectionIcon}>
-                                            <MapPin
-                                                size={36}
-                                                color={isDark ? '#FFFFFF' : '#000000'}
-                                            />
-                                        </View>
-                                        <View style={styles.collectionInfo}>
-                                            <Text
-                                                style={[styles.collectionName, { color: isDark ? '#FFFFFF' : '#000000' }]}
-                                                numberOfLines={1}
-                                            >
-                                                {item.name}
-                                            </Text>
-                                            <Text
-                                                style={[styles.collectionDescription, { color: isDark ? '#9CA3AF' : '#6B7280' }]}
-                                                numberOfLines={1}
-                                            >
-                                                {item.description || 'Không có mô tả'}
-                                            </Text>
-                                        </View>
-                                        <View style={styles.collectionStatus}>
-                                            {item.visibility === 'PUBLIC' ? (
-                                                <Globe
-                                                    size={24}
-                                                    color={isDark ? '#9CA3AF' : '#6B7280'}
-                                                />
-                                            ) : (
-                                                <Lock
-                                                    size={24}
-                                                    color={isDark ? '#9CA3AF' : '#6B7280'}
-                                                />
-                                            )}
-                                        </View>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        )}
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
 
-            </Animated.ScrollView>
+                    {/* Collections Section */}
+                    <View style={styles.tabContent}>
+                        {/* Collections Section */}
+                        <View style={[
+                            styles.collectionsSection,
+                            {
+                                backgroundColor: isDark ? '#232024' : '#F3F4F6'
+                            }
+                        ]}>
+                            <View style={styles.collectionsHeader}>
+                                <Text style={[styles.collectionsTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                                    Collections ({collections.length})
+                                </Text>
+                                <View style={styles.collectionsHeaderActions}>
+                                    <TouchableOpacity
+                                        style={styles.headerActionButton}
+                                        onPress={handleCreateCollection}
+                                    >
+                                        <PlusCircle
+                                            size={28}
+                                            color={isDark ? '#FFFFFF' : '#000000'}
+                                        />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.headerActionButton}
+                                        onPress={handleOpenDeleteModal}
 
-        </View>
+                                    >
+                                        <List
+                                            size={28}
+                                            color={isDark ? '#FFFFFF' : '#000000'}
+                                        />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            {collectionsLoading ? (
+                                <View style={styles.collectionsLoading}>
+                                    <Text style={[styles.loadingText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                        Đang tải collections...
+                                    </Text>
+                                </View>
+                            ) : collections.length === 0 ? (
+                                <View style={styles.emptyCollections}>
+                                    <MapPin
+                                        size={32}
+                                        color={isDark ? '#4B5563' : '#9CA3AF'}
+                                    />
+                                    <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                        Chưa có collections nào
+                                    </Text>
+                                </View>
+                            ) : (
+                                <View style={styles.collectionsList}>
+                                    {collections.map((item) => (
+                                        <TouchableOpacity
+                                            key={item.id}
+                                            style={[
+                                                styles.collectionItem,
+                                                {
+                                                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                                                }
+                                            ]}
+                                            onPress={() => handleCollectionPress(item)}
+                                        >
+                                            <View style={styles.collectionIcon}>
+                                                <MapPin
+                                                    size={36}
+                                                    color={isDark ? '#FFFFFF' : '#000000'}
+                                                />
+                                            </View>
+                                            <View style={styles.collectionInfo}>
+                                                <Text
+                                                    style={[styles.collectionName, { color: isDark ? '#FFFFFF' : '#000000' }]}
+                                                    numberOfLines={1}
+                                                >
+                                                    {item.name}
+                                                </Text>
+                                                <Text
+                                                    style={[styles.collectionDescription, { color: isDark ? '#9CA3AF' : '#6B7280' }]}
+                                                    numberOfLines={1}
+                                                >
+                                                    {item.description || 'Không có mô tả'}
+                                                </Text>
+                                            </View>
+                                            <View style={styles.collectionStatus}>
+                                                {item.visibility === 'PUBLIC' ? (
+                                                    <Globe
+                                                        size={24}
+                                                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                                                    />
+                                                ) : (
+                                                    <Lock
+                                                        size={24}
+                                                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                                                    />
+                                                )}
+                                            </View>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+                    </View>
+
+                </Animated.ScrollView>
+
+            </View>
+        </ProfileErrorBoundary>
     );
 }
 

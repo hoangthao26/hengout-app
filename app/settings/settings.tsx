@@ -157,6 +157,26 @@ export default function SettingsScreen() {
                     />
                 </TouchableOpacity>
 
+                {/* Toast Test Option */}
+                <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={() => router.push('/settings/toast-test')}
+                >
+                    <View style={styles.settingLeft}>
+                        <TestTube
+                            size={24}
+                            color={isDark ? '#FFFFFF' : '#000000'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            Toast Test
+                        </Text>
+                    </View>
+                    <ChevronRight
+                        size={20}
+                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                    />
+                </TouchableOpacity>
+
                 {/* Logout Option */}
                 <TouchableOpacity
                     style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}

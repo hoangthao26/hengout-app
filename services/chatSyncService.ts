@@ -95,10 +95,12 @@ class ChatSyncService {
 
             // 🚀 PROACTIVE: Check token expiry and refresh if needed
             const tokens = await AuthHelper.getTokens();
-            if (tokens && tokens.expiresIn < 2 * 60 * 1000) { // 2 minutes
+            if (tokens && tokens.expiresIn < 5 * 60 * 1000) { // 5 minutes - consistent with other services
                 console.log('⏰ [ChatSyncService] Token expiring soon, refreshing proactively');
                 try {
-                    await AuthHelper.refreshAccessToken();
+                    // Use RefreshTokenManager for consistent refresh logic
+                    const { refreshTokenManager } = await import('./refreshTokenManager');
+                    await refreshTokenManager.performRefresh();
                     console.log('✅ [ChatSyncService] Token refreshed successfully');
                 } catch (error) {
                     console.log('⚠️ [ChatSyncService] Token refresh failed, will retry later');

@@ -136,7 +136,7 @@ axiosInstance.interceptors.response.use(
                 isRefreshing = true;
 
                 try {
-                    await refreshTokenManager.forceRefresh();
+                    await refreshTokenManager.performRefresh();
                     const newAccessToken = await AuthHelper.getAccessToken();
                     originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
                     processQueue(null, newAccessToken);
