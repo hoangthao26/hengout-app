@@ -122,11 +122,13 @@ export default function FriendRequestScreen() {
     const handleAcceptRequest = async (requestId: string) => {
         try {
             setProcessingRequest(requestId);
+            console.log('🔗 [Friend Request] Accept URL:', `PUT /api/social/friend-requests/${requestId}?status=ACCEPTED`);
+            console.log('📝 [Friend Request] Accept Request ID:', requestId);
             await socialService.handleFriendRequest(requestId, 'ACCEPTED');
             showSuccess('Friend request accepted!',);
 
-            // Remove from pending requests (global store will be updated by useFriendActions)
-            // setPendingRequests(prev => prev.filter(req => req.id !== requestId));
+            // Remove from pending requests immediately
+            setPendingRequests(pendingRequests.filter((req: FriendRequest) => req.id !== requestId));
         } catch (error: any) {
             console.error('Failed to accept friend request:', error);
             showError(`Failed to accept friend request: ${error.message}`,);
@@ -138,11 +140,13 @@ export default function FriendRequestScreen() {
     const handleRejectRequest = async (requestId: string) => {
         try {
             setProcessingRequest(requestId);
+            console.log('🔗 [Friend Request] Reject URL:', `PUT /api/social/friend-requests/${requestId}?status=REJECTED`);
+            console.log('📝 [Friend Request] Reject Request ID:', requestId);
             await socialService.handleFriendRequest(requestId, 'REJECTED');
             showSuccess('Friend request rejected',);
 
-            // Remove from pending requests (global store will be updated by useFriendActions)
-            // setPendingRequests(prev => prev.filter(req => req.id !== requestId));
+            // Remove from pending requests immediately
+            setPendingRequests(pendingRequests.filter((req: FriendRequest) => req.id !== requestId));
         } catch (error: any) {
             console.error('Failed to reject friend request:', error);
             showError(`Failed to reject friend request: ${error.message}`,);

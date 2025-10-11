@@ -11,7 +11,9 @@ export const useFriendActions = (
 ) => {
     const [processingUser, setProcessingUser] = useState<string | null>(null);
     const { success: showSuccess, error: showError } = useToast();
-    const { executeWithRetry, isRetrying } = useRetry();
+    const { executeWithRetry, isRetrying } = useRetry({
+        strategy: 'network'
+    });
 
     // Get global friend actions
     const {
@@ -40,9 +42,10 @@ export const useFriendActions = (
             originalUser = searchResultsRef.current.find(u => u.id === userId);
 
             // 2. Send friend request to server with retry logic
+            console.log('🔗 [Friend Request] Send URL:', `POST /api/social/friend-requests`);
+            console.log('📝 [Friend Request] Send User ID:', userId);
             const response = await executeWithRetry(
-                () => socialService.sendFriendRequest(userId),
-                { maxRetries: 3, delay: 1000, exponentialBackoff: true }
+                () => socialService.sendFriendRequest(userId)
             );
             showSuccess('Friend request sent!');
 
@@ -63,8 +66,7 @@ export const useFriendActions = (
                 const currentUser = searchResultsRef.current.find(u => u.id === userId);
                 if (currentUser?.name) {
                     const searchResponse = await executeWithRetry(
-                        () => socialService.searchUsersDetail(currentUser.name, 0, 10),
-                        { maxRetries: 2, delay: 500, exponentialBackoff: false }
+                        () => socialService.searchUsersDetail(currentUser.name, 0, 10)
                     );
 
                     // Find the user in search results and get their friendRequestId
@@ -133,9 +135,10 @@ export const useFriendActions = (
                     : u
             ));
 
+            console.log('🔗 [Friend Request] Cancel URL:', `DELETE /api/social/friend-requests/${friendRequestId}`);
+            console.log('📝 [Friend Request] Cancel Request ID:', friendRequestId);
             await executeWithRetry(
-                () => socialService.cancelSentFriendRequest(friendRequestId!),
-                { maxRetries: 3, delay: 1000, exponentialBackoff: true }
+                () => socialService.cancelSentFriendRequest(friendRequestId!)
             );
             showSuccess('Friend request cancelled!');
         } catch (error: any) {
@@ -169,6 +172,8 @@ export const useFriendActions = (
                     : user
             ));
 
+            console.log('🔗 [Friend Request] Remove Friend URL:', `DELETE /api/social/friends/${userId}`);
+            console.log('📝 [Friend Request] Remove Friend User ID:', userId);
             await socialService.removeFriend(userId);
             showSuccess('Friend removed successfully!');
         } catch (error: any) {
@@ -212,6 +217,8 @@ export const useFriendActions = (
             // Also update global store
             globalUpdateSearchUser(userId, { relationshipStatus: "FRIEND" });
 
+            console.log('🔗 [Friend Request] Accept from Search URL:', `PUT /api/social/friend-requests/${friendRequestId}?status=ACCEPTED`);
+            console.log('📝 [Friend Request] Accept from Search Request ID:', friendRequestId);
             await socialService.handleFriendRequest(friendRequestId, 'ACCEPTED');
             showSuccess('Friend request accepted!');
 
@@ -258,6 +265,8 @@ export const useFriendActions = (
             // Also update global store
             globalUpdateSearchUser(userId, { relationshipStatus: "NONE" });
 
+            console.log('🔗 [Friend Request] Reject from Search URL:', `PUT /api/social/friend-requests/${friendRequestId}?status=REJECTED`);
+            console.log('📝 [Friend Request] Reject from Search Request ID:', friendRequestId);
             await socialService.handleFriendRequest(friendRequestId, 'REJECTED');
             showSuccess('Friend request rejected');
 
@@ -281,6 +290,8 @@ export const useFriendActions = (
     const handleBlockUser = useCallback(async (userId: string) => {
         try {
             setProcessingUser(userId);
+            console.log('🔗 [Friend Request] Block User URL:', `PUT /api/social/friends/${userId}/block`);
+            console.log('📝 [Friend Request] Block User ID:', userId);
             await socialService.blockFriend(userId, 'BLOCKED');
             showSuccess('User blocked successfully!');
 

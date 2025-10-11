@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { StyleSheet, View, Alert, TextInput, TouchableOpacity, useColorScheme, ActivityIndicator, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import { StyleSheet, View, Alert, TextInput, TouchableOpacity, useColorScheme, ActivityIndicator, Keyboard, TouchableWithoutFeedback, Text } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { Search, X, MapPinHouse } from 'lucide-react-native';
+import { Search, X, MapPinHouse, Filter } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFilterRecommendations } from '../../hooks/useFilterRecommendations';
 import MapView from '../../components/MapView';
 import MapPin from '../../components/MapPin';
 import LocationCard from '../../components/LocationCard';
@@ -59,6 +60,7 @@ export default function DiscoverScreen() {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    // Filter modal is handled globally via ModalContext
     const searchInputRef = useRef<TextInput>(null);
     const [mapController, setMapController] = useState<{
         centerMapOnLocation: (latitude: number, longitude: number, delta?: number) => void;
@@ -68,7 +70,7 @@ export default function DiscoverScreen() {
     const [isDetailSheetVisible, setIsDetailSheetVisible] = useState(false);
 
     // Use ModalContext for LocationDetailModal
-    const { openLocationDetailModal } = useModal();
+    const { openLocationDetailModal, openFilterVibesModal } = useModal();
 
     // NLP Search hook
     const {
@@ -79,6 +81,13 @@ export default function DiscoverScreen() {
     } = useNLPRecommendations({
         onError: (error) => {
             Alert.alert('Lỗi tìm kiếm', 'Không thể tìm kiếm địa điểm. Vui lòng thử lại.');
+        }
+    });
+
+    // Filter hook
+    const { results: filterResults, fetchByFilter, clear: clearFilter } = useFilterRecommendations({
+        onError: (error) => {
+            Alert.alert('Lỗi filter', error);
         }
     });
 
@@ -93,6 +102,9 @@ export default function DiscoverScreen() {
 
     // Handle MapPin selection
     const handleMapPinSelect = useCallback((locationDetails: LocationDetails) => {
+        // Prefetch reviews immediately on pin select to warm cache for modal
+        locationService.prefetchLocationReviews(locationDetails.id, 0, 20);
+
         // Use setTimeout to ensure state updates happen after any map click events
         setTimeout(() => {
             setSelectedLocationDetails(locationDetails);
@@ -104,7 +116,8 @@ export default function DiscoverScreen() {
             // Show LocationCard
             setSelectedLocationForDetail(locationDetails);
             console.log('LocationCard should be visible now');
-        }, 100);
+
+        }, 0);
     }, []);
 
     // Load random recommendations when location is available
@@ -462,6 +475,55 @@ export default function DiscoverScreen() {
                     </View>
                 )}
 
+                {/* Floating Filter Button - always on the right of search area */}
+                <TouchableOpacity
+                    style={styles.filterFloating}
+                    onPress={() => {
+                        if (!location) return;
+                        openFilterVibesModal(async ({ categories, purposes, tags }) => {
+                            const isEmpty = (!categories || categories.length === 0) && (!purposes || purposes.length === 0) && (!tags || tags.length === 0);
+
+                            if (isEmpty) {
+                                // Clear filter results and reload random recommendations
+                                clearFilter();
+                                clearNLPSearch();
+                                clearRecommendations();
+                                await refreshRecommendations(location.latitude, location.longitude);
+                                console.log('[Filter] Cleared filters -> reload random recommendations');
+                                return;
+                            }
+
+                            // Hide random results while filter is active
+                            clearRecommendations();
+
+                            try {
+                                const res = await fetchByFilter({
+                                    categories,
+                                    purposes,
+                                    tags,
+                                    latitude: location.latitude,
+                                    longitude: location.longitude,
+                                    address: ''
+                                });
+                                console.log('[Filter] API response:', JSON.stringify(res, null, 2));
+                            } catch (err) {
+                                console.log('[Filter] API error:', err);
+                            }
+                        });
+                    }}
+                    activeOpacity={0.85}
+                >
+                    <LinearGradient
+                        colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
+                        locations={[0, 0.31, 0.69, 1]}
+                        start={{ x: 0, y: 1 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.gradientButton}
+                    >
+                        <Filter size={28} color="#FFFFFF" />
+                    </LinearGradient>
+                </TouchableOpacity>
+
                 {/* Bottom Container - Buttons + LocationCard */}
                 <View style={styles.bottomContainer}>
                     {/* Control Buttons */}
@@ -532,6 +594,17 @@ export default function DiscoverScreen() {
                                 size="medium"
                             />
                         ))
+                    ) : filterResults.length > 0 ? (
+                        filterResults.map((locationDetails) => (
+                            <MapPin
+                                key={`filter_${locationDetails.id}`}
+                                location={locationDetails}
+                                onPress={handleMapPinSelect}
+                                onCenterMap={handleCenterMap}
+                                isSelected={selectedLocationDetails?.id === locationDetails.id}
+                                size="medium"
+                            />
+                        ))
                     ) : (
                         // Show random recommendations when not searching
                         recommendations.map((locationDetails) => (
@@ -547,7 +620,6 @@ export default function DiscoverScreen() {
                     )}
                 </MapView>
 
-
             </View>
         </TouchableWithoutFeedback>
     );
@@ -561,7 +633,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: 50,
         left: 16,
-        right: 16,
+        right: 80,
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 20,
@@ -578,6 +650,21 @@ const styles = StyleSheet.create({
         elevation: 2,
         zIndex: 1,
         minHeight: 55,
+    },
+    filterFloating: {
+        position: 'absolute',
+        top: 50,
+        right: 16,
+        width: 55,
+        height: 55,
+        borderRadius: 16,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.75,
+        shadowRadius: 12,
+        elevation: 12,
+        zIndex: 2,
     },
     searchInput: {
         flex: 1,

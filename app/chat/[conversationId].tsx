@@ -144,16 +144,23 @@ export default function ChatConversationScreen() {
                                         setMessages(prev => {
                                             if (prev.length === 0 ||
                                                 (syncedMessages.length > 0 && syncedMessages[0].id !== prev[0].id)) {
-                                                setConversationMessages(conversationId, syncedMessages);
-                                                setMessageSnapshot(conversationId, syncedMessages.slice(0, 20));
-                                                return syncedMessages;
+                                                const nextMessages = syncedMessages;
+                                                // Defer store updates to next tick to avoid cross-render setState warnings
+                                                setTimeout(() => {
+                                                    setConversationMessages(conversationId, nextMessages);
+                                                    setMessageSnapshot(conversationId, nextMessages.slice(0, 20));
+                                                }, 0);
+                                                return nextMessages;
                                             }
                                             return prev; // Keep local data if no newer messages
                                         });
                                     } else {
                                         setMessages(prev => {
                                             const newMessages = [...prev, ...syncedMessages];
-                                            setConversationMessages(conversationId, newMessages);
+                                            // Defer store updates to next tick to avoid cross-render setState warnings
+                                            setTimeout(() => {
+                                                setConversationMessages(conversationId, newMessages);
+                                            }, 0);
                                             return newMessages;
                                         });
                                     }

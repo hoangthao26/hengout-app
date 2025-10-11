@@ -19,7 +19,7 @@ const ToastContainer: React.FC = () => {
             style={[
                 styles.container,
                 {
-                    backgroundColor: isDark ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
+                    backgroundColor: 'transparent', // Transparent background để toast nổi bật
                     paddingTop: insets.top + 10, // Safe area + extra padding
                 },
             ]}

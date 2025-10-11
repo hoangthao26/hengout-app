@@ -82,7 +82,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ actions, disabled = false }) 
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
                 <MoreHorizontal
-                    size={20}
+                    size={26}
                     color={isDark ? '#9CA3AF' : '#6B7280'}
                 />
             </TouchableOpacity>

@@ -87,8 +87,7 @@ const LocationCard: React.FC<LocationCardProps> = ({
         <TouchableOpacity
             style={containerStyle}
             onPress={() => onOpenDetail && onOpenDetail(location)}
-            activeOpacity={0.7}
-            delayPressIn={0}
+            activeOpacity={1}
         >
             {/* Card Content */}
             <View style={styles.cardContent}>
@@ -211,7 +210,7 @@ const styles = StyleSheet.create({
     listContainer: {
         borderRadius: 20,
         marginHorizontal: 12,
-        marginVertical: 4,
+
         shadowOffset: {
             width: 0,
             height: 4,

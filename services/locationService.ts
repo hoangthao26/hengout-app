@@ -20,6 +20,10 @@ import {
 
 class LocationService {
     private readonly baseUrl = SERVICES_CONFIG.LOCATION_SERVICE.BASE_URL;
+    // Simple in-memory cache for small app usage
+    private reviewsCache = new Map<string, { timestamp: number; data: LocationReviewsResponse }>();
+    private inflightReviews = new Map<string, Promise<LocationReviewsResponse>>();
+    private static readonly REVIEWS_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
     // ============================================================================
     // LOCATION DETAILS
@@ -145,6 +149,9 @@ class LocationService {
         try {
             const endpoint = buildEndpointUrl('LOCATION_SERVICE', 'INIT_CURRENT_VIBES');
             const response = await axiosInstance.post<InitVibesResponse>(endpoint);
+            try {
+                console.log('✅ [LocationService] initCurrentVibes success:', response.data?.status || 'unknown');
+            } catch { }
             return response.data;
         } catch (error: any) {
             console.error('Failed to initialize current vibes:', error);
@@ -165,6 +172,60 @@ class LocationService {
             console.error('Failed to generate new vibes:', error);
             throw error;
         }
+    }
+
+    /**
+     * Get reviews with simple in-memory cache and request de-duplication
+     */
+    async getLocationReviewsCached(
+        locationId: string,
+        page: number = 0,
+        size: number = 10
+    ): Promise<LocationReviewsResponse> {
+        const cacheKey = `${locationId}:${page}:${size}`;
+        const now = Date.now();
+        const cached = this.reviewsCache.get(cacheKey);
+        if (cached && now - cached.timestamp < LocationService.REVIEWS_TTL_MS) {
+            return cached.data;
+        }
+
+        const inflightKey = cacheKey;
+        const existing = this.inflightReviews.get(inflightKey);
+        if (existing) return existing;
+
+        const promise = this.getLocationReviews(locationId, page, size)
+            .then((data) => {
+                this.reviewsCache.set(cacheKey, { timestamp: Date.now(), data });
+                this.inflightReviews.delete(inflightKey);
+                return data;
+            })
+            .catch((err) => {
+                this.inflightReviews.delete(inflightKey);
+                throw err;
+            });
+
+        this.inflightReviews.set(inflightKey, promise);
+        return promise;
+    }
+
+    /** Prefetch reviews without awaiting (fire-and-forget), uses cache/dedupe */
+    prefetchLocationReviews(locationId: string, page: number = 0, size: number = 10) {
+        // Trigger but don't throw
+        this.getLocationReviewsCached(locationId, page, size).catch(() => { });
+    }
+
+    /** Try get cached reviews immediately; returns null if not fresh */
+    getCachedLocationReviews(
+        locationId: string,
+        page: number = 0,
+        size: number = 10
+    ): LocationReviewsResponse | null {
+        const cacheKey = `${locationId}:${page}:${size}`;
+        const cached = this.reviewsCache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < LocationService.REVIEWS_TTL_MS) {
+            return cached.data;
+        }
+        return null;
     }
 }
 

@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, useColorScheme, View } from 'react-native';
+import * as Location from 'expo-location';
 // import AuthBackButton from '../../components/AuthBackButton'; // 🚀 REMOVED: No back button on login screen
 import GradientText from '../../components/GradientText';
 import { AuthErrorBoundary } from '../../components/errorBoundaries';
@@ -9,6 +10,7 @@ import EmailLoginForm from '../../modules/auth/components/EmailLoginForm';
 import { AuthHelper, authService } from '../../services';
 import { googleOAuthService } from '../../services/googleOAuthService';
 import NavigationService from '../../services/navigationService';
+import { initializationService } from '../../services/initializationService';
 
 export default function LoginScreen() {
     const router = useRouter();
@@ -56,13 +58,40 @@ export default function LoginScreen() {
 
             showSuccess('Login successful!',);
 
+            // Centralized lightweight init after login (MVP)
+            initializationService.initAfterLogin();
+
             // Check onboarding status from auth response
             if (response.data.onboardingComplete === false) {
                 console.log('Onboarding not complete, redirecting to wizard');
                 NavigationService.goToOnboardingWizard();
             } else {
                 console.log('Onboarding complete, navigating to tabs');
-                NavigationService.secureNavigateToDiscover();
+                // Get current location before navigating
+                try {
+                    const { status } = await Location.requestForegroundPermissionsAsync();
+                    if (status === 'granted') {
+                        const location = await Location.getCurrentPositionAsync({
+                            accuracy: Location.Accuracy.Balanced,
+                        });
+                        console.log('📍 [Login] GPS location obtained:', {
+                            lat: location.coords.latitude,
+                            lng: location.coords.longitude,
+                            accuracy: location.coords.accuracy
+                        });
+                        NavigationService.secureNavigateToDiscover({
+                            latitude: location.coords.latitude,
+                            longitude: location.coords.longitude,
+                            accuracy: location.coords.accuracy || 0
+                        });
+                    } else {
+                        console.log('📍 [Login] Location permission denied, using fallback');
+                        NavigationService.secureNavigateToDiscover();
+                    }
+                } catch (error) {
+                    console.log('📍 [Login] GPS error, using fallback:', error);
+                    NavigationService.secureNavigateToDiscover();
+                }
             }
         } catch (error: any) {
             console.log('Login failed:', error);
@@ -91,7 +120,31 @@ export default function LoginScreen() {
                     NavigationService.goToOnboardingWizard();
                 } else {
                     console.log('Onboarding complete, navigating to tabs');
-                    NavigationService.secureNavigateToDiscover();
+                    // Get current location before navigating
+                    try {
+                        const { status } = await Location.requestForegroundPermissionsAsync();
+                        if (status === 'granted') {
+                            const location = await Location.getCurrentPositionAsync({
+                                accuracy: Location.Accuracy.Balanced,
+                            });
+                            console.log('📍 [Google Login] GPS location obtained:', {
+                                lat: location.coords.latitude,
+                                lng: location.coords.longitude,
+                                accuracy: location.coords.accuracy
+                            });
+                            NavigationService.secureNavigateToDiscover({
+                                latitude: location.coords.latitude,
+                                longitude: location.coords.longitude,
+                                accuracy: location.coords.accuracy || 0
+                            });
+                        } else {
+                            console.log('📍 [Google Login] Location permission denied, using fallback');
+                            NavigationService.secureNavigateToDiscover();
+                        }
+                    } catch (error) {
+                        console.log('📍 [Google Login] GPS error, using fallback:', error);
+                        NavigationService.secureNavigateToDiscover();
+                    }
                 }
             } else {
                 console.log('❌ Google OAuth failed:', result.error);

@@ -8,6 +8,7 @@ import CreateCollectionModal from '../../components/CreateCollectionModal';
 import CreateGroupModal from '../../components/CreateGroupModal';
 import DeleteCollectionsModal from '../../components/DeleteCollectionsModal';
 import LocationDetailModal from '../../components/LocationDetailModal';
+import FilterVibesModal from '../../components/FilterVibesModal';
 import SaveLocationModal from '../../components/SaveLocationModal';
 import { ModalProvider, useModal } from '../../contexts/ModalContext';
 
@@ -35,11 +36,14 @@ function TabLayoutContent() {
         closeCreateGroupModal,
         closeLocationDetailModal,
         closeSaveLocationModal,
+        closeFilterVibesModal,
         onCreateSuccess,
         onDeleteSuccess,
         onCreateGroupSuccess,
         onLocationDetailSuccess,
-        onSaveLocationSuccess
+        onSaveLocationSuccess,
+        showFilterVibesModal,
+        onFilterVibesApply
     } = useModal();
 
     // State for native modules
@@ -229,6 +233,15 @@ function TabLayoutContent() {
                 onSuccess={() => {
                     onSaveLocationSuccess?.();
                     closeSaveLocationModal();
+                }}
+            />
+
+            <FilterVibesModal
+                isVisible={showFilterVibesModal}
+                onClose={closeFilterVibesModal}
+                onApply={(filters) => {
+                    onFilterVibesApply?.(filters);
+                    closeFilterVibesModal();
                 }}
             />
         </>

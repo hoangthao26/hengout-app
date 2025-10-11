@@ -195,10 +195,39 @@ export class RefreshTokenManager {
     }
 
     /**
+     * Show logout toast to user
+     */
+    private async showLogoutToast(title: string, message: string): Promise<void> {
+        try {
+            const { useToast } = await import('../contexts/ToastContext');
+            const toast = useToast();
+            toast.error(title, message);
+        } catch (toastError) {
+            console.error('❌ [RefreshTokenManager] Failed to show toast:', toastError);
+        }
+    }
+
+    /**
      * Execute refresh with exponential backoff retry
      */
     private async executeRefreshWithRetry(): Promise<boolean> {
         let lastError: any;
+
+        // 🚀 PROACTIVE: Check if refresh token exists before attempting
+        try {
+            const refreshToken = await AuthHelper.getRefreshToken();
+            if (!refreshToken) {
+                console.log('🔐 [RefreshTokenManager] No refresh token available - logging out immediately');
+                await this.showLogoutToast('Phiên đăng nhập hết hạn', 'Vui lòng đăng nhập lại để tiếp tục sử dụng');
+                await AuthHelper.logoutAndNavigate();
+                return false;
+            }
+        } catch (error) {
+            console.log('🔐 [RefreshTokenManager] Failed to get refresh token - logging out immediately');
+            await this.showLogoutToast('Lỗi xác thực', 'Không thể xác thực phiên đăng nhập. Vui lòng đăng nhập lại');
+            await AuthHelper.logoutAndNavigate();
+            return false;
+        }
 
         for (let attempt = 1; attempt <= RefreshTokenManager.MAX_RETRY_ATTEMPTS; attempt++) {
             try {
@@ -225,6 +254,34 @@ export class RefreshTokenManager {
                 lastError = error;
                 console.error(`❌ [RefreshTokenManager] Refresh attempt ${attempt} failed:`, error);
 
+                // 🚀 PROACTIVE: Check for "No refresh token available" error
+                if ((error as any)?.message?.includes('No refresh token available')) {
+                    console.log('🔐 [RefreshTokenManager] No refresh token available - logging out immediately');
+                    await this.showLogoutToast('Phiên đăng nhập hết hạn', 'Vui lòng đăng nhập lại để tiếp tục sử dụng');
+
+                    try {
+                        await AuthHelper.logoutAndNavigate();
+                        return false; // Don't retry
+                    } catch (logoutError) {
+                        console.error('❌ [RefreshTokenManager] Failed to logout:', logoutError);
+                        return false;
+                    }
+                }
+
+                // 🚀 PROACTIVE: Check for 401 error first - immediate logout
+                if ((error as any)?.response?.status === 401) {
+                    console.log('🔐 [RefreshTokenManager] 401 error - refresh token invalid, logging out immediately');
+                    await this.showLogoutToast('Phiên đăng nhập hết hạn', 'Vui lòng đăng nhập lại để tiếp tục sử dụng');
+
+                    try {
+                        await AuthHelper.logoutAndNavigate();
+                        return false; // Don't retry
+                    } catch (logoutError) {
+                        console.error('❌ [RefreshTokenManager] Failed to logout:', logoutError);
+                        return false;
+                    }
+                }
+
                 // Classify error type
                 const errorType = this.classifyError(error);
                 console.log(`🔍 [RefreshTokenManager] Error classified as: ${errorType}`);
@@ -232,6 +289,7 @@ export class RefreshTokenManager {
                 if (errorType === 'AUTHENTICATION_ERROR') {
                     // Authentication error - don't retry, logout user
                     console.log('🔐 [RefreshTokenManager] Authentication error - logging out user');
+                    await this.showLogoutToast('Lỗi xác thực', 'Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại');
                     await AuthHelper.logoutAndNavigate();
                     return false;
                 } else if (errorType === 'NETWORK_ERROR' && attempt < RefreshTokenManager.MAX_RETRY_ATTEMPTS) {
@@ -262,7 +320,9 @@ export class RefreshTokenManager {
             const refreshToken = await AuthHelper.getRefreshToken();
 
             if (!refreshToken) {
-                throw new Error('No refresh token available');
+                console.log('🔐 [RefreshTokenManager] No refresh token available - logging out user');
+                await AuthHelper.logoutAndNavigate();
+                return false; // Don't retry
             }
 
 

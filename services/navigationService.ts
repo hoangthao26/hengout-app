@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import * as Location from 'expo-location';
 
 /**
  * Enterprise Navigation Service - Production Ready
@@ -478,8 +479,54 @@ class NavigationService {
     }
 
     static async goToDiscover() {
-        // Navigate to Discover tab specifically
-        await this.replace(ROUTES.DISCOVER);
+        // 🚀 ENTERPRISE: Auto-get GPS location for discover navigation
+        try {
+            console.log('📍 [NavigationService] Auto-getting GPS for discover navigation...');
+
+            // Check if location services are enabled
+            const isLocationEnabled = await Location.hasServicesEnabledAsync();
+
+            if (!isLocationEnabled) {
+                console.log('📍 [NavigationService] Location services disabled, navigating without GPS');
+                await this.replace(ROUTES.DISCOVER);
+                return;
+            }
+
+            // Request permission
+            const { status } = await Location.requestForegroundPermissionsAsync();
+
+            if (status !== 'granted') {
+                console.log('📍 [NavigationService] Location permission denied, navigating without GPS');
+                await this.replace(ROUTES.DISCOVER);
+                return;
+            }
+
+            // Get current location
+            const location = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+            });
+
+            if (location) {
+                console.log('📍 [NavigationService] GPS obtained for discover:', {
+                    lat: location.coords.latitude,
+                    lng: location.coords.longitude,
+                    accuracy: location.coords.accuracy
+                });
+
+                // Navigate with GPS data
+                await this.secureNavigateToDiscover({
+                    latitude: location.coords.latitude,
+                    longitude: location.coords.longitude,
+                    accuracy: location.coords.accuracy || 0
+                });
+            } else {
+                console.log('📍 [NavigationService] No location data, navigating without GPS');
+                await this.replace(ROUTES.DISCOVER);
+            }
+        } catch (error) {
+            console.log('📍 [NavigationService] GPS error, navigating without GPS:', error);
+            await this.replace(ROUTES.DISCOVER);
+        }
     }
 
     static async goToHome() {

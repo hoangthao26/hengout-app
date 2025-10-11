@@ -1,6 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Globe, Lock, MapPin, MoreHorizontal, Plus } from 'lucide-react-native';
+import NavigationService from '../../services/navigationService';
+import { Globe, Lock, MapPin, MoreHorizontal, Plus, Trash2 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -9,14 +10,17 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     useColorScheme,
     View
 } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import CollectionActionsModal from '../../components/CollectionActionsModal';
 import LocationCard from '../../components/LocationCard';
 import ConfirmDeleteModal from '../../components/ConfirmDeleteModal';
 import EditCollectionModal from '../../components/EditCollectionModal';
 import Header from '../../components/Header';
+import ContextMenu, { MenuAction } from '../../components/ContextMenu';
 import { useToast } from '../../contexts/ToastContext';
 import { locationFolderService } from '../../services/locationFolderService';
 import { useCollectionStore } from '../../store/collectionStore';
@@ -34,28 +38,7 @@ export default function CollectionDetailScreen() {
         collectionId: string;
     };
 
-    // Debug log to check params
-    console.log('CollectionDetail params:', params);
-    console.log('CollectionDetail collectionId:', collectionId);
-
-    // Early return if collectionId is missing
-    if (!collectionId) {
-        return (
-            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-                <Header
-                    title="Lỗi"
-                    showBackButton={true}
-                    onBackPress={() => router.back()}
-                />
-                <View style={styles.errorContainer}>
-                    <Text style={[styles.errorText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                        Không tìm thấy ID collection
-                    </Text>
-                </View>
-            </View>
-        );
-    }
-
+    // All hooks must be called before any early returns
     const [locations, setLocations] = useState<LocationInFolder[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -63,11 +46,8 @@ export default function CollectionDetailScreen() {
     const [showActionsModal, setShowActionsModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-
-    // Debug modal state
-    useEffect(() => {
-        console.log('🔍 showActionsModal changed to:', showActionsModal);
-    }, [showActionsModal]);
+    const [contextMenuVisible, setContextMenuVisible] = useState(false);
+    const [selectedLocation, setSelectedLocation] = useState<LocationInFolder | null>(null);
 
     // Zustand store
     const {
@@ -77,6 +57,12 @@ export default function CollectionDetailScreen() {
         updateCollection,
         resetCurrentCollection
     } = useCollectionStore();
+
+    // All useEffect and useCallback hooks must be called before any early returns
+    // Debug modal state
+    useEffect(() => {
+        console.log('🔍 showActionsModal changed to:', showActionsModal);
+    }, [showActionsModal]);
 
     // Load collection info from store (Store-First approach)
     useEffect(() => {
@@ -231,9 +217,37 @@ export default function CollectionDetailScreen() {
         }
     };
 
+    const handleLongPress = (item: LocationInFolder) => {
+        setSelectedLocation(item);
+        setContextMenuVisible(true);
+    };
+
+    const handleContextMenuAction = (actionId: string) => {
+        if (actionId === 'delete' && selectedLocation) {
+            Alert.alert(
+                'Xóa địa điểm',
+                `Bạn có chắc chắn muốn xóa "${selectedLocation.locationName}" khỏi collection này?`,
+                [
+                    {
+                        text: 'Hủy',
+                        style: 'cancel',
+                    },
+                    {
+                        text: 'Xóa',
+                        style: 'destructive',
+                        onPress: () => removeLocation(selectedLocation.locationId),
+                    },
+                ]
+            );
+        }
+        setContextMenuVisible(false);
+        setSelectedLocation(null);
+    };
+
     const handleAddLocation = () => {
-        // TODO: Navigate to location picker/search screen
-        console.log('Add location to collection:', collectionId);
+        // 🚀 ENTERPRISE: NavigationService now handles GPS automatically
+        console.log('📍 [CollectionDetail] Navigating to discover - GPS handled by NavigationService');
+        NavigationService.goToDiscover();
     };
 
 
@@ -306,16 +320,32 @@ export default function CollectionDetailScreen() {
 
     const renderLocation = ({ item, index }: { item: LocationInFolder; index: number }) => {
         const locationDetails = convertToLocationDetails(item);
+
+
+        const longPressGesture = Gesture.LongPress()
+            .minDuration(500)
+            .onEnd((e, success) => {
+                if (success) {
+                    console.log(`Long pressed location for ${e.duration} ms!`);
+                    handleLongPress(item);
+                }
+            });
+
         return (
             <View style={{ paddingHorizontal: 4, paddingVertical: 4 }}>
-                <LocationCard
-                    location={locationDetails}
-                    variant="list"
-                    onOpenDetail={handleLocationPress}
-                    addedAt={item.addedAt}
-                    updatedAt={item.updatedAt}
-                    note={item.note}
-                />
+                <GestureDetector gesture={longPressGesture}>
+                    <View>
+                        <LocationCard
+                            location={locationDetails}
+                            variant="list"
+                            onOpenDetail={handleLocationPress}
+                            addedAt={item.addedAt}
+                            updatedAt={item.updatedAt}
+                            note={item.note}
+                        />
+                    </View>
+                </GestureDetector>
+
             </View>
         );
     };
@@ -364,23 +394,27 @@ export default function CollectionDetailScreen() {
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            <Header
-                title={currentCollection?.name || 'Collection'}
-                showBackButton
-                onBackPress={handleBackPress}
-                rightIcon={{
-                    icon: MoreHorizontal,
-                    size: 28,
-                    onPress: () => {
-                        console.log('🔍 Icon pressed, setting showActionsModal to true');
-                        setShowActionsModal(true);
-                    }
-                }}
-            />
+        <TouchableWithoutFeedback onPress={() => {
+            setContextMenuVisible(false);
+            setSelectedLocation(null);
+        }}>
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                <Header
+                    title={currentCollection?.name || 'Collection'}
+                    showBackButton
+                    onBackPress={handleBackPress}
+                    rightIcon={{
+                        icon: MoreHorizontal,
+                        size: 28,
+                        onPress: () => {
+                            console.log('🔍 Icon pressed, setting showActionsModal to true');
+                            setShowActionsModal(true);
+                        }
+                    }}
+                />
 
-            {/* Collection Info - Similar to Profile */}
-            {/* <TouchableOpacity style={[styles.collectionItem, { backgroundColor: isDark ? '#232024' : '#F3F4F6' }]}>
+                {/* Collection Info - Similar to Profile */}
+                {/* <TouchableOpacity style={[styles.collectionItem, { backgroundColor: isDark ? '#232024' : '#F3F4F6' }]}>
                 <View style={styles.collectionIcon}>
                     <MapPin
                         size={46}
@@ -420,64 +454,83 @@ export default function CollectionDetailScreen() {
                 </View>
             </TouchableOpacity> */}
 
-            {locations.length === 0 ? (
-                renderEmptyState()
-            ) : (
-                <FlatList
-                    data={locations}
-                    renderItem={renderLocation}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={[styles.listContent, { overflow: 'visible' }]}
-                    showsVerticalScrollIndicator={false}
-                    refreshing={refreshing}
-                    onRefresh={onRefresh}
-                    style={{ overflow: 'visible' }}
-                    removeClippedSubviews={false}
-                    scrollEventThrottle={16}
-                />
-            )}
+                {locations.length === 0 ? (
+                    renderEmptyState()
+                ) : (
+                    <GestureHandlerRootView style={{ flex: 1 }}>
+                        <FlatList
+                            data={locations}
+                            renderItem={renderLocation}
+                            keyExtractor={(item) => item.id}
+                            contentContainerStyle={[styles.listContent, { overflow: 'visible' }]}
+                            showsVerticalScrollIndicator={false}
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            style={{ overflow: 'visible' }}
+                            removeClippedSubviews={false}
+                            scrollEventThrottle={16}
+                        />
+                    </GestureHandlerRootView>
+                )}
 
-            {/* Collection Actions Modal */}
-            {showActionsModal && (
-                <>
-                    {console.log('🔍 Rendering CollectionActionsModal with isVisible:', showActionsModal)}
-                    <CollectionActionsModal
-                        isVisible={showActionsModal}
-                        onClose={() => {
-                            console.log('🔍 Closing CollectionActionsModal');
-                            setShowActionsModal(false);
-                        }}
-                        onEdit={handleEditCollection}
-                        onDelete={handleDeleteCollection}
-                        isDefault={currentCollection?.isDefault === true}
+                {/* Collection Actions Modal */}
+                {showActionsModal && (
+                    <>
+                        {console.log('🔍 Rendering CollectionActionsModal with isVisible:', showActionsModal)}
+                        <CollectionActionsModal
+                            isVisible={showActionsModal}
+                            onClose={() => {
+                                console.log('🔍 Closing CollectionActionsModal');
+                                setShowActionsModal(false);
+                            }}
+                            onEdit={handleEditCollection}
+                            onDelete={handleDeleteCollection}
+                            isDefault={currentCollection?.isDefault === true}
+                        />
+                    </>
+                )}
+
+                {/* Edit Collection Modal */}
+                {showEditModal && (
+                    <EditCollectionModal
+                        isVisible={showEditModal}
+                        onClose={() => setShowEditModal(false)}
+                        onSuccess={handleEditSuccess}
+                        collectionId={collectionId}
+                        collectionName={currentCollection?.name || ''}
+                        collectionDescription={currentCollection?.description || ''}
+                        visibility={currentCollection?.visibility || 'PRIVATE'}
                     />
-                </>
-            )}
+                )}
 
-            {/* Edit Collection Modal */}
-            {showEditModal && (
-                <EditCollectionModal
-                    isVisible={showEditModal}
-                    onClose={() => setShowEditModal(false)}
-                    onSuccess={handleEditSuccess}
-                    collectionId={collectionId}
-                    collectionName={currentCollection?.name || ''}
-                    collectionDescription={currentCollection?.description || ''}
-                    visibility={currentCollection?.visibility || 'PRIVATE'}
-                />
-            )}
+                {/* Confirm Delete Modal */}
+                {showDeleteModal && (
+                    <ConfirmDeleteModal
+                        isVisible={showDeleteModal}
+                        onClose={() => setShowDeleteModal(false)}
+                        onConfirm={handleDeleteSuccess}
+                        collectionName={currentCollection?.name || ''}
+                    />
+                )}
 
-            {/* Confirm Delete Modal */}
-            {showDeleteModal && (
-                <ConfirmDeleteModal
-                    isVisible={showDeleteModal}
-                    onClose={() => setShowDeleteModal(false)}
-                    onConfirm={handleDeleteSuccess}
-                    collectionName={currentCollection?.name || ''}
-                />
-            )}
+                {/* Context Menu for Location Actions */}
+                {contextMenuVisible && selectedLocation && (
+                    <ContextMenu
+                        actions={[
+                            {
+                                id: 'delete',
+                                title: 'Xóa khỏi collection',
+                                icon: Trash2,
+                                onPress: () => handleContextMenuAction('delete'),
+                                destructive: true,
+                            },
+                        ]}
+                        disabled={false}
+                    />
+                )}
 
-        </View>
+            </View>
+        </TouchableWithoutFeedback>
     );
 }
 

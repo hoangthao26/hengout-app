@@ -9,6 +9,7 @@ import {
     useColorScheme,
     View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { CheckCircle, AlertCircle, XCircle, Info, X, LucideIcon } from 'lucide-react-native';
 import { Toast as ToastType } from '../types/toast';
 
@@ -62,44 +63,56 @@ const SimpleToast: React.FC<SimpleToastProps> = ({ toast, onHide, onActionPress 
             case 'success':
                 return {
                     icon: CheckCircle,
-                    iconColor: '#059669', // Tăng contrast
-                    backgroundColor: isDark ? '#064E3B' : '#ECFDF5', // Sáng hơn
-                    borderColor: '#059669',
+                    iconColor: '#FFFFFF',
+                    iconBackgroundColor: '#10B981',
+                    gradientColors: ['#00DF80', '#00ED51', '#00ED7B'],
+                    backgroundColor: '#242C32', // Dark background như Figma
+                    borderColor: 'transparent',
                 };
             case 'error':
                 return {
                     icon: XCircle,
-                    iconColor: '#DC2626', // Tăng contrast
-                    backgroundColor: isDark ? '#7F1D1D' : '#FEF2F2', // Sáng hơn
-                    borderColor: '#DC2626',
+                    iconColor: '#FFFFFF',
+                    iconBackgroundColor: '#DC2626',
+                    gradientColors: ['#FF6B6B', '#FF5252', '#FF1744'],
+                    backgroundColor: '#242C32', // Dark background như Figma
+                    borderColor: 'transparent',
                 };
             case 'warning':
                 return {
                     icon: AlertCircle,
-                    iconColor: '#D97706', // Tăng contrast
-                    backgroundColor: isDark ? '#78350F' : '#FFFBEB', // Sáng hơn
-                    borderColor: '#D97706',
+                    iconColor: '#FFFFFF',
+                    iconBackgroundColor: '#D97706',
+                    gradientColors: ['#FFB800', '#FFA000', '#FF8F00'],
+                    backgroundColor: '#242C32', // Dark background như Figma
+                    borderColor: 'transparent',
                 };
             case 'info':
                 return {
                     icon: Info,
-                    iconColor: '#2563EB', // Tăng contrast
-                    backgroundColor: isDark ? '#1E3A8A' : '#EFF6FF', // Sáng hơn
-                    borderColor: '#2563EB',
+                    iconColor: '#FFFFFF',
+                    iconBackgroundColor: '#2563EB',
+                    gradientColors: ['#00B4DB', '#0080FF', '#0066CC'],
+                    backgroundColor: '#242C32', // Dark background như Figma
+                    borderColor: 'transparent',
                 };
             case 'loading':
                 return {
                     icon: Info,
-                    iconColor: '#4B5563', // Tăng contrast
-                    backgroundColor: isDark ? '#374151' : '#F9FAFB', // Sáng hơn
-                    borderColor: '#4B5563',
+                    iconColor: '#FFFFFF',
+                    iconBackgroundColor: '#4B5563',
+                    gradientColors: ['#6B7280', '#4B5563', '#374151'],
+                    backgroundColor: '#242C32', // Dark background như Figma
+                    borderColor: 'transparent',
                 };
             default:
                 return {
                     icon: Info,
-                    iconColor: '#4B5563',
-                    backgroundColor: isDark ? '#374151' : '#F9FAFB',
-                    borderColor: '#4B5563',
+                    iconColor: '#FFFFFF',
+                    iconBackgroundColor: '#4B5563',
+                    gradientColors: ['#6B7280', '#4B5563', '#374151'],
+                    backgroundColor: '#242C32',
+                    borderColor: 'transparent',
                 };
         }
     };
@@ -125,17 +138,32 @@ const SimpleToast: React.FC<SimpleToastProps> = ({ toast, onHide, onActionPress 
                 onPress={toast.action ? () => onActionPress?.(toast.action) : undefined}
             >
                 <View style={styles.iconContainer}>
-                    <config.icon
-                        size={20}
-                        color={config.iconColor}
-                    />
+                    {/* Radial gradient effect - chỉ 1 layer nhỏ nhất */}
+                    <View style={styles.radialBackground}>
+                        <LinearGradient
+                            colors={[config.gradientColors[0] + '20', config.gradientColors[0] + '08', config.gradientColors[0] + '00']}
+                            style={styles.radialLayer1}
+                            start={{ x: 0.5, y: 0.5 }}
+                            end={{ x: 1, y: 1 }}
+                        />
+                    </View>
+                    {/* Main icon container */}
+                    <View style={[
+                        styles.iconInnerContainer,
+                        { backgroundColor: config.iconBackgroundColor }
+                    ]}>
+                        <config.icon
+                            size={20}
+                            color={config.iconColor}
+                        />
+                    </View>
                 </View>
 
                 <View style={styles.textContainer}>
                     <Text
                         style={[
                             styles.title,
-                            { color: isDark ? '#FFFFFF' : '#1F2937' }, // Tăng contrast
+                            { color: '#FFFFFF' }, // White text như Figma
                         ]}
                         numberOfLines={1}
                     >
@@ -145,7 +173,7 @@ const SimpleToast: React.FC<SimpleToastProps> = ({ toast, onHide, onActionPress 
                         <Text
                             style={[
                                 styles.message,
-                                { color: isDark ? '#E5E7EB' : '#4B5563' }, // Tăng contrast
+                                { color: '#C8C5C5' }, // Gray text như Figma
                             ]}
                             numberOfLines={2}
                         >
@@ -187,7 +215,7 @@ const SimpleToast: React.FC<SimpleToastProps> = ({ toast, onHide, onActionPress 
                     >
                         <X
                             size={16}
-                            color={isDark ? '#D1D5DB' : '#6B7280'}
+                            color="#C8C5C5" // Gray color như Figma
                         />
                     </TouchableOpacity>
                 )}
@@ -199,71 +227,93 @@ const SimpleToast: React.FC<SimpleToastProps> = ({ toast, onHide, onActionPress 
 const styles = StyleSheet.create({
     toast: {
         marginHorizontal: Math.min(16, screenWidth * 0.04),
-        marginVertical: 4, // Giảm margin
-        borderRadius: 12, // Giảm border radius
-        borderWidth: 1,
+        marginVertical: 4,
+        borderRadius: 16, // Tăng border radius theo Figma
+        borderWidth: 0, // Bỏ border
         shadowColor: '#000',
         shadowOffset: {
             width: 0,
-            height: 1, // Shadow nhẹ hơn
+            height: 4,
         },
-        shadowOpacity: 0.05, // Shadow rất nhẹ
-        shadowRadius: 4, // Shadow nhỏ gọn
-        elevation: 2, // Elevation nhẹ
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 8,
         maxWidth: screenWidth - 32,
+        overflow: 'visible', // Cho phép gradient tràn ra ngoài toast
     },
     toastContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 14, // Giảm padding
+        padding: 10, // Giảm padding
         minHeight: 56, // Giảm min height
     },
     iconContainer: {
-        marginRight: 12, // Giảm margin
+        marginRight: 12,
         alignItems: 'center',
         justifyContent: 'center',
-        width: 28, // Giảm icon size
-        height: 28,
+        width: 65, // Giảm size
+        height: 64,
+        position: 'relative',
+    },
+    radialBackground: {
+        position: 'absolute',
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        overflow: 'visible', // Cho phép gradient tràn ra ngoài
+    },
+    radialLayer1: {
+        position: 'absolute',
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+    },
+    iconInnerContainer: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1,
     },
     textContainer: {
         flex: 1,
-        marginRight: 8, // Giảm margin
+        marginRight: 8,
     },
     title: {
-        fontSize: 16, // Giảm font size
-        fontWeight: '600', // Giảm font weight
-        lineHeight: 20, // Giảm line height
+        fontSize: 17, // Font size theo Figma
+        fontWeight: '600', // Semibold như Figma
+        lineHeight: 22, // Line height theo Figma
         marginBottom: 2,
-        letterSpacing: -0.1,
+        letterSpacing: -0.408, // Letter spacing theo Figma
     },
     message: {
-        fontSize: 14, // Giảm font size
-        lineHeight: 18, // Giảm line height
-        opacity: 0.9,
-        letterSpacing: -0.05,
+        fontSize: 13, // Font size theo Figma
+        lineHeight: 18, // Line height theo Figma
+        letterSpacing: -0.078, // Letter spacing theo Figma
     },
     actionButton: {
-        paddingHorizontal: 12, // Giảm padding
+        paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 8,
         marginRight: 8,
         backgroundColor: 'rgba(255,255,255,0.1)',
-        minHeight: 32, // Giảm touch target
+        minHeight: 32,
         justifyContent: 'center',
         alignItems: 'center',
     },
     actionText: {
-        fontSize: 14, // Giảm font size
+        fontSize: 14,
         fontWeight: '600',
         letterSpacing: -0.05,
     },
     closeButton: {
-        padding: 6, // Giảm padding
+        padding: 6,
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: 16,
-        backgroundColor: 'rgba(0,0,0,0.05)',
-        minWidth: 28, // Giảm touch target
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        minWidth: 28,
         minHeight: 28,
     },
 });

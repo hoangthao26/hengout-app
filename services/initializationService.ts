@@ -18,6 +18,8 @@ class InitializationService {
     private static instance: InitializationService;
     private isInitialized = false;
     private initializationPromise: Promise<void> | null = null;
+    private hasInitOnAppStart = false;
+    private hasInitAfterLogin = false;
 
     // Configuration
     private readonly MAX_RETRIES = 3;
@@ -66,16 +68,21 @@ class InitializationService {
             appStore.setLocationReady(true);
             console.log('✅ [InitializationService] Location ready');
 
-            // 3. Initialize Chat Sync Services
+            // 3. Initialize Auth Services (BEFORE API calls) ← PROACTIVE
+            await this.initializeAuthServices();
+            appStore.setAuthReady(true);
+            console.log('✅ [InitializationService] Auth ready');
+
+            // 4. Initialize Chat Sync Services (AFTER auth)
             await this.initializeChatServices();
             appStore.setServicesReady(true);
             console.log('✅ [InitializationService] Services ready');
 
-            // 4. Preload Chat Data for Instant Display
+            // 5. Preload Chat Data for Instant Display (AFTER auth)
             await this.preloadChatData();
             console.log('✅ [InitializationService] Chat data preloaded');
 
-            // 5. Mark app as ready
+            // 6. Mark app as ready
             appStore.setAppReady(true);
             this.isInitialized = true;
 
@@ -87,6 +94,40 @@ class InitializationService {
 
             appStore.setInitializationError(errorMessage);
             throw error;
+        }
+    }
+
+    /**
+     * MVP-simple: lightweight user-dependent initialization on app start
+     * Safe to call multiple times; guarded by in-memory flags
+     */
+    async initOnAppStart(): Promise<void> {
+        if (this.hasInitOnAppStart) return;
+        this.hasInitOnAppStart = true;
+        try {
+            const { AuthHelper } = await import('./authHelper');
+            const isAuthenticated = await AuthHelper.isAuthenticated();
+            if (!isAuthenticated) return;
+            const { locationService } = await import('./locationService');
+            // Fire-and-forget; idempotent on server
+            locationService.initCurrentVibes().catch(() => { });
+        } catch (err) {
+            // Non-critical
+            console.log('ℹ️ [InitializationService] initOnAppStart skipped/failed', err);
+        }
+    }
+
+    /**
+     * MVP-simple: lightweight user-dependent initialization right after login
+     */
+    async initAfterLogin(): Promise<void> {
+        if (this.hasInitAfterLogin) return;
+        this.hasInitAfterLogin = true;
+        try {
+            const { locationService } = await import('./locationService');
+            locationService.initCurrentVibes().catch(() => { });
+        } catch (err) {
+            console.log('ℹ️ [InitializationService] initAfterLogin skipped/failed', err);
         }
     }
 
@@ -144,6 +185,43 @@ class InitializationService {
     }
 
     /**
+     * Initialize auth services - PROACTIVE approach
+     */
+    private async initializeAuthServices(): Promise<void> {
+        try {
+            console.log('🔐 [InitializationService] Initializing auth services...');
+
+            // Check if user is authenticated
+            const { AuthHelper } = await import('./authHelper');
+            const isAuthenticated = await AuthHelper.isAuthenticated();
+
+            if (!isAuthenticated) {
+                console.log('ℹ️ [InitializationService] User not authenticated, skipping auth services');
+                return;
+            }
+
+            // Check token expiry and refresh if needed
+            const tokens = await AuthHelper.getTokens();
+            if (tokens && tokens.expiresIn < 5 * 60 * 1000) { // 5 minutes
+                console.log('⏰ [InitializationService] Token expiring soon, refreshing proactively');
+                try {
+                    await AuthHelper.refreshAccessToken();
+                    console.log('✅ [InitializationService] Token refreshed successfully');
+                } catch (error) {
+                    console.log('⚠️ [InitializationService] Token refresh failed, will retry later');
+                    // Don't throw - auth services can be initialized later
+                }
+            }
+
+            console.log('✅ [InitializationService] Auth services ready');
+
+        } catch (error) {
+            console.error('❌ [InitializationService] Auth services initialization failed:', error);
+            // Don't throw - auth services can be initialized later
+        }
+    }
+
+    /**
      * Initialize chat sync services
      */
     private async initializeChatServices(): Promise<void> {
@@ -164,14 +242,14 @@ class InitializationService {
         const appStore = useAppStore.getState(); // ✅ Move appStore ra ngoài để access trong catch block
 
         try {
-            console.log('🚀 [InitializationService] Preloading chat data for instant display...');
+            if (__DEV__) console.log('🚀 [InitializationService] Preloading chat data for instant display...');
 
             // 🚀 CHECK AUTH FIRST: Only sync if user is authenticated
             const { AuthHelper } = await import('./authHelper');
             const isAuthenticated = await AuthHelper.isAuthenticated();
 
             if (!isAuthenticated) {
-                console.log('ℹ️ [InitializationService] User not authenticated, skipping chat data preload');
+                if (__DEV__) console.log('ℹ️ [InitializationService] User not authenticated, skipping chat data preload');
                 appStore.setChatDataPreloaded(true);
                 return;
             }
@@ -179,26 +257,26 @@ class InitializationService {
             const chatStore = useChatStore.getState();
 
             // ✅ SYNC DATA TỪ SERVER TRƯỚC KHI PRELOAD
-            console.log('🔄 [InitializationService] Syncing conversations from server...');
+            if (__DEV__) console.log('🔄 [InitializationService] Syncing conversations from server...');
             await chatSyncService.syncConversations();
 
             // Get conversations from database (after sync)
             const conversations = await chatSyncService.getConversations();
-            console.log(`🔍 [InitializationService] DEBUG - Found ${conversations.length} conversations in database after sync`);
+            if (__DEV__) console.log(`🔍 [InitializationService] Found ${conversations.length} conversations after sync`);
 
             if (conversations.length > 0) {
                 chatStore.setConversations(conversations);
-                console.log(`📊 [InitializationService] Loaded ${conversations.length} conversations into store`);
+                if (__DEV__) console.log(`📊 [InitializationService] Loaded ${conversations.length} conversations into store`);
 
                 // ✅ ENTERPRISE PRELOADING - Giống Messenger/Instagram
                 const topConversations = conversations.slice(0, 15); // Top 15 conversations (tăng từ 5)
-                console.log(`⚡ [InitializationService] Preloading messages for ${topConversations.length} top conversations...`);
+                if (__DEV__) console.log(`⚡ [InitializationService] Preloading messages for ${topConversations.length} conversations...`);
 
                 // ✅ PARALLEL PRELOADING - Tất cả conversations load cùng lúc
                 const preloadPromises = topConversations.map(async (conversation) => {
                     try {
                         // ✅ SYNC MESSAGES TỪ SERVER TRƯỚC KHI PRELOAD
-                        console.log(`🔄 [InitializationService] Syncing messages for: ${conversation.name}`);
+                        // Reduce noise: skip per-conversation sync logs in MVP
                         await chatSyncService.syncMessages(conversation.id, 0, 50);
 
                         // ✅ Preload 50 messages thay vì 20 (giống Messenger)
@@ -208,15 +286,12 @@ class InitializationService {
                             chatStore.setConversationMessages(conversation.id, recentMessages);
                             // ✅ Create snapshot 25 messages thay vì 10 (giống Instagram)
                             chatStore.setMessageSnapshot(conversation.id, recentMessages.slice(0, 25));
-                            console.log(`⚡ [InitializationService] Preloaded ${recentMessages.length} messages for: ${conversation.name}`);
+                            // Skip per-conversation preload logs; keep summary only
 
                             // ✅ DEBUG: Verify data is stored in store
-                            const storeState = useChatStore.getState();
-                            const storedMessages = storeState.conversationMessages[conversation.id] || [];
-                            const storedSnapshot = storeState.messageSnapshots[conversation.id] || [];
-                            console.log(`🔍 [InitializationService] DEBUG - Stored in store: ${storedMessages.length} messages, ${storedSnapshot.length} snapshot`);
+                            // Skip store debug details
                         } else {
-                            console.log(`⚠️ [InitializationService] No messages found for: ${conversation.name}`);
+                            // Skip empty logs to reduce noise
                         }
                     } catch (preloadError) {
                         console.error(`❌ [InitializationService] Failed to preload messages for ${conversation.id}:`, preloadError);
@@ -227,7 +302,7 @@ class InitializationService {
                 // ✅ ĐỢI TẤT CẢ PRELOADING HOÀN THÀNH
                 await Promise.all(preloadPromises);
 
-                console.log('✅ [InitializationService] Chat data preloading completed');
+                if (__DEV__) console.log('✅ [InitializationService] Chat data preloading completed');
 
                 // ✅ Set chat data preloaded status
                 appStore.setChatDataPreloaded(true);

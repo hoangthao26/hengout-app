@@ -42,7 +42,7 @@ export const RETRY_STRATEGIES = {
         }
     },
 
-    // Auth requests - limited retries
+    // Auth requests - limited retries, no 401 retry
     auth: {
         maxRetries: 2,
         baseDelay: 2000,
@@ -50,6 +50,10 @@ export const RETRY_STRATEGIES = {
         exponentialBackoff: true,
         jitter: false,
         retryCondition: (error: any) => {
+            // Don't retry on 401 - logout instead
+            if (error.response?.status === 401) {
+                return false; // Don't retry, logout
+            }
             // Retry on network errors, not on auth failures
             return error.code === 'NETWORK_ERROR' ||
                 error.code === 'TIMEOUT' ||
@@ -57,14 +61,18 @@ export const RETRY_STRATEGIES = {
         }
     },
 
-    // Critical operations - more retries
+    // Critical operations - moderate retries, no 401 retry
     critical: {
-        maxRetries: 5,
+        maxRetries: 3, // Reduce from 5
         baseDelay: 1000,
-        maxDelay: 15000,
+        maxDelay: 10000, // Reduce from 15000
         exponentialBackoff: true,
         jitter: true,
         retryCondition: (error: any) => {
+            // Don't retry on 401/403/404 - logout instead
+            if (error.response?.status === 401) {
+                return false; // Don't retry, logout
+            }
             // Retry on most errors except client errors
             return !(error.response?.status >= 400 && error.response?.status < 500);
         }
@@ -195,6 +203,19 @@ export class RetryService {
         const result = await this.executeWithRetry(operation, strategy);
 
         if (!result.success) {
+            // Check for 401 error first - immediate logout
+            if (result.error?.response?.status === 401) {
+                console.log('🔐 [RetryService] 401 error detected - triggering immediate logout');
+                try {
+                    const { AuthHelper } = await import('./authHelper');
+                    await AuthHelper.logoutAndNavigate();
+                    throw result.error; // Throw error to maintain type safety
+                } catch (logoutError) {
+                    console.error('❌ [RetryService] Failed to logout:', logoutError);
+                    throw result.error; // Throw original error
+                }
+            }
+
             // Report retry failure to error context
             const appError = createAppError(
                 result.error,

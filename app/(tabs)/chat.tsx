@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { Search, UserPlus, Users, X } from 'lucide-react-native';
+import { Search, UserPlus, Users, User, X } from 'lucide-react-native';
 import NavigationService from '../../services/navigationService';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ChatErrorBoundary } from '../../components/errorBoundaries';
@@ -75,10 +75,13 @@ export default function ChatScreen() {
                     try {
                         const recentMessages = await getMessagesFromDB(conversation.id, 20, 0); // Last 20 messages
                         if (recentMessages.length > 0) {
-                            // Store in conversation messages
-                            setConversationMessages(conversation.id, recentMessages);
-                            // Create snapshot for instant display
-                            setMessageSnapshot(conversation.id, recentMessages.slice(0, 10)); // Keep 10 for instant display
+                            // Defer store updates to avoid React warning about updating during another component's render
+                            setTimeout(() => {
+                                // Store in conversation messages
+                                setConversationMessages(conversation.id, recentMessages);
+                                // Create snapshot for instant display
+                                setMessageSnapshot(conversation.id, recentMessages.slice(0, 10)); // Keep 10 for instant display
+                            }, 0);
                             console.log(`⚡ [Enterprise Chat] Preloaded ${recentMessages.length} messages for conversation: ${conversation.name}`);
                         }
                     } catch (preloadError) {
@@ -240,10 +243,11 @@ export default function ChatScreen() {
                                 borderColor: item.type === 'GROUP' ? '#F48C06' : '#9CA3AF'
                             }
                         ]}>
-                            <Users
-                                size={24}
-                                color={isDark ? '#9CA3AF' : '#6B7280'}
-                            />
+                            {item.type === 'GROUP' ? (
+                                <Users size={30} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                            ) : (
+                                <User size={30} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                            )}
                         </View>
                     )}
                 </View>

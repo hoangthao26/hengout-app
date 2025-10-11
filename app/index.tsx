@@ -7,6 +7,7 @@ import { useAuthStore } from '../store';
 import { useAppStore } from '../store/appStore';
 import { initializationService } from '../services/initializationService';
 import * as Location from 'expo-location';
+import { initializationService as initSvc } from '../services/initializationService';
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -41,6 +42,9 @@ export default function SplashScreen() {
         await initializationService.initialize();
 
         console.log('✅ [SplashScreen] All services initialized successfully');
+
+        // MVP: centralize lightweight user init on app start
+        initSvc.initOnAppStart();
       } catch (error) {
         console.error('❌ [SplashScreen] App initialization failed:', error);
         // Continue with app - some services might still work
@@ -114,20 +118,7 @@ export default function SplashScreen() {
     getLocationData();
   }, [isServicesReady]);
 
-  // 🔥 ENTERPRISE FEATURE: Start token refresh monitoring (ONCE)
-  useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      console.log('🔄 [SplashScreen] Starting token refresh monitoring...');
-      refreshTokenManager.startMonitoring();
-    }
-
-    // ✅ Cleanup chỉ khi component unmount, không phải mỗi lần dependency thay đổi
-    return () => {
-      // Chỉ stop khi component thực sự unmount
-      console.log('⏹️ [SplashScreen] Component unmounting, stopping token refresh monitoring...');
-      refreshTokenManager.stopMonitoring();
-    };
-  }, []); // ✅ Empty dependency array để chỉ chạy 1 lần
+  // 🔥 Token monitoring is started by AuthStore to avoid duplicate starts (removed here)
 
   // 🔥 ENTERPRISE FEATURE: Handle app state changes for background refresh
   useEffect(() => {

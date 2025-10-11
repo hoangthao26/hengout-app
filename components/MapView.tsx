@@ -115,7 +115,7 @@ const CustomMapView: React.FC<MapViewProps> = ({
                 showsUserLocation={false}
                 showsCompass={true}
                 mapType="standard"
-                mapPadding={{ bottom: -60, top: 60, left: 0, right: 0 }}
+                mapPadding={{ bottom: -70, top: 70, left: 16, right: 16 }}
                 showsPointsOfInterest={false}
 
             >

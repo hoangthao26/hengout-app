@@ -78,19 +78,32 @@ class ChatSyncService {
     // ==================== CONVERSATIONS SYNC ====================
 
     /**
-     * Sync conversations from server to local DB
+     * Sync conversations from server to local DB - PROACTIVE approach
      */
     async syncConversations(): Promise<void> {
         try {
             console.log('🔄 Syncing conversations...');
 
-            // 🚀 CHECK AUTH FIRST: Only sync if user is authenticated
+            // 🚀 PROACTIVE: Check auth first
             const { AuthHelper } = await import('./authHelper');
             const isAuthenticated = await AuthHelper.isAuthenticated();
 
             if (!isAuthenticated) {
                 console.log('ℹ️ [ChatSyncService] User not authenticated, skipping conversation sync');
                 return;
+            }
+
+            // 🚀 PROACTIVE: Check token expiry and refresh if needed
+            const tokens = await AuthHelper.getTokens();
+            if (tokens && tokens.expiresIn < 2 * 60 * 1000) { // 2 minutes
+                console.log('⏰ [ChatSyncService] Token expiring soon, refreshing proactively');
+                try {
+                    await AuthHelper.refreshAccessToken();
+                    console.log('✅ [ChatSyncService] Token refreshed successfully');
+                } catch (error) {
+                    console.log('⚠️ [ChatSyncService] Token refresh failed, will retry later');
+                    return; // Don't make API call with expired token
+                }
             }
 
             // Fetch conversations from server
@@ -113,6 +126,18 @@ class ChatSyncService {
                 console.log(`✅ Synced ${response.data.length} conversations`);
             }
         } catch (error: any) {
+            // 🚀 PROACTIVE: Handle 401 specifically
+            if (error.response?.status === 401) {
+                console.log('🔐 [ChatSyncService] 401 error - user needs to login');
+                try {
+                    const { AuthHelper } = await import('./authHelper');
+                    await AuthHelper.logoutAndNavigate();
+                    return;
+                } catch (logoutError) {
+                    console.error('❌ [ChatSyncService] Failed to logout:', logoutError);
+                }
+            }
+
             // 🚀 DEFENSIVE: Don't throw error if user logged out
             if (error.message?.includes('User logged out')) {
                 console.log('ℹ️ [ChatSyncService] User logged out during conversation sync, aborting gracefully');

@@ -110,8 +110,9 @@ export class AuthHelper {
      * Get all stored tokens
      */
     static async getTokens(): Promise<AuthTokens | null> {
+        const AUTH_DEBUG = false; // Toggle verbose token logs
         try {
-            console.log('🔍 [AuthHelper] Reading tokens from SecureStore...');
+            if (AUTH_DEBUG) console.log('🔍 [AuthHelper] Reading tokens from SecureStore...');
 
             const [accessToken, refreshToken, tokenType, expirationTime, role] = await Promise.all([
                 SecureStore.getItemAsync(this.ACCESS_TOKEN_KEY),
@@ -121,7 +122,7 @@ export class AuthHelper {
                 SecureStore.getItemAsync(this.ROLE_KEY),
             ]);
 
-            console.log('📖 [AuthHelper] Raw tokens from SecureStore:', {
+            if (AUTH_DEBUG) console.log('📖 [AuthHelper] Raw tokens from SecureStore:', {
                 hasAccessToken: !!accessToken,
                 hasRefreshToken: !!refreshToken,
                 hasTokenType: !!tokenType,
@@ -144,7 +145,7 @@ export class AuthHelper {
             // Calculate remaining duration
             const remainingDuration = Math.max(0, expirationTimestamp - currentTime);
 
-            console.log('⏰ [AuthHelper] Token timing info:', {
+            if (AUTH_DEBUG) console.log('⏰ [AuthHelper] Token timing info:', {
                 currentTime: new Date(currentTime).toLocaleString(),
                 expirationTimestamp: new Date(expirationTimestamp).toLocaleString(),
                 remainingDuration: Math.round(remainingDuration / 1000) + ' seconds',
@@ -160,7 +161,7 @@ export class AuthHelper {
                 role: role || '',
             };
 
-            console.log('✅ [AuthHelper] Successfully retrieved tokens');
+            if (AUTH_DEBUG) console.log('✅ [AuthHelper] Successfully retrieved tokens');
             return tokens;
         } catch (error) {
             console.error('❌ [AuthHelper] Failed to get tokens:', error);
@@ -207,7 +208,9 @@ export class AuthHelper {
             const refreshToken = await this.getRefreshToken();
 
             if (!refreshToken) {
-                throw new Error('No refresh token available');
+                console.log('🔐 [AuthHelper] No refresh token available - logging out user');
+                await this.logoutAndNavigate();
+                return false;
             }
 
 

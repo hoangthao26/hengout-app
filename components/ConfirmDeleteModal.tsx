@@ -100,7 +100,7 @@ export default function ConfirmDeleteModal({
 
                 {/* Message */}
                 <Text style={[styles.message, { color: isDark ? '#D1D5DB' : '#6B7280' }]}>
-                    Bạn có chắc chắn muốn xóa collection "{collectionName}"? Tất cả địa điểm trong collection này sẽ bị xóa.
+                    Bạn có chắc chắn muốn xóa collection &quot;{collectionName}&quot;? Tất cả địa điểm trong collection này sẽ bị xóa.
                 </Text>
 
                 {/* Buttons */}

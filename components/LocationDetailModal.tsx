@@ -98,9 +98,18 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
         }
     }, [isVisible]);
 
-    // Load reviews with images when modal opens
+    // Load reviews with images when modal opens (use cached for instant paint if available)
     useEffect(() => {
         if (isVisible && location?.id) {
+            // Try cached first
+            const cached = locationService.getCachedLocationReviews(location.id, 0, 50);
+            if (cached) {
+                const cachedWithImages = cached.data.content.filter(
+                    review => review.imageUrls && review.imageUrls.length > 0
+                );
+                setReviewsWithImages(cachedWithImages);
+            }
+            // Then ensure fresh data
             loadReviewsWithImages();
         }
     }, [isVisible, location?.id]);
@@ -110,7 +119,7 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
 
         setLoadingReviews(true);
         try {
-            const response = await locationService.getLocationReviews(location.id, 0, 50);
+            const response = await locationService.getLocationReviewsCached(location.id, 0, 50);
             if (response.status === 'success') {
                 // Filter only reviews that have images
                 const reviewsWithImages = response.data.content.filter(

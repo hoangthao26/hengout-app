@@ -101,7 +101,17 @@ class LocationFolderService {
             const response = await axiosInstance.get<ApiResponse<PaginatedLocationInFolder>>(endpoint, {
                 params: { page, size, sort, direction }
             });
-            return response.data;
+
+            // Handle server response with errorCode but success status
+            if (response.data.status === 'success') {
+                // Server returns success but with errorCode - treat as success
+                console.log(`✅ Successfully loaded ${response.data.data.content.length} locations for folder ${folderId}`);
+                return response.data;
+            } else {
+                // Server returns error status
+                console.error(`❌ Server error for folder ${folderId}:`, response.data.message);
+                throw new Error(response.data.message || 'Failed to get locations');
+            }
         } catch (error: any) {
             console.error(`Failed to get locations in folder ${folderId}:`, error);
             throw error;

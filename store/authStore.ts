@@ -441,6 +441,14 @@ export const useAuthStore = create<AuthState>()(
             refreshTokens: async () => {
                 console.log('🔄 [AuthStore] Starting token refresh...');
 
+                // 🚀 PROACTIVE: Check if refresh token exists first
+                const refreshToken = await AuthHelper.getRefreshToken();
+                if (!refreshToken) {
+                    console.log('🔐 [AuthStore] No refresh token available - logging out user');
+                    await AuthHelper.logoutAndNavigate();
+                    return;
+                }
+
                 // 🚀 USE REFRESH TOKEN MANAGER: Delegate to consolidated service
                 const success = await refreshTokenManager.performRefresh();
 
@@ -459,7 +467,7 @@ export const useAuthStore = create<AuthState>()(
                     }
                 } else {
                     console.log('❌ [AuthStore] Token refresh failed via RefreshTokenManager');
-                    throw new Error('Token refresh failed');
+                    // Don't throw error - let RefreshTokenManager handle logout
                 }
             },
 

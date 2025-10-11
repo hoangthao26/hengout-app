@@ -3,7 +3,7 @@ import { LocationFolder } from '../types/locationFolder';
 import { LocationDetails } from '../types/location';
 
 // Enhanced types for enterprise-level type safety
-type ModalType = 'create-collection' | 'delete-collections' | 'create-group' | 'location-detail' | 'save-location';
+type ModalType = 'create-collection' | 'delete-collections' | 'create-group' | 'location-detail' | 'save-location' | 'filter-vibes';
 
 interface ModalState {
     isVisible: boolean;
@@ -64,6 +64,14 @@ interface ModalContextType {
     closeSaveLocationModal: () => void;
     onSaveLocationSuccess?: () => void;
     setOnSaveLocationSuccess: (callback?: () => void) => void;
+
+    // Filter Vibes Modal
+    showFilterVibesModal: boolean;
+    setShowFilterVibesModal: (show: boolean) => void;
+    openFilterVibesModal: (onApply?: (filters: { categories?: string[]; purposes?: string[]; tags?: string[] }) => void) => void;
+    closeFilterVibesModal: () => void;
+    onFilterVibesApply?: (filters: { categories?: string[]; purposes?: string[]; tags?: string[] }) => void;
+    setOnFilterVibesApply: (callback?: (filters: { categories?: string[]; purposes?: string[]; tags?: string[] }) => void) => void;
 }
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
@@ -87,7 +95,8 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
         'delete-collections': { isVisible: false, data: [] },
         'create-group': { isVisible: false },
         'location-detail': { isVisible: false, data: null },
-        'save-location': { isVisible: false, data: null }
+        'save-location': { isVisible: false, data: null },
+        'filter-vibes': { isVisible: false, data: null }
     });
 
     // Legacy state for backward compatibility
@@ -96,6 +105,7 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
     const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
     const [showLocationDetailModal, setShowLocationDetailModal] = useState(false);
     const [showSaveLocationModal, setShowSaveLocationModal] = useState(false);
+    const [showFilterVibesModal, setShowFilterVibesModal] = useState(false);
     const [deleteModalCollections, setDeleteModalCollections] = useState<LocationFolder[]>([]);
     const [locationDetailModalData, setLocationDetailModalData] = useState<LocationDetails | null>(null);
     const [saveLocationModalData, setSaveLocationModalData] = useState<LocationDetails | null>(null);
@@ -104,6 +114,7 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
     const [onCreateGroupSuccess, setOnCreateGroupSuccess] = useState<(() => void) | undefined>();
     const [onLocationDetailSuccess, setOnLocationDetailSuccess] = useState<(() => void) | undefined>();
     const [onSaveLocationSuccess, setOnSaveLocationSuccess] = useState<(() => void) | undefined>();
+    const [onFilterVibesApply, setOnFilterVibesApply] = useState<((filters: { categories?: string[]; purposes?: string[]; tags?: string[] }) => void) | undefined>();
 
     // Generic modal management (Enterprise approach)
     const openModal = (type: ModalType, data?: any, callbacks?: { onSuccess?: () => void; onError?: (error: Error) => void }) => {
@@ -259,6 +270,34 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
         }, 200);
     };
 
+    // Filter Vibes Modal helpers
+    const openFilterVibesModal = (onApply?: (filters: { categories?: string[]; purposes?: string[]; tags?: string[] }) => void) => {
+        // Prevent opening if already visible
+        if (showFilterVibesModal) {
+            setShowFilterVibesModal(false);
+            setTimeout(() => {
+                setOnFilterVibesApply(() => onApply);
+                setShowFilterVibesModal(true);
+            }, 300);
+            return;
+        }
+
+        setShowFilterVibesModal(false);
+        setOnFilterVibesApply(undefined);
+
+        setTimeout(() => {
+            setOnFilterVibesApply(() => onApply);
+            setShowFilterVibesModal(true);
+        }, 100);
+    };
+
+    const closeFilterVibesModal = () => {
+        setShowFilterVibesModal(false);
+        setTimeout(() => {
+            setOnFilterVibesApply(undefined);
+        }, 200);
+    };
+
     const value: ModalContextType = {
         // Generic modal management
         modals,
@@ -303,6 +342,14 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
         closeSaveLocationModal,
         onSaveLocationSuccess,
         setOnSaveLocationSuccess,
+
+        // Filter Vibes Modal
+        showFilterVibesModal,
+        setShowFilterVibesModal,
+        openFilterVibesModal,
+        closeFilterVibesModal,
+        onFilterVibesApply,
+        setOnFilterVibesApply,
     };
 
     return (

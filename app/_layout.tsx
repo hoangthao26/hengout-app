@@ -154,6 +154,9 @@ export default function RootLayout() {
                             <Stack.Screen name="collections/collection-detail" />
                             <Stack.Screen name="settings/settings" />
                             <Stack.Screen name="settings/preferences" />
+                            <Stack.Screen name="settings/gesture-test" />
+                            <Stack.Screen name="settings/simple-gesture-test" />
+                            <Stack.Screen name="settings/ultra-simple-test" />
                         </Stack>
                         <ToastContainer />
                     </GestureHandlerRootView>

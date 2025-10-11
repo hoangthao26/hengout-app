@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { ChevronRight, LogOut, Settings } from 'lucide-react-native';
+import { ChevronRight, LogOut, Settings, TestTube } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import Header from '../../components/Header';
@@ -97,6 +97,65 @@ export default function SettingsScreen() {
                     />
                 </TouchableOpacity>
 
+                {/* Gesture Test Option */}
+                <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={() => router.push('/settings/gesture-test')}
+                >
+                    <View style={styles.settingLeft}>
+                        <TestTube
+                            size={24}
+                            color={isDark ? '#FFFFFF' : '#000000'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            Gesture Handler Test
+                        </Text>
+                    </View>
+                    <ChevronRight
+                        size={20}
+                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                    />
+                </TouchableOpacity>
+
+                {/* Simple Gesture Test Option */}
+                <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={() => router.push('/settings/simple-gesture-test')}
+                >
+                    <View style={styles.settingLeft}>
+                        <TestTube
+                            size={24}
+                            color={isDark ? '#FFFFFF' : '#000000'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            Simple Gesture Test
+                        </Text>
+                    </View>
+                    <ChevronRight
+                        size={20}
+                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                    />
+                </TouchableOpacity>
+
+                {/* Ultra Simple Test Option */}
+                <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={() => router.push('/settings/ultra-simple-test')}
+                >
+                    <View style={styles.settingLeft}>
+                        <TestTube
+                            size={24}
+                            color={isDark ? '#FFFFFF' : '#000000'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            Ultra Simple Test
+                        </Text>
+                    </View>
+                    <ChevronRight
+                        size={20}
+                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                    />
+                </TouchableOpacity>
 
                 {/* Logout Option */}
                 <TouchableOpacity
