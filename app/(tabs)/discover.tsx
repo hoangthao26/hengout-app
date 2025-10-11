@@ -21,10 +21,15 @@ export default function DiscoverScreen() {
     const isDark = colorScheme === 'dark';
 
     // Get location data from splash screen navigation params
-    const { lat, lng, accuracy } = useLocalSearchParams<{
+    const { lat, lng, accuracy, locationId, latitude, longitude, autoOpenCard, locationData } = useLocalSearchParams<{
         lat?: string;
         lng?: string;
         accuracy?: string;
+        locationId?: string;
+        latitude?: string;
+        longitude?: string;
+        autoOpenCard?: string;
+        locationData?: string;
     }>();
 
     const {
@@ -440,6 +445,77 @@ export default function DiscoverScreen() {
             }
         };
     }, [lat, lng, accuracy]); // ✅ Dependencies include splash location data
+
+    // Handle auto-open location card from collection detail
+    useEffect(() => {
+        if (locationId && latitude && longitude && autoOpenCard === 'true') {
+            console.log('📍 [Discover] Auto-opening location card from collection:', { locationId, latitude, longitude });
+
+            const lat = parseFloat(latitude);
+            const lng = parseFloat(longitude);
+
+            // Set map center to location coordinates
+            const newLocation = {
+                lat: lat,
+                lng: lng,
+            };
+            setSelectedLocation(newLocation);
+
+            // Move map center to the location (with delay to ensure map is ready)
+            setTimeout(() => {
+                if (mapController) {
+                    console.log('🗺️ [Discover] Moving map center to location:', { lat, lng });
+                    mapController.centerMapOnLocation(lat, lng, 0.005);
+                } else {
+                    console.log('⚠️ [Discover] Map controller not ready yet, retrying...');
+                    // Retry after a longer delay
+                    setTimeout(() => {
+                        if (mapController) {
+                            console.log('🗺️ [Discover] Moving map center to location (retry):', { lat, lng });
+                            (mapController as any).centerMapOnLocation(lat, lng, 0.005);
+                        }
+                    }, 1000);
+                }
+            }, 500);
+
+            // Fetch full location details and open card (fallback)
+            const fetchLocationDetails = async () => {
+                try {
+                    console.log('🔄 [Discover] Fetching location details for auto-open:', locationId);
+                    const response = await locationService.getLocationDetails(locationId);
+
+                    if (response.status === 'success') {
+                        console.log('✅ [Discover] Location details fetched, opening card');
+                        setSelectedLocationDetails(response.data);
+                        setSelectedLocationForDetail(response.data);
+                    } else {
+                        console.error('❌ [Discover] Failed to fetch location details:', response.message);
+                        // showError('Không thể tải thông tin địa điểm');
+                    }
+                } catch (error) {
+                    console.error('❌ [Discover] Error fetching location details:', error);
+                    // showError('Lỗi khi tải thông tin địa điểm');
+                }
+            };
+
+            // Use location data if available, otherwise fetch from API
+            if (locationData) {
+                try {
+                    console.log('✅ [Discover] Using location data from params');
+                    const locationDetails = JSON.parse(locationData);
+                    setSelectedLocationDetails(locationDetails);
+                    setSelectedLocationForDetail(locationDetails);
+                } catch (error) {
+                    console.error('❌ [Discover] Failed to parse location data:', error);
+                    // Fallback to API call
+                    fetchLocationDetails();
+                }
+            } else {
+                // Fallback: Fetch from API if no data provided
+                fetchLocationDetails();
+            }
+        }
+    }, [locationId, latitude, longitude, autoOpenCard, mapController, locationData]);
 
     return (
         <MapErrorBoundary>

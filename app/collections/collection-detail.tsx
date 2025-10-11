@@ -31,6 +31,7 @@ import ContextMenu, { MenuAction } from '../../components/ContextMenu';
 import { FeatureErrorBoundary } from '../../components/FeatureErrorBoundary';
 import { useToast } from '../../contexts/ToastContext';
 import { locationFolderService } from '../../services/locationFolderService';
+import { locationService } from '../../services/locationService';
 import { useCollectionStore } from '../../store/collectionStore';
 import { LocationInFolder } from '../../types/locationFolder';
 import { LocationDetails } from '../../types/location';
@@ -78,9 +79,12 @@ export default function CollectionDetailScreen() {
 
     // Load collection info from store (Store-First approach)
     useEffect(() => {
+        // Get current collection from store at the time of effect execution
+        const { currentCollection: currentStoreCollection } = useCollectionStore.getState();
+
         // If we don't have currentCollection or it's a different collection, 
         // try to find it in the collections list or fetch from API as fallback
-        if (!currentCollection || currentCollection.id !== collectionId) {
+        if (!currentStoreCollection || currentStoreCollection.id !== collectionId) {
             console.log('Collection not found in store, fetching from API as fallback');
             setCollectionLoading(true);
 
@@ -104,9 +108,9 @@ export default function CollectionDetailScreen() {
 
             fetchFromAPI();
         } else {
-            console.log('Using collection data from store:', currentCollection);
+            console.log('Using collection data from store:', currentStoreCollection);
         }
-    }, [collectionId, currentCollection, setCurrentCollection, showError]);
+    }, [collectionId, setCurrentCollection, showError]); // ✅ Only depend on collectionId and stable functions
 
     // Debug log for currentCollection
     useEffect(() => {
@@ -198,9 +202,44 @@ export default function CollectionDetailScreen() {
         };
     };
 
-    const handleLocationPress = (location: LocationDetails) => {
-        // TODO: Navigate to location detail screen
-        console.log('Navigate to location:', location.id);
+    const handleLocationPress = async (location: LocationDetails) => {
+        // Navigate to discover screen with location data
+        console.log('Navigate to discover with location:', location.id);
+
+        try {
+            // Fetch full location details to get coordinates and full data
+            console.log('🔄 [CollectionDetail] Fetching location details for navigation:', location.id);
+            const response = await locationService.getLocationDetails(location.id);
+
+            if (response.status === 'success') {
+                const locationDetails = response.data;
+                console.log('✅ [CollectionDetail] Location details fetched:', {
+                    id: locationDetails.id,
+                    latitude: locationDetails.latitude,
+                    longitude: locationDetails.longitude
+                });
+
+                // Navigate with real coordinates and pass full data via global state
+                // Store location data in a global state or pass via params
+                router.push({
+                    pathname: '/(tabs)/discover',
+                    params: {
+                        locationId: location.id,
+                        latitude: locationDetails.latitude.toString(),
+                        longitude: locationDetails.longitude.toString(),
+                        autoOpenCard: 'true',
+                        // Pass full location data as JSON string
+                        locationData: JSON.stringify(locationDetails)
+                    }
+                });
+            } else {
+                console.error('❌ [CollectionDetail] Failed to fetch location details:', response.message);
+                showError('Không thể tải thông tin địa điểm');
+            }
+        } catch (error) {
+            console.error('❌ [CollectionDetail] Error fetching location details:', error);
+            showError('Lỗi khi tải thông tin địa điểm');
+        }
     };
 
     const handleRemoveLocation = (locationId: string) => {
