@@ -22,6 +22,7 @@ export { default as locationFolderService } from './locationFolderService';
 
 // Chat Services
 export { default as chatService } from './chatService';
+export { webSocketService } from './webSocketService';
 
 // Utility Services
 export { default as CloudinaryService } from './cloudinaryService';

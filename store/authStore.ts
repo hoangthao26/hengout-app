@@ -96,9 +96,10 @@ export const useAuthStore = create<AuthState>()(
                     });
 
                     // 🚀 RESET LOGOUT FLAGS: Enable axios interceptor for new session
-                    const { setLogoutMode, setUserLoggedOut } = await import('../config/axios');
+                    const { setLogoutMode, setUserLoggedOut, resetRefreshState } = await import('../config/axios');
                     setLogoutMode(false);
                     setUserLoggedOut(false);
+                    resetRefreshState();
 
                     // Fetch user profile after successful login
                     await get().fetchUserProfile();
@@ -167,9 +168,10 @@ export const useAuthStore = create<AuthState>()(
                     });
 
                     // 🚀 RESET LOGOUT FLAGS: Enable axios interceptor for new session
-                    const { setLogoutMode, setUserLoggedOut } = await import('../config/axios');
+                    const { setLogoutMode, setUserLoggedOut, resetRefreshState } = await import('../config/axios');
                     setLogoutMode(false);
                     setUserLoggedOut(false);
+                    resetRefreshState();
 
                     // Fetch user profile after successful OTP verification
                     await get().fetchUserProfile();
@@ -238,9 +240,10 @@ export const useAuthStore = create<AuthState>()(
                     });
 
                     // 🚀 RESET LOGOUT FLAGS: Enable axios interceptor for new session
-                    const { setLogoutMode, setUserLoggedOut } = await import('../config/axios');
+                    const { setLogoutMode, setUserLoggedOut, resetRefreshState } = await import('../config/axios');
                     setLogoutMode(false);
                     setUserLoggedOut(false);
+                    resetRefreshState();
 
                     // Fetch user profile after successful Google sign in
                     await get().fetchUserProfile();
@@ -261,9 +264,10 @@ export const useAuthStore = create<AuthState>()(
                     set({ isLoading: true, error: null });
 
                     // 🚀 SET LOGOUT FLAGS: Prevent infinite 401 loops
-                    const { setLogoutMode, setUserLoggedOut } = await import('../config/axios');
+                    const { setLogoutMode, setUserLoggedOut, resetRefreshState } = await import('../config/axios');
                     setLogoutMode(true);
                     setUserLoggedOut(true);
+                    resetRefreshState();
 
                     // 🚀 STOP REFRESH TOKEN MANAGER: Stop monitoring before logout
                     refreshTokenManager.stopMonitoring();
@@ -375,9 +379,10 @@ export const useAuthStore = create<AuthState>()(
                     setTimeout(async () => {
                         try {
                             // Set logout flags
-                            const { setLogoutMode, setUserLoggedOut } = await import('../config/axios');
+                            const { setLogoutMode, setUserLoggedOut, resetRefreshState } = await import('../config/axios');
                             setLogoutMode(true);
                             setUserLoggedOut(true);
+                            resetRefreshState();
 
                             // Stop services
                             refreshTokenManager.stopMonitoring();

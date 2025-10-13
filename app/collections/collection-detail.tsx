@@ -47,7 +47,6 @@ export default function CollectionDetailScreen() {
         collectionId: string;
     };
 
-    // All hooks must be called before any early returns
     const [locations, setLocations] = useState<LocationInFolder[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -59,10 +58,7 @@ export default function CollectionDetailScreen() {
     const [selectedLocation, setSelectedLocation] = useState<LocationInFolder | null>(null);
     const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
-    // Swipeable refs for managing multiple swipeable items
     const itemRefs = useRef<{ [key: string]: any }>({});
-
-    // Zustand store
     const {
         currentCollection,
         setCurrentCollection,
@@ -71,35 +67,23 @@ export default function CollectionDetailScreen() {
         resetCurrentCollection
     } = useCollectionStore();
 
-    // All useEffect and useCallback hooks must be called before any early returns
-    // Debug modal state
-    useEffect(() => {
-        console.log('🔍 showActionsModal changed to:', showActionsModal);
-    }, [showActionsModal]);
 
-    // Load collection info from store (Store-First approach)
     useEffect(() => {
-        // Get current collection from store at the time of effect execution
         const { currentCollection: currentStoreCollection } = useCollectionStore.getState();
 
-        // If we don't have currentCollection or it's a different collection, 
-        // try to find it in the collections list or fetch from API as fallback
         if (!currentStoreCollection || currentStoreCollection.id !== collectionId) {
-            console.log('Collection not found in store, fetching from API as fallback');
             setCollectionLoading(true);
 
-            // Fallback: Fetch from API only if store doesn't have the data
             const fetchFromAPI = async () => {
                 try {
                     const response = await locationFolderService.getFolderById(collectionId);
                     if (response.status === 'success') {
-                        console.log('Collection info loaded from API fallback:', response.data);
                         setCurrentCollection(response.data);
                     } else {
                         showError('Không thể tải thông tin collection');
                     }
                 } catch (error: any) {
-                    console.error('Error loading collection info from API fallback:', error);
+                    console.error('Error loading collection info:', error);
                     showError('Lỗi khi tải thông tin collection');
                 } finally {
                     setCollectionLoading(false);
@@ -107,15 +91,8 @@ export default function CollectionDetailScreen() {
             };
 
             fetchFromAPI();
-        } else {
-            console.log('Using collection data from store:', currentStoreCollection);
         }
-    }, [collectionId, setCurrentCollection, showError]); // ✅ Only depend on collectionId and stable functions
-
-    // Debug log for currentCollection
-    useEffect(() => {
-        console.log('Current collection from store:', currentCollection);
-    }, [currentCollection]);
+    }, [collectionId, setCurrentCollection, showError]);
 
     // Cleanup store on unmount
     useEffect(() => {
@@ -124,20 +101,17 @@ export default function CollectionDetailScreen() {
         };
     }, [resetCurrentCollection]);
 
-    // Handle back navigation
     const handleBackPress = useCallback(() => {
         router.back();
     }, [router]);
 
     const loadLocations = useCallback(async () => {
         if (!collectionId) {
-            console.error('CollectionDetail: collectionId is undefined');
             showError('Không tìm thấy ID collection');
             return;
         }
 
         try {
-            console.log('Loading locations for collectionId:', collectionId);
             const response = await locationFolderService.getLocationsInFolder(collectionId);
             if (response.status === 'success') {
                 setLocations(response.data.content);
@@ -153,21 +127,16 @@ export default function CollectionDetailScreen() {
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
 
-        // Store-Update-First: Only refresh locations, collection info already in store
         try {
-            // Only refresh locations (collection info is already up-to-date in store)
             await loadLocations();
 
-            // Optional: Background refresh collection info for data consistency
-            // (This can be done silently without affecting UI)
             const collectionResponse = await locationFolderService.getFolderById(collectionId);
             if (collectionResponse.status === 'success') {
-                console.log('Background refresh collection info:', collectionResponse.data);
                 setCurrentCollection(collectionResponse.data);
                 updateCollection(collectionId, collectionResponse.data);
             }
         } catch (error) {
-            console.error('Failed to refresh data on pull-to-refresh:', error);
+            console.error('Failed to refresh data:', error);
             showError('Lỗi khi làm mới dữ liệu');
         } finally {
             setRefreshing(false);
@@ -184,43 +153,29 @@ export default function CollectionDetailScreen() {
         initializeData();
     }, [loadLocations]);
 
-    // Convert LocationInFolder to LocationDetails for LocationCard
     const convertToLocationDetails = (locationInFolder: LocationInFolder): LocationDetails => {
         return {
             id: locationInFolder.locationId,
             name: locationInFolder.locationName,
             description: locationInFolder.note || '',
             address: locationInFolder.address,
-            latitude: 0, // Not available in LocationInFolder
-            longitude: 0, // Not available in LocationInFolder
-            totalRating: 0, // Not available in LocationInFolder
-            categories: [], // Not available in LocationInFolder
-            purposes: [], // Not available in LocationInFolder
-            tags: [], // Not available in LocationInFolder
+            latitude: 0,
+            longitude: 0,
+            totalRating: 0,
+            categories: [],
+            purposes: [],
+            tags: [],
             imageUrls: locationInFolder.imageUrl ? [locationInFolder.imageUrl] : [],
-            contacts: [], // Not available in LocationInFolder
+            contacts: [],
         };
     };
 
     const handleLocationPress = async (location: LocationDetails) => {
-        // Navigate to discover screen with location data
-        console.log('Navigate to discover with location:', location.id);
-
         try {
-            // Fetch full location details to get coordinates and full data
-            console.log('🔄 [CollectionDetail] Fetching location details for navigation:', location.id);
             const response = await locationService.getLocationDetails(location.id);
 
             if (response.status === 'success') {
                 const locationDetails = response.data;
-                console.log('✅ [CollectionDetail] Location details fetched:', {
-                    id: locationDetails.id,
-                    latitude: locationDetails.latitude,
-                    longitude: locationDetails.longitude
-                });
-
-                // Navigate with real coordinates and pass full data via global state
-                // Store location data in a global state or pass via params
                 router.push({
                     pathname: '/(tabs)/discover',
                     params: {
@@ -228,16 +183,14 @@ export default function CollectionDetailScreen() {
                         latitude: locationDetails.latitude.toString(),
                         longitude: locationDetails.longitude.toString(),
                         autoOpenCard: 'true',
-                        // Pass full location data as JSON string
                         locationData: JSON.stringify(locationDetails)
                     }
                 });
             } else {
-                console.error('❌ [CollectionDetail] Failed to fetch location details:', response.message);
                 showError('Không thể tải thông tin địa điểm');
             }
         } catch (error) {
-            console.error('❌ [CollectionDetail] Error fetching location details:', error);
+            console.error('Error fetching location details:', error);
             showError('Lỗi khi tải thông tin địa điểm');
         }
     };
@@ -257,16 +210,15 @@ export default function CollectionDetailScreen() {
         );
     };
 
-    // RightAction component for swipe to delete
     const RightAction = (prog: SharedValue<number>, drag: SharedValue<number>, onDelete: () => void) => {
         const styleAnimation = useAnimatedStyle(() => {
             return {
-                transform: [{ translateX: drag.value + 80 }], // Adjusted for icon width
+                transform: [{ translateX: drag.value + 80 }],
             };
         });
 
         return (
-            <Reanimated.View style={styleAnimation}>
+            <Reanimated.View style={[styleAnimation, styles.rightActionContainer]}>
                 <TouchableOpacity style={styles.rightAction} onPress={onDelete}>
                     <Trash2 size={24} color="#FFFFFF" />
                 </TouchableOpacity>
@@ -276,13 +228,9 @@ export default function CollectionDetailScreen() {
 
     const removeLocation = async (locationId: string) => {
         try {
-            // Mark item as deleting
             setDeletingIds(prev => new Set(prev).add(locationId));
-
-            // Call API to remove location
             await locationFolderService.removeLocationFromFolder(collectionId, locationId);
 
-            // Delay to allow SlideOutLeft animation to complete
             setTimeout(() => {
                 setLocations(prev => prev.filter(loc => loc.locationId !== locationId));
                 setDeletingIds(prev => {
@@ -296,12 +244,8 @@ export default function CollectionDetailScreen() {
         } catch (error: any) {
             console.error('Failed to remove location:', error);
 
-            // Handle 404 error gracefully - location might already be removed
             if (error.response?.status === 404) {
-                console.log('📍 [CollectionDetail] Location already removed (404), removing from UI');
                 showSuccess('Địa điểm đã được xóa');
-
-                // Still remove from UI since it's already gone from server
                 setTimeout(() => {
                     setLocations(prev => prev.filter(loc => loc.locationId !== locationId));
                     setDeletingIds(prev => {
@@ -312,8 +256,6 @@ export default function CollectionDetailScreen() {
                 }, 350);
             } else {
                 showError('Không thể xóa địa điểm');
-
-                // Remove from deleting set on error
                 setDeletingIds(prev => {
                     const newSet = new Set(prev);
                     newSet.delete(locationId);
@@ -351,14 +293,11 @@ export default function CollectionDetailScreen() {
     };
 
     const handleAddLocation = () => {
-        // 🚀 ENTERPRISE: NavigationService now handles GPS automatically
-        console.log('📍 [CollectionDetail] Navigating to discover - GPS handled by NavigationService');
         NavigationService.goToDiscover();
     };
 
 
 
-    // Modal handlers
     const handleEditCollection = () => {
         setShowActionsModal(false);
         setTimeout(() => {
@@ -380,27 +319,17 @@ export default function CollectionDetailScreen() {
     }) => {
         setShowEditModal(false);
 
-        // Store-Update-First: Update store immediately with new data (Optimistic Update)
         if (updatedData && currentCollection) {
-            // Save previous state for potential rollback
-            const previousState = currentCollection;
-
             const updatedCollection = {
                 ...currentCollection,
                 ...updatedData,
                 updatedAt: new Date().toISOString()
             };
 
-            console.log('Optimistic update: Updating collection in store immediately:', updatedCollection);
             setCurrentCollection(updatedCollection);
             updateCollection(collectionId, updatedCollection);
-
-            // Note: API call is already handled in EditCollectionModal
-            // If API fails, the modal will show error and not call onSuccess
-            // So we don't need rollback mechanism here since onSuccess is only called on API success
         }
 
-        // Only refresh locations (collection info already updated in store)
         loadLocations();
     }, [collectionId, currentCollection, setCurrentCollection, updateCollection, loadLocations]);
 
@@ -411,7 +340,6 @@ export default function CollectionDetailScreen() {
                 showSuccess('Đã xóa collection thành công');
                 setShowDeleteModal(false);
 
-                // Cập nhật collection store để refresh danh sách
                 const { removeCollection } = useCollectionStore.getState();
                 removeCollection(collectionId);
 
@@ -450,14 +378,16 @@ export default function CollectionDetailScreen() {
                         });
                     }}
                 >
-                    <LocationCard
-                        location={locationDetails}
-                        variant="list"
-                        onOpenDetail={handleLocationPress}
-                        addedAt={item.addedAt}
-                        updatedAt={item.updatedAt}
-                        note={item.note}
-                    />
+                    <View style={styles.cardContainer}>
+                        <LocationCard
+                            location={locationDetails}
+                            variant="list"
+                            onOpenDetail={handleLocationPress}
+                            addedAt={item.addedAt}
+                            updatedAt={item.updatedAt}
+                            note={item.note}
+                        />
+                    </View>
                 </ReanimatedSwipeable>
             </Reanimated.View>
         );
@@ -520,53 +450,10 @@ export default function CollectionDetailScreen() {
                         rightIcon={{
                             icon: MoreHorizontal,
                             size: 28,
-                            onPress: () => {
-                                console.log('🔍 Icon pressed, setting showActionsModal to true');
-                                setShowActionsModal(true);
-                            }
+                            onPress: () => setShowActionsModal(true)
                         }}
                     />
 
-                    {/* Collection Info - Similar to Profile */}
-                    {/* <TouchableOpacity style={[styles.collectionItem, { backgroundColor: isDark ? '#232024' : '#F3F4F6' }]}>
-                <View style={styles.collectionIcon}>
-                    <MapPin
-                        size={46}
-                        color={isDark ? '#FFFFFF' : '#000000'}
-                    />
-                </View>
-                <View style={styles.collectionInfo}>
-                    {collectionLoading ? (
-                        <View style={styles.collectionLoadingContainer}>
-                            <ActivityIndicator size="small" color="#F48C06" />
-                            <Text style={[styles.collectionLoadingText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                Đang tải...
-                            </Text>
-                        </View>
-                    ) : (
-                        <>
-                            <Text
-                                style={[styles.collectionName, { color: isDark ? '#FFFFFF' : '#000000' }]}
-                                numberOfLines={1}
-                            >
-                                {currentCollection?.name || 'Collection'}
-                            </Text>
-                            <Text
-                                style={[styles.collectionDescription, { color: isDark ? '#9CA3AF' : '#6B7280' }]}
-                                numberOfLines={2}
-                            >
-                                {currentCollection?.description || 'Không có mô tả'}
-                            </Text>
-                        </>
-                    )}
-                </View>
-                <View style={styles.collectionStatus}>
-                    {(() => {
-                        const IconComponent = getVisibilityIcon();
-                        return <IconComponent size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />;
-                    })()}
-                </View>
-            </TouchableOpacity> */}
 
                     {locations.length === 0 ? (
                         renderEmptyState()
@@ -587,24 +474,16 @@ export default function CollectionDetailScreen() {
                         </GestureHandlerRootView>
                     )}
 
-                    {/* Collection Actions Modal */}
                     {showActionsModal && (
-                        <>
-                            {console.log('🔍 Rendering CollectionActionsModal with isVisible:', showActionsModal)}
-                            <CollectionActionsModal
-                                isVisible={showActionsModal}
-                                onClose={() => {
-                                    console.log('🔍 Closing CollectionActionsModal');
-                                    setShowActionsModal(false);
-                                }}
-                                onEdit={handleEditCollection}
-                                onDelete={handleDeleteCollection}
-                                isDefault={currentCollection?.isDefault === true}
-                            />
-                        </>
+                        <CollectionActionsModal
+                            isVisible={showActionsModal}
+                            onClose={() => setShowActionsModal(false)}
+                            onEdit={handleEditCollection}
+                            onDelete={handleDeleteCollection}
+                            isDefault={currentCollection?.isDefault === true}
+                        />
                     )}
 
-                    {/* Edit Collection Modal */}
                     {showEditModal && (
                         <EditCollectionModal
                             isVisible={showEditModal}
@@ -617,7 +496,6 @@ export default function CollectionDetailScreen() {
                         />
                     )}
 
-                    {/* Confirm Delete Modal */}
                     {showDeleteModal && (
                         <ConfirmDeleteModal
                             isVisible={showDeleteModal}
@@ -627,7 +505,6 @@ export default function CollectionDetailScreen() {
                         />
                     )}
 
-                    {/* Context Menu for Location Actions */}
                     {contextMenuVisible && selectedLocation && (
                         <ContextMenu
                             actions={[
@@ -652,6 +529,7 @@ export default function CollectionDetailScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+
     },
     centered: {
         justifyContent: 'center',
@@ -661,7 +539,6 @@ const styles = StyleSheet.create({
         marginTop: 16,
         fontSize: 16,
     },
-    // Collection Item Styles (similar to profile)
     collectionItem: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -671,6 +548,7 @@ const styles = StyleSheet.create({
         marginTop: 16,
         borderRadius: 12,
         minHeight: 80,
+
     },
     collectionIcon: {
         width: 70,
@@ -703,6 +581,11 @@ const styles = StyleSheet.create({
     listContent: {
         padding: 8,
     },
+    rightActionContainer: {
+        height: '100%',
+        paddingVertical: 8,
+        justifyContent: 'center',
+    },
     rightAction: {
         width: 80,
         height: '100%',
@@ -711,8 +594,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderRadius: 20,
     },
-    swipeableWrapper: {
-        marginVertical: 4,
+    swipeableWrapper: {},
+    cardContainer: {
+        paddingVertical: 8,
+        marginHorizontal: 12,
     },
     emptyContainer: {
         flex: 1,

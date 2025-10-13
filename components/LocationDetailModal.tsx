@@ -211,15 +211,15 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
                     borderTopRightRadius: 20,
                 }}
                 handleIndicatorStyle={{
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: isDark ? '#FFFFFF' : '#9CA3AF',
                     width: 40,
                     height: 4,
                 }}
             >
-                <BottomSheetView style={styles.container}>
+                <BottomSheetView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
                     {/* Header - Location Card Style */}
                     <View style={styles.header}>
-                        <View style={styles.locationCard}>
+                        <View style={[styles.locationCard, { backgroundColor: isDark ? '#FFFFFF' : '#F9FAFB' }]}>
                             {/* Left Section - Image */}
                             <View style={styles.imageContainer}>
                                 {location.imageUrls && location.imageUrls.length > 0 ? (
@@ -229,11 +229,11 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
                                         resizeMode="cover"
                                     />
                                 ) : (
-                                    <View style={styles.placeholderImage}>
+                                    <View style={[styles.placeholderImage, { backgroundColor: isDark ? '#F3F4F6' : '#E5E7EB' }]}>
                                         <Ionicons
                                             name={getLocationIcon(location.categories[0] || 'location')}
                                             size={32}
-                                            color="#9CA3AF"
+                                            color={isDark ? "#9CA3AF" : "#6B7280"}
                                         />
                                     </View>
                                 )}
@@ -242,7 +242,7 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
                             {/* Right Section - Text Info */}
                             <View style={styles.textContainer}>
                                 {/* Name */}
-                                <Text style={styles.locationName} numberOfLines={1}>
+                                <Text style={[styles.locationName, { color: isDark ? '#000000' : '#111827' }]} numberOfLines={1}>
                                     {location.name}
                                 </Text>
 
@@ -264,7 +264,7 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
 
                                 {/* Address */}
                                 <View style={styles.addressRow}>
-                                    <Text style={styles.addressText}>
+                                    <Text style={[styles.addressText, { color: isDark ? '#6B7280' : '#6B7280' }]}>
                                         {location.address}
                                     </Text>
                                 </View>
@@ -277,11 +277,11 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
                         {/* Description - Simple */}
                         {location.description && (
                             <View style={styles.descriptionSection}>
-                                <Text style={styles.descriptionText}>
-                                    <Text style={styles.descriptionTitle}>Mô tả: </Text>
+                                <Text style={[styles.descriptionText, { color: isDark ? '#E5E7EB' : '#374151' }]}>
+                                    <Text style={[styles.descriptionTitle, { color: isDark ? '#F48C06' : '#F48C06' }]}>Mô tả: </Text>
                                     {location.description}
                                 </Text>
-                                <View style={styles.divider} />
+                                <View style={[styles.divider, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.32)' : 'rgba(0, 0, 0, 0.1)' }]} />
                             </View>
                         )}
 
@@ -290,7 +290,7 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
                             {loadingReviews ? (
                                 <View style={styles.loadingContainer}>
                                     <ActivityIndicator size="small" color="#F48C06" />
-                                    <Text style={styles.loadingText}>Đang tải hình ảnh...</Text>
+                                    <Text style={[styles.loadingText, { color: isDark ? '#E5E7EB' : '#374151' }]}>Đang tải hình ảnh...</Text>
                                 </View>
                             ) : reviewsWithImages.length > 0 ? (
                                 <FlatList
@@ -332,7 +332,7 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
                                     )}
                                 />
                             ) : (
-                                <Text style={styles.noImagesText}>Chưa có hình ảnh đánh giá</Text>
+                                <Text style={[styles.noImagesText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>Chưa có hình ảnh đánh giá</Text>
                             )}
                         </View>
                     </View>
@@ -341,7 +341,7 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
                     <View style={styles.bottomActionBar}>
                         {/* Save Button */}
                         <TouchableOpacity
-                            style={styles.saveButton}
+                            style={[styles.saveButton, { backgroundColor: isDark ? '#FFFFFF' : '#F9FAFB' }]}
                             onPress={handleSave}
                         >
                             <Bookmark size={20} color="#F48C06" />
@@ -354,17 +354,17 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
             {/* Image Gallery Modal */}
             {showImageGallery && selectedReview && (
                 <View style={styles.imageGalleryOverlay}>
-                    <View style={styles.imageGalleryContainer}>
+                    <View style={[styles.imageGalleryContainer, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
                         {/* Header */}
                         <View style={styles.imageGalleryHeader}>
-                            <Text style={styles.imageGalleryTitle}>
+                            <Text style={[styles.imageGalleryTitle, { color: isDark ? '#FFFFFF' : '#111827' }]}>
                                 Hình ảnh đánh giá ({currentImageIndex + 1}/{selectedReview.imageUrls.length})
                             </Text>
                             <TouchableOpacity
                                 style={styles.imageGalleryCloseButton}
                                 onPress={handleCloseImageGallery}
                             >
-                                <Ionicons name="close" size={24} color="#FFFFFF" />
+                                <Ionicons name="close" size={24} color={isDark ? "#FFFFFF" : "#111827"} />
                             </TouchableOpacity>
                         </View>
 
@@ -391,8 +391,8 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
 
                         {/* Review Text - Fixed below images */}
                         {selectedReview.text && selectedReview.text.trim() && (
-                            <View style={styles.imageGalleryTextContainer}>
-                                <Text style={styles.imageGalleryReviewText}>
+                            <View style={[styles.imageGalleryTextContainer, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)' }]}>
+                                <Text style={[styles.imageGalleryReviewText, { color: isDark ? '#000000' : '#FFFFFF' }]}>
                                     {selectedReview.text}
                                 </Text>
                             </View>
@@ -430,7 +430,6 @@ const getLocationIcon = (category: string): keyof typeof Ionicons.glyphMap => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#000000',
     },
     header: {
         paddingHorizontal: 16,
@@ -440,7 +439,6 @@ const styles = StyleSheet.create({
     locationCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#FFFFFF',
         padding: 12,
         borderRadius: 20,
         shadowColor: '#000',
@@ -466,7 +464,6 @@ const styles = StyleSheet.create({
     placeholderImage: {
         width: '100%',
         height: '100%',
-        backgroundColor: '#F3F4F6',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -477,7 +474,6 @@ const styles = StyleSheet.create({
     locationName: {
         fontSize: 18,
         fontWeight: '600',
-        color: '#000000',
         marginBottom: 6,
     },
     ratingRow: {
@@ -493,7 +489,6 @@ const styles = StyleSheet.create({
     },
     addressText: {
         fontSize: 14,
-        color: '#6B7280',
         marginLeft: 0,
         flex: 1,
         flexWrap: 'wrap',
@@ -510,16 +505,13 @@ const styles = StyleSheet.create({
     descriptionTitle: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#F48C06',
     },
     descriptionText: {
         fontSize: 16,
-        color: '#E5E7EB',
         lineHeight: 20,
     },
     divider: {
         height: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.32)',
         marginTop: 16,
         marginHorizontal: 4,
     },
@@ -541,7 +533,6 @@ const styles = StyleSheet.create({
     },
     loadingText: {
         fontSize: 14,
-        color: '#E5E7EB',
         marginLeft: 8,
     },
     reviewImagesList: {
@@ -595,7 +586,6 @@ const styles = StyleSheet.create({
     },
     noImagesText: {
         fontSize: 14,
-        color: '#9CA3AF',
         textAlign: 'center',
         paddingVertical: 20,
         fontStyle: 'italic',
@@ -613,7 +603,6 @@ const styles = StyleSheet.create({
     imageGalleryContainer: {
         flex: 1,
         width: '100%',
-        backgroundColor: '#000000',
         paddingBottom: 50, // Extra safe area for iPhone home indicator
     },
     imageGalleryHeader: {
@@ -629,7 +618,6 @@ const styles = StyleSheet.create({
     imageGalleryTitle: {
         fontSize: 18,
         fontWeight: '600',
-        color: '#FFFFFF',
     },
     imageGalleryCloseButton: {
         padding: 8,
@@ -651,7 +639,6 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     imageGalleryTextContainer: {
-        backgroundColor: 'rgba(255, 255, 255, 0.6)',
         borderRadius: 16,
         paddingHorizontal: 20,
         paddingVertical: 10,
@@ -664,7 +651,6 @@ const styles = StyleSheet.create({
     },
     imageGalleryReviewText: {
         fontSize: 16,
-        color: '#000000',
         lineHeight: 16,
         textAlign: 'center',
         fontWeight: '500',
@@ -678,7 +664,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#FFFFFF',
         paddingVertical: 16,
         borderRadius: 12,
     },

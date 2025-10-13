@@ -16,14 +16,14 @@ const axiosInstance: AxiosInstance = axios.create({
 
 // Flag to prevent multiple refresh attempts
 let isRefreshing = false;
+let isLoggingOut = false;
 let failedQueue: Array<{
     resolve: (value?: any) => void;
     reject: (reason?: any) => void;
 }> = [];
 
 // Flag to disable interceptor for logout scenarios
-let isLoggingOut = false;
-let isUserLoggedOut = false; // 🚀 NEW: Track if user is completely logged out
+let isUserLoggedOut = false;
 
 // Function to set logout mode
 export const setLogoutMode = (mode: boolean) => {
@@ -33,6 +33,12 @@ export const setLogoutMode = (mode: boolean) => {
 // 🚀 NEW: Function to set user logged out state
 export const setUserLoggedOut = (loggedOut: boolean) => {
     isUserLoggedOut = loggedOut;
+};
+
+// 🚀 NEW: Function to reset refresh state
+export const resetRefreshState = () => {
+    isRefreshing = false;
+    failedQueue = [];
 };
 
 const processQueue = (error: any, token: string | null = null) => {
@@ -117,6 +123,12 @@ axiosInstance.interceptors.response.use(
             // Silent log for 401 - don't show error to user
             console.log('🔐 401 Unauthorized - Attempting token refresh');
 
+            // If already logging out, skip all processing
+            if (isLoggingOut) {
+                console.log('🚫 [Axios] Already logging out, skipping 401 processing');
+                return Promise.reject(error);
+            }
+
             if (originalRequest.url?.includes('/auth/user/register/verify-otp') ||
                 originalRequest.url?.includes('/auth/user/register/send-otp') ||
                 originalRequest.url?.includes('/password/user/forgot') ||
@@ -128,7 +140,11 @@ axiosInstance.interceptors.response.use(
             if (originalRequest.url?.includes('/session/refresh')) {
                 // Silent log for refresh token failure - don't show error to user
                 console.log('🔄 Refresh token expired - redirecting to login');
-                await AuthHelper.logoutAndNavigate();
+                if (!isLoggingOut) {
+                    isLoggingOut = true;
+                    await AuthHelper.logoutAndNavigate();
+                    // Don't reset flag here - let it stay true to prevent other requests from logging out
+                }
                 return Promise.reject(error);
             }
 
@@ -136,11 +152,23 @@ axiosInstance.interceptors.response.use(
                 isRefreshing = true;
 
                 try {
-                    await refreshTokenManager.performRefresh();
-                    const newAccessToken = await AuthHelper.getAccessToken();
-                    originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-                    processQueue(null, newAccessToken);
-                    return axiosInstance(originalRequest);
+                    const refreshSuccess = await refreshTokenManager.performRefresh();
+
+                    if (refreshSuccess) {
+                        const newAccessToken = await AuthHelper.getAccessToken();
+                        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+                        processQueue(null, newAccessToken);
+                        return axiosInstance(originalRequest);
+                    } else {
+                        // Refresh failed, logout user
+                        processQueue(new Error('Token refresh failed'), null);
+                        if (!isLoggingOut) {
+                            isLoggingOut = true;
+                            await AuthHelper.logoutAndNavigate();
+                            // Don't reset flag here - let it stay true to prevent other requests from logging out
+                        }
+                        return Promise.reject(new Error('Token refresh failed'));
+                    }
                 } catch (refreshError) {
                     // Silent log for token refresh error - don't show error to user
                     console.log('🔄 Token refresh failed:', (refreshError as any)?.message || 'Unknown error');
@@ -151,7 +179,11 @@ axiosInstance.interceptors.response.use(
                     const isTimeoutError = (refreshError as any)?.code === 'TIMEOUT' || (refreshError as any)?.message?.includes('timeout');
 
                     if (isAuthError) {
-                        await AuthHelper.logoutAndNavigate();
+                        if (!isLoggingOut) {
+                            isLoggingOut = true;
+                            await AuthHelper.logoutAndNavigate();
+                            // Don't reset flag here - let it stay true to prevent other requests from logging out
+                        }
                     } else if (isNetworkError || isTimeoutError) {
                         // Keep user logged in for network errors
                     }

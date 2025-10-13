@@ -20,7 +20,7 @@ const ToastContainer: React.FC = () => {
                 styles.container,
                 {
                     backgroundColor: 'transparent', // Transparent background để toast nổi bật
-                    paddingTop: insets.top + 10, // Safe area + extra padding
+                    paddingTop: insets.top, // Safe area + extra padding
                 },
             ]}
             pointerEvents="box-none"

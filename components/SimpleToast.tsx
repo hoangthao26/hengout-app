@@ -99,68 +99,65 @@ const SimpleToast: React.FC<SimpleToastProps> = ({ toast, onHide, onActionPress 
     };
 
     const getToastConfig = () => {
-        switch (toast.type) {
-            case 'success':
-                return {
-                    icon: CheckCircle,
-                    iconColor: '#FFFFFF',
-                    iconBackgroundColor: '#10B981',
-                    gradientColors: ['#00DF80', '#00ED51', '#00ED7B'],
-                    backgroundColor: 'rgba(16, 185, 129, 0.15)', // Glass liquid green
-                    borderColor: 'rgba(16, 185, 129, 0.3)',
-                    glassGradient: ['rgba(16, 185, 129, 0.1)', 'rgba(0, 223, 128, 0.05)', 'rgba(0, 237, 81, 0.1)'],
-                };
-            case 'error':
-                return {
-                    icon: XCircle,
-                    iconColor: '#FFFFFF',
-                    iconBackgroundColor: '#DC2626',
-                    gradientColors: ['#FF6B6B', '#FF5252', '#FF1744'],
-                    backgroundColor: 'rgba(220, 38, 38, 0.15)', // Glass liquid red
-                    borderColor: 'rgba(220, 38, 38, 0.3)',
-                    glassGradient: ['rgba(220, 38, 38, 0.1)', 'rgba(255, 107, 107, 0.05)', 'rgba(255, 82, 82, 0.1)'],
-                };
-            case 'warning':
-                return {
-                    icon: AlertCircle,
-                    iconColor: '#FFFFFF',
-                    iconBackgroundColor: '#D97706',
-                    gradientColors: ['#FFB800', '#FFA000', '#FF8F00'],
-                    backgroundColor: 'rgba(217, 119, 6, 0.15)', // Glass liquid orange
-                    borderColor: 'rgba(217, 119, 6, 0.3)',
-                    glassGradient: ['rgba(217, 119, 6, 0.1)', 'rgba(255, 184, 0, 0.05)', 'rgba(255, 160, 0, 0.1)'],
-                };
-            case 'info':
-                return {
-                    icon: Info,
-                    iconColor: '#FFFFFF',
-                    iconBackgroundColor: '#2563EB',
-                    gradientColors: ['#00B4DB', '#0080FF', '#0066CC'],
-                    backgroundColor: 'rgba(37, 99, 235, 0.15)', // Glass liquid blue
-                    borderColor: 'rgba(37, 99, 235, 0.3)',
-                    glassGradient: ['rgba(37, 99, 235, 0.1)', 'rgba(0, 180, 219, 0.05)', 'rgba(0, 128, 255, 0.1)'],
-                };
-            case 'loading':
-                return {
-                    icon: Info,
-                    iconColor: '#FFFFFF',
-                    iconBackgroundColor: '#4B5563',
-                    gradientColors: ['#6B7280', '#4B5563', '#374151'],
-                    backgroundColor: 'rgba(75, 85, 99, 0.15)', // Glass liquid gray
-                    borderColor: 'rgba(75, 85, 99, 0.3)',
-                    glassGradient: ['rgba(75, 85, 99, 0.1)', 'rgba(107, 114, 128, 0.05)', 'rgba(55, 65, 81, 0.1)'],
-                };
-            default:
-                return {
-                    icon: Info,
-                    iconColor: '#FFFFFF',
-                    iconBackgroundColor: '#4B5563',
-                    gradientColors: ['#6B7280', '#4B5563', '#374151'],
-                    backgroundColor: 'rgba(75, 85, 99, 0.15)', // Glass liquid gray
-                    borderColor: 'rgba(75, 85, 99, 0.3)',
-                    glassGradient: ['rgba(75, 85, 99, 0.1)', 'rgba(107, 114, 128, 0.05)', 'rgba(55, 65, 81, 0.1)'],
-                };
-        }
+        const baseConfig = {
+            success: {
+                icon: CheckCircle,
+                iconColor: isDark ? '#FFFFFF' : '#FFFFFF',
+                iconBackgroundColor: '#10B981',
+                gradientColors: isDark ? ['#00DF80', '#00ED51', '#00ED7B'] : ['#059669', '#10B981', '#34D399'],
+                backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.2)',
+                borderColor: isDark ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.4)',
+                glassGradient: isDark
+                    ? ['rgba(16, 185, 129, 0.1)', 'rgba(0, 223, 128, 0.05)', 'rgba(0, 237, 81, 0.1)']
+                    : ['rgba(16, 185, 129, 0.2)', 'rgba(5, 150, 105, 0.15)', 'rgba(52, 211, 153, 0.2)'],
+            },
+            error: {
+                icon: XCircle,
+                iconColor: isDark ? '#FFFFFF' : '#FFFFFF',
+                iconBackgroundColor: '#DC2626',
+                gradientColors: isDark ? ['#FF6B6B', '#FF5252', '#FF1744'] : ['#EF4444', '#DC2626', '#B91C1C'],
+                backgroundColor: isDark ? 'rgba(220, 38, 38, 0.15)' : 'rgba(220, 38, 38, 0.2)',
+                borderColor: isDark ? 'rgba(220, 38, 38, 0.3)' : 'rgba(220, 38, 38, 0.4)',
+                glassGradient: isDark
+                    ? ['rgba(220, 38, 38, 0.1)', 'rgba(255, 107, 107, 0.05)', 'rgba(255, 82, 82, 0.1)']
+                    : ['rgba(220, 38, 38, 0.2)', 'rgba(239, 68, 68, 0.15)', 'rgba(185, 28, 28, 0.2)'],
+            },
+            warning: {
+                icon: AlertCircle,
+                iconColor: isDark ? '#FFFFFF' : '#FFFFFF',
+                iconBackgroundColor: '#D97706',
+                gradientColors: isDark ? ['#FFB800', '#FFA000', '#FF8F00'] : ['#F59E0B', '#D97706', '#B45309'],
+                backgroundColor: isDark ? 'rgba(217, 119, 6, 0.15)' : 'rgba(217, 119, 6, 0.2)',
+                borderColor: isDark ? 'rgba(217, 119, 6, 0.3)' : 'rgba(217, 119, 6, 0.4)',
+                glassGradient: isDark
+                    ? ['rgba(217, 119, 6, 0.1)', 'rgba(255, 184, 0, 0.05)', 'rgba(255, 160, 0, 0.1)']
+                    : ['rgba(217, 119, 6, 0.2)', 'rgba(245, 158, 11, 0.15)', 'rgba(180, 83, 9, 0.2)'],
+            },
+            info: {
+                icon: Info,
+                iconColor: isDark ? '#FFFFFF' : '#FFFFFF',
+                iconBackgroundColor: '#2563EB',
+                gradientColors: isDark ? ['#00B4DB', '#0080FF', '#0066CC'] : ['#3B82F6', '#2563EB', '#1D4ED8'],
+                backgroundColor: isDark ? 'rgba(37, 99, 235, 0.15)' : 'rgba(37, 99, 235, 0.2)',
+                borderColor: isDark ? 'rgba(37, 99, 235, 0.3)' : 'rgba(37, 99, 235, 0.4)',
+                glassGradient: isDark
+                    ? ['rgba(37, 99, 235, 0.1)', 'rgba(0, 180, 219, 0.05)', 'rgba(0, 128, 255, 0.1)']
+                    : ['rgba(37, 99, 235, 0.2)', 'rgba(59, 130, 246, 0.15)', 'rgba(29, 78, 216, 0.2)'],
+            },
+            loading: {
+                icon: Info,
+                iconColor: isDark ? '#FFFFFF' : '#FFFFFF',
+                iconBackgroundColor: isDark ? '#4B5563' : '#6B7280',
+                gradientColors: isDark ? ['#6B7280', '#4B5563', '#374151'] : ['#9CA3AF', '#6B7280', '#4B5563'],
+                backgroundColor: isDark ? 'rgba(75, 85, 99, 0.15)' : 'rgba(107, 114, 128, 0.2)',
+                borderColor: isDark ? 'rgba(75, 85, 99, 0.3)' : 'rgba(107, 114, 128, 0.4)',
+                glassGradient: isDark
+                    ? ['rgba(75, 85, 99, 0.1)', 'rgba(107, 114, 128, 0.05)', 'rgba(55, 65, 81, 0.1)']
+                    : ['rgba(107, 114, 128, 0.2)', 'rgba(156, 163, 175, 0.15)', 'rgba(75, 85, 99, 0.2)'],
+            },
+        };
+
+        return baseConfig[toast.type] || baseConfig.info;
     };
 
     const config = getToastConfig();
@@ -183,8 +180,8 @@ const SimpleToast: React.FC<SimpleToastProps> = ({ toast, onHide, onActionPress 
         >
             {/* Glass liquid background with blur */}
             <BlurView
-                intensity={20}
-                tint="dark"
+                intensity={isDark ? 20 : 25}
+                tint={isDark ? "dark" : "light"}
                 style={StyleSheet.absoluteFillObject}
             />
 
@@ -253,7 +250,7 @@ const SimpleToast: React.FC<SimpleToastProps> = ({ toast, onHide, onActionPress 
                     <Text
                         style={[
                             styles.title,
-                            { color: '#FFFFFF' }, // White text như Figma
+                            { color: isDark ? '#FFFFFF' : '#111827' }, // White in dark, very dark gray in light for better contrast
                         ]}
                         numberOfLines={2}
                     >
@@ -263,7 +260,7 @@ const SimpleToast: React.FC<SimpleToastProps> = ({ toast, onHide, onActionPress 
                         <Text
                             style={[
                                 styles.message,
-                                { color: '#C8C5C5' }, // Gray text như Figma
+                                { color: isDark ? '#C8C5C5' : '#374151' }, // Light gray in dark, darker gray in light for better readability
                             ]}
                             numberOfLines={3}
                         >
@@ -305,7 +302,7 @@ const SimpleToast: React.FC<SimpleToastProps> = ({ toast, onHide, onActionPress 
                     >
                         <X
                             size={16}
-                            color="#C8C5C5" // Gray color như Figma
+                            color={isDark ? '#C8C5C5' : '#374151'} // Light gray in dark, darker gray in light for better visibility
                         />
                     </TouchableOpacity>
                 )}

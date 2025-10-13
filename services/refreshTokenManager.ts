@@ -14,7 +14,7 @@ export class RefreshTokenManager {
     private appStateSubscription: any = null;
 
     private static readonly REFRESH_BEFORE_EXPIRY = 5 * 60 * 1000; // 5 minutes
-    private static readonly MAX_RETRY_ATTEMPTS = 3;
+    private static readonly MAX_RETRY_ATTEMPTS = 2; // Reduced from 3 to 2
 
     private constructor() {
         this.setupAppStateListener();
@@ -92,6 +92,9 @@ export class RefreshTokenManager {
             this.refreshTimer = null;
             console.log('🛑 [RefreshTokenManager] Token monitoring stopped');
         }
+
+
+        this.isRefreshing = false;
     }
 
     /**
@@ -134,8 +137,7 @@ export class RefreshTokenManager {
             // Check if refresh token exists
             const refreshToken = await AuthHelper.getRefreshToken();
             if (!refreshToken) {
-                console.log('🔐 [RefreshTokenManager] No refresh token available - logging out user');
-                await AuthHelper.logoutAndNavigate();
+                console.log('🔐 [RefreshTokenManager] No refresh token available');
                 return false;
             }
 
@@ -174,14 +176,13 @@ export class RefreshTokenManager {
                     lastError = error;
                     console.error(`❌ [RefreshTokenManager] Refresh attempt ${attempt} failed:`, error);
 
-                    // Check for authentication error
-                    if (error.response?.status === 401) {
-                        console.log('🔐 [RefreshTokenManager] 401 error - refresh token invalid, logging out');
-                        await AuthHelper.logoutAndNavigate();
+                    // 🚀 IMMEDIATE FAIL ON 401: Don't retry on 401 errors
+                    if (error.response?.status === 401 || error.message?.includes('Invalid refresh token')) {
+                        console.log('🔐 [RefreshTokenManager] 401/Invalid token error - refresh failed');
                         return false;
                     }
 
-                    // Wait before retry (exponential backoff)
+                    // Wait before retry (exponential backoff) - only for network errors
                     if (attempt < RefreshTokenManager.MAX_RETRY_ATTEMPTS) {
                         const delay = 1000 * Math.pow(2, attempt - 1);
                         console.log(`⏳ [RefreshTokenManager] Retrying in ${delay}ms`);
@@ -191,6 +192,9 @@ export class RefreshTokenManager {
             }
 
             console.error('❌ [RefreshTokenManager] All refresh attempts failed:', lastError);
+            return false;
+        } catch (error: any) {
+            console.error('❌ [RefreshTokenManager] Unexpected error during refresh:', error);
             return false;
         } finally {
             this.isRefreshing = false;
@@ -220,6 +224,7 @@ export class RefreshTokenManager {
         try {
             console.log('📱 [RefreshTokenManager] Checking token on app resume...');
 
+
             const isAuthenticated = await AuthHelper.isAuthenticated();
             if (!isAuthenticated) {
                 console.log('⚠️ [RefreshTokenManager] User not authenticated on resume');
@@ -237,12 +242,16 @@ export class RefreshTokenManager {
             const shouldRefresh = timeUntilExpiry < 10 * 60 * 1000; // Less than 10 minutes
 
             if (shouldRefresh) {
+                console.log('🔄 [RefreshTokenManager] Token expires soon, refreshing on resume...');
                 await this.performRefresh();
+            } else {
+                console.log('✅ [RefreshTokenManager] Token still valid on resume');
             }
         } catch (error) {
             console.error('❌ [RefreshTokenManager] Error on app resume check:', error);
         }
     }
+
 
 
     /**

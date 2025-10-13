@@ -1,22 +1,23 @@
 import * as SecureStore from 'expo-secure-store';
 import { OnboardingService } from './onboardingService';
 import { sessionService } from './sessionService';
+import { Alert } from 'react-native';
 
 export interface AuthTokens {
     accessToken: string;
     refreshToken: string;
     tokenType: string;
-    expiresIn: number; // Duration in milliseconds from API (for backward compatibility)
-    expiresAt: number; // ✅ ENTERPRISE BEST PRACTICE: Actual expiration timestamp
+    expiresIn: number;
+    expiresAt: number;
     role: string;
-    onboardingComplete?: boolean; // Optional field from auth response
+    onboardingComplete?: boolean;
 }
 
 export interface StoredTokens {
     accessToken: string;
     refreshToken: string;
     tokenType: string;
-    expirationTime: number; // Actual expiration timestamp
+    expirationTime: number;
     role: string;
 }
 
@@ -27,17 +28,13 @@ export class AuthHelper {
     private static readonly EXPIRATION_TIME_KEY = 'expirationTime';
     private static readonly ROLE_KEY = 'role';
 
-    /**
-     * Save authentication tokens to secure storage
-     */
+
     static async saveTokens(tokens: AuthTokens): Promise<void> {
         try {
-            // Validate tokens before saving
             if (!tokens.accessToken || !tokens.refreshToken) {
                 throw new Error('Missing required tokens');
             }
 
-            // Ensure expiresIn is a valid number
             let expiresIn = typeof tokens.expiresIn === 'number' ? tokens.expiresIn : parseInt(tokens.expiresIn as any);
             if (isNaN(expiresIn) || expiresIn <= 0) {
                 throw new Error('Invalid expiresIn value');
@@ -51,7 +48,6 @@ export class AuthHelper {
             const expiresAt = currentTime + expiresIn;
 
 
-            // Ensure all values are strings and not null/undefined
             const accessToken = String(tokens.accessToken || '');
             const refreshToken = String(tokens.refreshToken || '');
             const tokenType = String(tokens.tokenType || 'Bearer');
@@ -71,7 +67,6 @@ export class AuthHelper {
             ]);
 
 
-            // Save onboarding status if provided
             if (tokens.onboardingComplete !== undefined) {
                 await OnboardingService.setOnboardingStatus(tokens.onboardingComplete);
             }
@@ -82,9 +77,6 @@ export class AuthHelper {
         }
     }
 
-    /**
-     * Get access token from secure storage
-     */
     static async getAccessToken(): Promise<string | null> {
         try {
             return await SecureStore.getItemAsync(this.ACCESS_TOKEN_KEY);
@@ -94,9 +86,6 @@ export class AuthHelper {
         }
     }
 
-    /**
-     * Get refresh token from secure storage
-     */
     static async getRefreshToken(): Promise<string | null> {
         try {
             return await SecureStore.getItemAsync(this.REFRESH_TOKEN_KEY);
@@ -106,9 +95,6 @@ export class AuthHelper {
         }
     }
 
-    /**
-     * Get all stored tokens
-     */
     static async getTokens(): Promise<AuthTokens | null> {
         try {
             const [accessToken, refreshToken, tokenType, expirationTime, role] = await Promise.all([
@@ -123,32 +109,26 @@ export class AuthHelper {
                 return null;
             }
 
-            // Parse expiration timestamp
             const expirationTimestamp = parseInt(expirationTime || '0');
             const currentTime = Date.now();
-
-            // Calculate remaining duration
             const remainingDuration = Math.max(0, expirationTimestamp - currentTime);
 
             const tokens = {
                 accessToken,
                 refreshToken,
                 tokenType: tokenType || 'Bearer',
-                expiresIn: remainingDuration, // Return remaining duration (for backward compatibility)
-                expiresAt: expirationTimestamp, // Return actual expiration timestamp
+                expiresIn: remainingDuration,
+                expiresAt: expirationTimestamp,
                 role: role || '',
             };
 
             return tokens;
         } catch (error) {
-            console.error('❌ [AuthHelper] Failed to get tokens:', error);
+            console.error('Failed to get tokens:', error);
             return null;
         }
     }
 
-    /**
-     * Check if user is authenticated
-     */
     static async isAuthenticated(): Promise<boolean> {
         try {
             const tokens = await this.getTokens();
@@ -168,7 +148,6 @@ export class AuthHelper {
             const tokens = await this.getTokens();
             if (!tokens) return true;
 
-            // expiresIn now represents remaining duration
             return tokens.expiresIn <= 0;
         } catch (error) {
             console.error('Failed to check token expiration:', error);
@@ -177,21 +156,15 @@ export class AuthHelper {
     }
 
 
-    /**
-     * Logout with smart API decision
-     */
     static async logout(): Promise<void> {
         try {
-            // 🚀 STOP BACKGROUND SERVICES: Prevent 401 errors during logout
             try {
                 const { chatSyncService } = await import('./chatSyncService');
                 chatSyncService.stopSync();
-                console.log('✅ [AuthHelper] Chat sync service stopped');
             } catch (error) {
-                console.log('⚠️ [AuthHelper] Failed to stop chat sync service:', error);
+                console.log('Failed to stop chat sync service:', error);
             }
 
-            // Get current token status
             const refreshToken = await this.getRefreshToken();
             const isTokenValid = await this.isAuthenticated();
             const tokens = await this.getTokens();
@@ -199,23 +172,15 @@ export class AuthHelper {
             const shouldCallAPI = refreshToken &&
                 isTokenValid &&
                 tokens &&
-                tokens.expiresIn > 5 * 60 * 1000; // 5 minutes
+                tokens.expiresIn > 5 * 60 * 1000;
 
             if (shouldCallAPI) {
-                console.log('📡 Calling logout API (token fresh)...');
-
-                // 4. Call API with proper error handling
                 try {
                     await this.callLogoutAPI(refreshToken);
-                    console.log('✅ Logout API call successful');
                 } catch (apiError) {
-                    console.log('⚠️ Logout API call failed, continuing with local cleanup');
+                    console.log('Logout API call failed, continuing with local cleanup');
                 }
-            } else {
-                console.log('⏭️ Skipping logout API call (token expired or close to expiry)');
             }
-
-            // 5. Always clear local tokens and onboarding status
             await this.clearTokens();
             await OnboardingService.clearOnboardingStatus();
             console.log('✅ Local tokens and onboarding status cleared');
@@ -235,21 +200,16 @@ export class AuthHelper {
                 const { setLogoutMode, setUserLoggedOut } = await import('../config/axios');
                 setLogoutMode(true);
                 setUserLoggedOut(true);
-                console.log('✅ [AuthHelper] Logout flags set');
             } catch (error) {
-                console.log('⚠️ [AuthHelper] Failed to set logout flags:', error);
+                console.log('Failed to set logout flags:', error);
             }
 
         } catch (error) {
-            console.error('❌ Logout process failed:', error);
-            // Ensure tokens are cleared even if process fails
+            console.error('Logout process failed:', error);
             await this.clearTokens();
         }
     }
 
-    /**
-     * Call logout API without triggering token refresh
-     */
     private static async callLogoutAPI(refreshToken: string): Promise<void> {
         const { API_CONFIG } = require('../config/api');
         const { API_ENDPOINTS } = require('../config/api');
@@ -269,18 +229,13 @@ export class AuthHelper {
         }
     }
 
-    /**
-     * Force logout without API call (for offline scenarios)
-     */
     static async forceLogout(): Promise<void> {
         try {
-            // 🚀 STOP BACKGROUND SERVICES: Prevent 401 errors during force logout
             try {
                 const { chatSyncService } = await import('./chatSyncService');
                 chatSyncService.stopSync();
-                console.log('✅ [AuthHelper] Chat sync service stopped (force logout)');
             } catch (error) {
-                console.log('⚠️ [AuthHelper] Failed to stop chat sync service (force logout):', error);
+                console.log('Failed to stop chat sync service:', error);
             }
 
             // Clear local tokens
@@ -292,8 +247,7 @@ export class AuthHelper {
                 await databaseService.clearAllData();
                 console.log('✅ [AuthHelper] Database cleared successfully (force logout)');
             } catch (dbError) {
-                console.error('❌ [AuthHelper] Failed to clear database (force logout):', dbError);
-                // Don't throw - database clear failure shouldn't block logout
+                console.error('Failed to clear database:', dbError);
             }
         } catch (error) {
             console.error('Force logout failed:', error);
@@ -301,39 +255,41 @@ export class AuthHelper {
         }
     }
 
-    /**
-     * Smart logout with network detection and fallback
-     */
     static async smartLogout(): Promise<void> {
         try {
-            // Check if we have valid tokens first
             const isAuthenticated = await this.isAuthenticated();
 
             if (!isAuthenticated) {
-                // No valid tokens, just clear local data
                 await this.forceLogout();
                 return;
             }
 
-            // Try normal logout with API call
             await this.logout();
         } catch (error) {
             console.error('Smart logout failed, falling back to force logout:', error);
-            // Fallback to force logout if normal logout fails
             await this.forceLogout();
         }
     }
 
-    /**
- * Complete logout with immediate navigation (for use in components)
- */
     static async logoutAndNavigate(): Promise<void> {
         try {
             // Import here to avoid circular dependency
             const { default: NavigationService } = await import('./navigationService');
 
-            // Navigate immediately without waiting for logout process
             NavigationService.logoutToLogin();
+
+            setTimeout(() => {
+                Alert.alert(
+                    'Phiên đăng nhập hết hạn',
+                    'Phiên đăng nhập của bạn đã hết hạn. Vui lòng đăng nhập lại để tiếp tục sử dụng ứng dụng.',
+                    [
+                        {
+                            text: 'Đăng nhập lại',
+                            style: 'default'
+                        }
+                    ]
+                );
+            }, 500); // Small delay to ensure navigation is complete
 
             // Perform logout cleanup in background
             this.logout().catch(error => {
@@ -341,19 +297,28 @@ export class AuthHelper {
             });
         } catch (error) {
             console.error('Logout and navigate failed:', error);
-            // Force navigation even if import fails
             try {
                 const { default: NavigationService } = await import('./navigationService');
                 NavigationService.logoutToLogin();
+
+                setTimeout(() => {
+                    Alert.alert(
+                        'Phiên đăng nhập hết hạn',
+                        'Phiên đăng nhập của bạn đã hết hạn. Vui lòng đăng nhập lại để tiếp tục sử dụng ứng dụng.',
+                        [
+                            {
+                                text: 'Đăng nhập lại',
+                                style: 'default'
+                            }
+                        ]
+                    );
+                }, 500);
             } catch (navError) {
                 console.error('Force navigation failed:', navError);
             }
         }
     }
 
-    /**
-     * Clear all stored tokens
-     */
     static async clearTokens(): Promise<void> {
         try {
 
@@ -370,9 +335,6 @@ export class AuthHelper {
         }
     }
 
-    /**
-     * Get authorization header for API requests
-     */
     static async getAuthHeader(): Promise<string | null> {
         try {
             const tokens = await this.getTokens();
@@ -385,9 +347,6 @@ export class AuthHelper {
         }
     }
 
-    /**
-     * Get detailed token information for debugging
-     */
     static async getTokenInfo(): Promise<{
         isAuthenticated: boolean;
         hasTokens: boolean;
@@ -415,26 +374,16 @@ export class AuthHelper {
                 };
             }
 
-            // Get the actual expiration timestamp from storage
             const expirationTimeStr = await SecureStore.getItemAsync(this.EXPIRATION_TIME_KEY);
             const expirationTimestamp = parseInt(expirationTimeStr || '0');
 
             const currentTime = Date.now();
             const isExpired = tokens.expiresIn <= 0;
 
-            // Calculate refresh time (5 minutes before expiration)
-            const REFRESH_BEFORE_EXPIRY = 5 * 60 * 1000; // 5 minutes
+            const REFRESH_BEFORE_EXPIRY = 5 * 60 * 1000;
             const refreshTimestamp = expirationTimestamp - REFRESH_BEFORE_EXPIRY;
             const timeUntilRefresh = Math.max(0, refreshTimestamp - currentTime);
 
-            console.log('🔍 Token Debug Info:');
-            console.log('- Current Time:', new Date(currentTime).toLocaleString());
-            console.log('- Expiration Timestamp:', expirationTimestamp);
-            console.log('- Expiration Time:', new Date(expirationTimestamp).toLocaleString());
-            console.log('- Refresh Time:', new Date(refreshTimestamp).toLocaleString());
-            console.log('- Time Until Refresh:', Math.round(timeUntilRefresh / 1000), 'seconds');
-            console.log('- Remaining Duration:', tokens.expiresIn);
-            console.log('- Is Expired:', isExpired);
 
             return {
                 isAuthenticated: true,
@@ -453,9 +402,6 @@ export class AuthHelper {
         }
     }
 
-    /**
-     * Check if token needs pre-refresh (expires in less than 5 minutes)
-     */
     static async shouldPreRefreshToken(): Promise<boolean> {
         try {
             const tokens = await this.getTokens();
@@ -468,7 +414,6 @@ export class AuthHelper {
             const currentTime = Date.now();
             const timeUntilExpiry = expirationTimestamp - currentTime;
 
-            // Pre-refresh if token expires in less than 5 minutes (300,000 ms)
             return timeUntilExpiry < 300000 && timeUntilExpiry > 0;
         } catch (error) {
             console.error('Failed to check token pre-refresh status:', error);
@@ -476,28 +421,17 @@ export class AuthHelper {
         }
     }
 
-    /**
-     * Pre-refresh token if it's about to expire
-     */
     static async preRefreshTokenIfNeeded(): Promise<boolean> {
         try {
             const shouldRefresh = await this.shouldPreRefreshToken();
             if (shouldRefresh) {
-                console.log('🔄 Pre-refreshing token (expires soon)');
                 // Use RefreshTokenManager for consistent refresh logic
                 const { refreshTokenManager } = await import('./refreshTokenManager');
                 const success = await refreshTokenManager.performRefresh();
-                if (success) {
-                    console.log('✅ Token pre-refresh successful');
-                    return true;
-                } else {
-                    console.warn('⚠️ Token pre-refresh failed');
-                    return false;
-                }
+                return success;
             }
-            return true; // No refresh needed
+            return true;
         } catch (error) {
-            // Silent log for token pre-refresh error - don't show error to user
             console.log('🔄 Token pre-refresh error:', (error as any)?.message || 'Unknown error');
             return false;
         }
