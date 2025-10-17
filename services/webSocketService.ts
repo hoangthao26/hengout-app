@@ -1,329 +1,170 @@
-// WebSocket Service for Real-time Chat - Functional Approach
-
-import { stompClient } from './stompClient';
 import { AuthHelper } from './authHelper';
-import {
-    ConnectionStatus,
-    WebSocketSubscription
-} from '../types/webSocket';
-import { ChatMessage } from '../types/chat';
-import { StompClientConfig, StompConnectionHeaders } from '../types/stomp';
 
-// State management using closures (no 'this' needed)
-let connected = false;
-let connectionStatus: ConnectionStatus = 'disconnected';
-let subscriptions = new Map<string, WebSocketSubscription>();
-let connectionCallbacks: ((status: ConnectionStatus) => void)[] = [];
-let errorCallbacks: ((error: Error) => void)[] = [];
-const WEBSOCKET_URL = 'wss://api.hengout.app/social-service/ws/native';
-
-// Forward declarations for callback functions
-const handleConnectionChange = (connected: boolean): void => {
-    if (connected) {
-        connected = true;
-        setConnectionStatus('connected');
-    } else {
-        connected = false;
-        setConnectionStatus('disconnected');
-    }
+export type WebSocketMessage = {
+    type: string;
+    data: any;
 };
 
-const handleError = (error: Error): void => {
-    connected = false;
-    setConnectionStatus('error');
-    notifyErrorCallbacks(error);
+export type WebSocketConnection = {
+    ws: WebSocket;
+    ready: Promise<void>;
+    subscribe: (conversationId: string, onMessage: (message: WebSocketMessage) => void) => void;
+    send: (message: any) => void;
+    disconnect: () => void;
+    onClose?: (callback: (event: CloseEvent) => void) => void;
+    onError?: (callback: (error: Event) => void) => void;
 };
 
-// Setup STOMP client callbacks
-stompClient.onConnectionChange(handleConnectionChange);
-stompClient.onError(handleError);
+export async function createWebSocketConnection(url: string): Promise<WebSocketConnection> {
+    const tokens = await AuthHelper.getTokens();
 
-/**
- * Connect to WebSocket
- */
-export const connect = async (): Promise<void> => {
-    if (connected) {
-        console.log('ℹ️ WebSocket already connected');
-        return;
-    }
+    // Append token via query for WS handshake
+    const wsUrl = tokens?.accessToken ? `${url}?token=${encodeURIComponent(tokens.accessToken)}` : url;
 
-    try {
-        console.log('🔄 Connecting to WebSocket...');
-        setConnectionStatus('connecting');
+    let resolveReady: () => void;
+    let rejectReady: (err: unknown) => void;
+    const ready = new Promise<void>((resolve, reject) => {
+        resolveReady = resolve;
+        rejectReady = reject;
+    });
 
-        // Get authentication headers
-        const authHeaders = await getAuthHeaders();
+    const ws = new WebSocket(wsUrl);
+    const messageHandlers = new Map<string, (message: WebSocketMessage) => void>();
+    const closeCallbacks: ((event: CloseEvent) => void)[] = [];
+    const errorCallbacks: ((error: Event) => void)[] = [];
 
-        // Create STOMP configuration
-        const stompConfig: StompClientConfig = {
-            brokerURL: WEBSOCKET_URL,
-            connectHeaders: authHeaders,
-            debug: debugLog,
-            heartbeatIncoming: 10000,
-            heartbeatOutgoing: 10000,
-            reconnectDelay: 5000,
-            maxReconnectAttempts: 5
-        };
+    ws.onopen = () => {
+        console.log('🔌 WebSocket connected');
+        resolveReady();
+    };
 
-        // Connect to STOMP broker
-        await stompClient.connect(stompConfig);
+    ws.onerror = (error) => {
+        console.error('❌ WebSocket error:', error);
+        rejectReady(error);
 
-        connected = true;
-        setConnectionStatus('connected');
-        console.log('✅ WebSocket connected successfully');
+        // Notify error callbacks
+        errorCallbacks.forEach(callback => callback(error));
+    };
 
-    } catch (error) {
-        console.error('❌ WebSocket connection failed:', error);
-        connected = false;
-        setConnectionStatus('error');
-        throw error;
-    }
-};
+    ws.onclose = (event) => {
+        console.log('🔌 WebSocket closed:', event.code, event.reason);
 
-/**
- * Disconnect from WebSocket
- */
-export const disconnect = async (): Promise<void> => {
-    if (!connected) {
-        console.log('ℹ️ WebSocket already disconnected');
-        return;
-    }
+        // Handle different close codes
+        if (event.code === 1001) {
+            console.log('⚠️ [WebSocket] Stream end encountered - connection lost unexpectedly');
+        } else if (event.code === 1006) {
+            console.log('⚠️ [WebSocket] Connection closed abnormally - network issue');
+        } else if (event.code === 1000) {
+            console.log('ℹ️ [WebSocket] Connection closed normally');
+        } else {
+            console.log(`⚠️ [WebSocket] Connection closed with code: ${event.code}`);
+        }
 
-    try {
-        console.log('🔄 Disconnecting from WebSocket...');
+        // Notify close callbacks
+        closeCallbacks.forEach(callback => callback(event));
+    };
 
-        // Clear all subscriptions
-        subscriptions.clear();
+    ws.onmessage = (event) => {
+        try {
+            const message: WebSocketMessage = JSON.parse(event.data);
+            console.log('📨 Received:', message.type);
 
-        // Disconnect STOMP client
-        await stompClient.disconnect();
+            // Handle different message types
+            switch (message.type) {
+                case 'CONNECTION_SUCCESS':
+                    console.log('✅ Connected as user:', message.data.userId);
+                    break;
 
-        connected = false;
-        setConnectionStatus('disconnected');
-        console.log('✅ WebSocket disconnected successfully');
+                case 'SUBSCRIBE_SUCCESS':
+                    console.log('✅ Subscribed to conversation:', message.data.conversationId);
+                    break;
 
-    } catch (error) {
-        console.error('❌ WebSocket disconnect failed:', error);
-        throw error;
-    }
-};
+                case 'NEW_MESSAGE':
+                    const conversationId = message.data.conversationId;
+                    const handler = messageHandlers.get(`conversation_${conversationId}`);
+                    if (handler) {
+                        handler(message);
+                    }
+                    break;
 
-/**
- * Reconnect to WebSocket
- */
-export const reconnect = async (): Promise<void> => {
-    console.log('🔄 Reconnecting to WebSocket...');
-    await disconnect();
-    await connect();
-};
+                case 'ACTIVITY_UPDATE':
+                    const activityConversationId = message.data.conversationId;
+                    const activityHandler = messageHandlers.get(`activity_${activityConversationId}`);
+                    if (activityHandler) {
+                        activityHandler(message);
+                    }
+                    break;
 
-/**
- * Send message via WebSocket
- */
-export const sendMessage = async (message: ChatMessage): Promise<void> => {
-    if (!connected) {
-        throw new Error('WebSocket not connected');
-    }
+                case 'LOCATION_UPDATE':
+                    if (message.data.conversationId) {
+                        // Group location
+                        const groupLocationHandler = messageHandlers.get(`group_location_${message.data.conversationId}`);
+                        if (groupLocationHandler) {
+                            groupLocationHandler(message);
+                        }
+                    } else {
+                        // Friend location
+                        const locationHandler = messageHandlers.get('location');
+                        if (locationHandler) {
+                            locationHandler(message);
+                        }
+                    }
+                    break;
 
-    try {
-        const destination = '/app/chat/message';
-        const headers = {
-            'destination': '/app/chat/message',
-            'content-type': 'application/json',
-            'content-length': JSON.stringify(message).length.toString()
-        };
-        const body = JSON.stringify(message);
+                case 'PONG':
+                    console.log('🏓 Pong received');
+                    break;
 
-        await stompClient.send(destination, headers, body);
-        console.log('📤 Message sent via WebSocket:', message.id);
+                case 'ERROR':
+                    console.error('❌ Server error:', message.data.message);
+                    break;
 
-    } catch (error) {
-        console.error('❌ Failed to send message via WebSocket:', error);
-        throw error;
-    }
-};
-
-/**
- * Subscribe to conversation
- */
-export const subscribeToConversation = (conversationId: string, callback: (message: ChatMessage) => void): void => {
-    if (!connected) {
-        throw new Error('WebSocket not connected');
-    }
-
-    try {
-        const destination = `/topic/conversation/${conversationId}`;
-
-        // Create subscription
-        stompClient.subscribe(destination, (stompMessage) => {
-            try {
-                const chatMessage: ChatMessage = JSON.parse(stompMessage.body);
-                console.log('📥 Received message via WebSocket:', chatMessage.id);
-                callback(chatMessage);
-            } catch (error) {
-                console.error('❌ Failed to parse message:', error);
+                default:
+                    console.warn('⚠️ Unknown message type:', message.type);
             }
-        });
-
-        // Store subscription
-        const webSocketSubscription: WebSocketSubscription = {
-            id: conversationId,
-            destination,
-            callback
-        };
-
-        subscriptions.set(conversationId, webSocketSubscription);
-        console.log('📥 Subscribed to conversation:', conversationId);
-
-    } catch (error) {
-        console.error('❌ Failed to subscribe to conversation:', error);
-        throw error;
-    }
-};
-
-/**
- * Unsubscribe from conversation
- */
-export const unsubscribeFromConversation = (conversationId: string): void => {
-    try {
-        const subscription = subscriptions.get(conversationId);
-        if (subscription) {
-            stompClient.unsubscribe(conversationId);
-            subscriptions.delete(conversationId);
-            console.log('📤 Unsubscribed from conversation:', conversationId);
-        }
-    } catch (error) {
-        console.error('❌ Failed to unsubscribe from conversation:', error);
-    }
-};
-
-/**
- * Check if WebSocket is connected
- */
-export const isConnected = (): boolean => {
-    return connected && stompClient.isClientConnected();
-};
-
-/**
- * Get connection status
- */
-export const getConnectionStatus = (): ConnectionStatus => {
-    return connectionStatus;
-};
-
-/**
- * Add connection status change callback
- */
-export const onConnectionChange = (callback: (status: ConnectionStatus) => void): void => {
-    connectionCallbacks.push(callback);
-};
-
-/**
- * Add error callback
- */
-export const onError = (callback: (error: Error) => void): void => {
-    errorCallbacks.push(callback);
-};
-
-/**
- * Remove connection status change callback
- */
-export const removeConnectionCallback = (callback: (status: ConnectionStatus) => void): void => {
-    const index = connectionCallbacks.indexOf(callback);
-    if (index > -1) {
-        connectionCallbacks.splice(index, 1);
-    }
-};
-
-/**
- * Remove error callback
- */
-export const removeErrorCallback = (callback: (error: Error) => void): void => {
-    const index = errorCallbacks.indexOf(callback);
-    if (index > -1) {
-        errorCallbacks.splice(index, 1);
-    }
-};
-
-/**
- * Get active subscriptions
- */
-export const getActiveSubscriptions = (): string[] => {
-    return Array.from(subscriptions.keys());
-};
-
-/**
- * Get active subscriptions count
- */
-export const getActiveSubscriptionsCount = (): number => {
-    return subscriptions.size;
-};
-
-// Private helper functions
-const getAuthHeaders = async (): Promise<StompConnectionHeaders> => {
-    try {
-        const tokens = await AuthHelper.getTokens();
-        if (!tokens || !tokens.accessToken) {
-            throw new Error('No valid authentication tokens found');
-        }
-
-        return {
-            'accept-version': '1.1,1.0',
-            'host': 'api.hengout.app',
-            'heart-beat': '10000,10000',
-            'Authorization': `Bearer ${tokens.accessToken}`
-        };
-    } catch (error) {
-        console.error('❌ Failed to get auth headers:', error);
-        throw new Error('Authentication required for WebSocket connection');
-    }
-};
-
-const setConnectionStatus = (status: ConnectionStatus): void => {
-    connectionStatus = status;
-    notifyConnectionCallbacks(status);
-};
-
-const notifyConnectionCallbacks = (status: ConnectionStatus): void => {
-    connectionCallbacks.forEach(callback => {
-        try {
-            callback(status);
         } catch (error) {
-            console.error('❌ Error in connection callback:', error);
+            console.error('❌ Failed to parse WebSocket message:', error);
         }
-    });
-};
+    };
 
-const notifyErrorCallbacks = (error: Error): void => {
-    errorCallbacks.forEach(callback => {
-        try {
-            callback(error);
-        } catch (callbackError) {
-            console.error('❌ Error in error callback:', callbackError);
+    function subscribe(conversationId: string, onMessage: (message: WebSocketMessage) => void) {
+        const key = `conversation_${conversationId}`;
+        messageHandlers.set(key, onMessage);
+
+        // Send subscription message
+        const subscribeMessage = {
+            type: 'SUBSCRIBE_CONVERSATION',
+            data: {
+                conversationId: conversationId
+            }
+        };
+        ws.send(JSON.stringify(subscribeMessage));
+    }
+
+    function send(message: any) {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(message));
+        } else {
+            console.warn('⚠️ WebSocket not connected, cannot send message');
         }
-    });
-};
+    }
 
-const debugLog = (str: string): void => {
-    console.log('🔍 WebSocket Debug:', str);
-};
+    function disconnect() {
+        messageHandlers.clear();
+        ws.close();
+    }
 
-// Export all functions as a module
-export const webSocketService = {
-    connect,
-    disconnect,
-    reconnect,
-    sendMessage,
-    subscribeToConversation,
-    unsubscribeFromConversation,
-    isConnected,
-    getConnectionStatus,
-    onConnectionChange,
-    onError,
-    removeConnectionCallback,
-    removeErrorCallback,
-    getActiveSubscriptions,
-    getActiveSubscriptionsCount
-};
-
-export default webSocketService;
+    return {
+        ws,
+        ready,
+        subscribe,
+        send,
+        disconnect,
+        onClose: (callback: (event: CloseEvent) => void) => {
+            closeCallbacks.push(callback);
+        },
+        onError: (callback: (error: Event) => void) => {
+            errorCallbacks.push(callback);
+        }
+    };
+}

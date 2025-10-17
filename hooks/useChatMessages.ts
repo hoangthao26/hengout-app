@@ -43,12 +43,12 @@ export const useChatMessages = ({
 
     // Store hooks
     const {
-        messages,
+        conversationMessages,
         currentConversation,
         messagesLoading,
         messagesError,
-        setMessages,
-        addMessage,
+        setConversationMessages,
+        addConversationMessage,
         setMessagesLoading,
         setMessagesError,
         setCurrentConversation,
@@ -62,7 +62,7 @@ export const useChatMessages = ({
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
 
     // Get current conversation data
-    const currentMessages = messages[conversationId] || [];
+    const currentMessages = conversationMessages[conversationId] || [];
     const isLoading = messagesLoading[conversationId] || false;
     const error = messagesError[conversationId];
 
@@ -100,10 +100,10 @@ export const useChatMessages = ({
 
                 if (append) {
                     // Prepend older messages
-                    setMessages(conversationId, [...newMessages, ...currentMessages]);
+                    setConversationMessages(conversationId, [...newMessages, ...currentMessages]);
                 } else {
                     // Replace with new messages (initial load)
-                    setMessages(conversationId, newMessages);
+                    setConversationMessages(conversationId, newMessages);
                 }
 
                 // Update pagination state
@@ -126,7 +126,7 @@ export const useChatMessages = ({
         conversationId,
         currentMessages,
         pageSize,
-        setMessages,
+        setConversationMessages,
         setMessagesLoading,
         setMessagesError
     ]);
@@ -155,7 +155,7 @@ export const useChatMessages = ({
 
             if (response.status === 'success') {
                 // Add message to store
-                addMessage(conversationId, response.data);
+                addConversationMessage(conversationId, response.data);
                 return true;
             } else {
                 showError('Không thể gửi tin nhắn');
@@ -168,7 +168,7 @@ export const useChatMessages = ({
         } finally {
             setIsSending(false);
         }
-    }, [conversationId, isSending, addMessage, showError]);
+    }, [conversationId, isSending, addConversationMessage, showError]);
 
     // Refresh messages
     const refreshMessages = useCallback(async () => {

@@ -182,15 +182,7 @@ const EmailLoginForm: React.FC<EmailLoginFormProps> = ({
             {/* Dev Quick Login Buttons */}
             {__DEV__ && (
                 <View style={{ marginTop: 24, paddingHorizontal: 20 }}>
-                    <Text style={{
-                        color: isDark ? '#9CA3AF' : '#6B7280',
-                        fontSize: 14,
-                        textAlign: 'center',
-                        marginBottom: 16,
-                        fontStyle: 'italic'
-                    }}>
-                        🚀 Dev Quick Login
-                    </Text>
+
 
                     <TouchableOpacity
                         style={{
@@ -222,6 +214,7 @@ const EmailLoginForm: React.FC<EmailLoginFormProps> = ({
                             paddingHorizontal: 16,
                             borderRadius: 8,
                             borderWidth: 1,
+                            marginBottom: 8,
                             borderColor: isDark ? '#4B5563' : '#D1D5DB'
                         }}
                         onPress={() => onSubmit('trendslade@gmail.com', '0908475945')}
@@ -234,6 +227,29 @@ const EmailLoginForm: React.FC<EmailLoginFormProps> = ({
                             textAlign: 'center'
                         }}>
                             👤 trendslade@gmail.com
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={{
+                            backgroundColor: isDark ? '#374151' : '#F3F4F6',
+                            paddingVertical: 12,
+                            paddingHorizontal: 16,
+                            borderRadius: 8,
+
+                            borderWidth: 1,
+                            borderColor: isDark ? '#4B5563' : '#D1D5DB'
+                        }}
+                        onPress={() => onSubmit('hoangthao3313@gmail.com', '0908475945')}
+                        disabled={loading}
+                    >
+                        <Text style={{
+                            color: isDark ? '#FFFFFF' : '#000000',
+                            fontSize: 14,
+                            fontWeight: '500',
+                            textAlign: 'center'
+                        }}>
+                            👤 hoangthao3313@gmail.com
                         </Text>
                     </TouchableOpacity>
                 </View>

@@ -56,6 +56,13 @@ export default function ChatScreen() {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchLoading, setSearchLoading] = useState(false);
 
+    // ✅ Subscribe to store changes for real-time updates
+    useEffect(() => {
+        if (conversations.length > 0) {
+            setFilteredConversations(conversations);
+        }
+    }, [conversations]);
+
     // Enterprise Preloading Strategy: Load conversations + recent messages
     const loadConversations = useCallback(async () => {
         try {
@@ -65,48 +72,21 @@ export default function ChatScreen() {
             if (chatSyncInitialized) {
                 const localConversations = await getConversationsFromDB();
                 setConversations(localConversations);
-                setFilteredConversations(localConversations);
+                // setFilteredConversations sẽ được cập nhật tự động qua useEffect
 
-                // 🚀 ENTERPRISE PRELOADING: Load recent messages for top conversations
-                console.log('🚀 [Enterprise Chat] Preloading recent messages for instant display...');
-                const topConversations = localConversations.slice(0, 5); // Top 5 conversations
+                // ✅ MVP OPTIMIZATION: Disabled preloading to reduce memory usage
+                // Preloading messages for top conversations is disabled for better performance
+                console.log('✅ [MVP Chat] Conversations loaded without preloading messages');
 
-                for (const conversation of topConversations) {
-                    try {
-                        const recentMessages = await getMessagesFromDB(conversation.id, 20, 0); // Last 20 messages
-                        if (recentMessages.length > 0) {
-                            // Defer store updates to avoid React warning about updating during another component's render
-                            setTimeout(() => {
-                                // Store in conversation messages
-                                setConversationMessages(conversation.id, recentMessages);
-                                // Create snapshot for instant display
-                                setMessageSnapshot(conversation.id, recentMessages.slice(0, 10)); // Keep 10 for instant display
-                            }, 0);
-                            console.log(`⚡ [Enterprise Chat] Preloaded ${recentMessages.length} messages for conversation: ${conversation.name}`);
-                        }
-                    } catch (preloadError) {
-                        console.error(`Failed to preload messages for conversation ${conversation.id}:`, preloadError);
-                        // Continue with other conversations
-                    }
-                }
-
-                // ✅ Background sync từ server (không update UI, chỉ sync database)
-                try {
-                    const response = await chatService.getConversations();
-                    if (response.status === 'success') {
-                        // ✅ Chỉ sync vào database, không update UI (tránh flicker)
-                        console.log('🔄 [Background Sync] Synced conversations to database');
-                    }
-                } catch (syncError) {
-                    console.error('Background sync failed:', syncError);
-                    // Continue with local data
-                }
+                // ✅ MVP OPTIMIZATION: Disabled background sync to reduce network calls
+                // Background sync is disabled for better performance, rely on WebSocket for real-time updates
+                console.log('✅ [MVP Chat] Skipped background sync, using WebSocket for real-time updates');
             } else {
                 // Fallback to direct API call if SQLite not ready
                 const response = await chatService.getConversations();
                 if (response.status === 'success') {
                     setConversations(response.data);
-                    setFilteredConversations(response.data);
+                    // setFilteredConversations sẽ được cập nhật tự động qua useEffect
                 } else {
                     error('Không thể tải danh sách cuộc trò chuyện');
                 }
@@ -355,7 +335,7 @@ export default function ChatScreen() {
                     }
                 />
 
-                {/* Temporary Database Reset Button for Testing */}
+                {/* Database Reset Button - Removed after use */}
                 {/* <DatabaseResetButton /> */}
 
             </View>

@@ -83,12 +83,12 @@ export const useChatSync = () => {
     // Send message with optimistic update
     const sendMessage = useCallback(async (messageData: {
         conversationId: string;
-        type: 'TEXT' | 'IMAGE' | 'FILE';
+        type: 'TEXT' | 'ACTIVITY';
         content: {
             text?: string;
-            imageUrl?: string;
-            fileName?: string;
-            fileUrl?: string;
+            activityId?: string;
+            name?: string;
+            purpose?: string;
         };
     }): Promise<ChatMessage> => {
         if (!isInitialized) {

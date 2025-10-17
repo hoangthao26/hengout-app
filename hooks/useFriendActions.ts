@@ -2,6 +2,8 @@ import { useCallback, useRef, useState } from 'react';
 import { useToast } from '../contexts/ToastContext';
 import { socialService } from '../services/socialService';
 import { useFriendStore } from '../store/friendStore';
+import { useChatStore } from '../store/chatStore';
+import { chatService } from '../services/chatService';
 import { SearchUser } from '../types/social';
 
 export const useFriendActions = (
@@ -23,9 +25,28 @@ export const useFriendActions = (
         removeFromSearch: globalRemoveFromSearch,
     } = useFriendStore();
 
+    // Get chat store actions for refreshing conversations
+    const { setConversations } = useChatStore();
+
     // Use ref to capture current searchResults
     const searchResultsRef = useRef<SearchUser[]>(searchResults);
     searchResultsRef.current = searchResults;
+
+    // Function to refresh conversations after friend request acceptance
+    const refreshConversations = useCallback(async () => {
+        try {
+            console.log('🔄 [Friend Actions] Refreshing conversations after friend request acceptance...');
+            const response = await chatService.getConversations();
+            if (response.status === 'success') {
+                setConversations(response.data);
+                console.log('✅ [Friend Actions] Conversations refreshed successfully');
+            } else {
+                console.warn('⚠️ [Friend Actions] Failed to refresh conversations:', response.message);
+            }
+        } catch (error) {
+            console.error('❌ [Friend Actions] Error refreshing conversations:', error);
+        }
+    }, [setConversations]);
 
     const handleSendFriendRequest = useCallback(async (userId: string) => {
         // Store original state for rollback
@@ -166,6 +187,9 @@ export const useFriendActions = (
             console.log('📝 [Friend Request] Remove Friend User ID:', userId);
             await socialService.removeFriend(userId);
             showSuccess('Friend removed successfully!');
+
+            // Refresh conversations to update conversation list (private conversation may be hidden/removed)
+            await refreshConversations();
         } catch (error: any) {
             console.error('Failed to remove friend:', error);
             showError(`Failed to remove friend: ${error.message}`);
@@ -214,6 +238,9 @@ export const useFriendActions = (
 
             // Remove from pending requests in global store
             globalAcceptRequest(friendRequestId);
+
+            // Refresh conversations to show new conversation immediately
+            await refreshConversations();
         } catch (error: any) {
             console.error('Failed to accept friend request:', error);
             showError(`Failed to accept friend request: ${error.message}`);

@@ -20,7 +20,7 @@ export const useChat = () => {
         currentConversation,
         conversationsLoading,
         conversationsError,
-        messages,
+        conversationMessages,
         messagesLoading,
         messagesError,
         members,
@@ -38,8 +38,8 @@ export const useChat = () => {
         setCurrentConversation,
         setConversationsLoading,
         setConversationsError,
-        setMessages,
-        addMessage,
+        setConversationMessages,
+        addConversationMessage,
         setMessagesLoading,
         setMessagesError,
         setMembers,
@@ -176,11 +176,11 @@ export const useChat = () => {
             if (response.status === 'success') {
                 if (page === 0) {
                     // Replace messages for first page
-                    setMessages(conversationId, response.data);
+                    setConversationMessages(conversationId, response.data);
                 } else {
                     // Append messages for pagination
-                    const currentMessages = messages[conversationId] || [];
-                    setMessages(conversationId, [...currentMessages, ...response.data]);
+                    const currentMessages = conversationMessages[conversationId] || [];
+                    setConversationMessages(conversationId, [...currentMessages, ...response.data]);
                 }
                 return response.data;
             } else {
@@ -198,14 +198,14 @@ export const useChat = () => {
         } finally {
             setMessagesLoading(conversationId, false);
         }
-    }, [messages, setMessages, setMessagesLoading, setMessagesError, showError]);
+    }, [conversationMessages, setConversationMessages, setMessagesLoading, setMessagesError, showError]);
 
     const sendMessage = useCallback(async (data: SendMessageRequest) => {
         try {
             const response = await chatService.sendMessage(data);
 
             if (response.status === 'success') {
-                addMessage(data.conversationId, response.data);
+                addConversationMessage(data.conversationId, response.data);
 
                 // Update conversation's last message
                 updateConversation(data.conversationId, {
@@ -224,7 +224,7 @@ export const useChat = () => {
             showError(errorMessage);
             throw error;
         }
-    }, [addMessage, updateConversation, showError]);
+    }, [addConversationMessage, updateConversation, showError]);
 
     // ==================== MEMBERS ====================
 
@@ -307,8 +307,8 @@ export const useChat = () => {
     }, [setSelectedConversationId, clearUnreadCount]);
 
     const getConversationMessages = useCallback((conversationId: string): ChatMessage[] => {
-        return messages[conversationId] || [];
-    }, [messages]);
+        return conversationMessages[conversationId] || [];
+    }, [conversationMessages]);
 
     const getConversationMembers = useCallback((conversationId: string): ChatMember[] => {
         return members[conversationId] || [];
@@ -331,7 +331,7 @@ export const useChat = () => {
         currentConversation,
         conversationsLoading,
         conversationsError,
-        messages,
+        conversationMessages,
         messagesLoading,
         messagesError,
         members,

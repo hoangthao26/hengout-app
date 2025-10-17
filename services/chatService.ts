@@ -195,12 +195,8 @@ class ChatService {
         switch (message.type) {
             case 'TEXT':
                 return message.content.text || '';
-            case 'IMAGE':
-                return '📷 Đã gửi một hình ảnh';
-            case 'FILE':
-                return `📎 ${message.content.fileName || 'Đã gửi một tệp'}`;
-            case 'SYSTEM':
-                return message.content.text || 'Thông báo hệ thống';
+            case 'ACTIVITY':
+                return `🎯 ${message.content.name || 'Hoạt động'}: ${message.content.purpose || 'Không có mô tả'}`;
             default:
                 return 'Tin nhắn không xác định';
         }
@@ -250,8 +246,15 @@ class ChatService {
         }
 
         const message = conversation.lastMessage;
-        const prefix = message.mine ? 'Bạn: ' : '';
 
+        // For GROUP conversations, always show sender name
+        if (conversation.type === 'GROUP') {
+            const prefix = message.mine ? 'Bạn: ' : `${message.senderName}: `;
+            return prefix + this.formatMessageContent(message);
+        }
+
+        // For FRIEND conversations, only show "Bạn: " for own messages
+        const prefix = message.mine ? 'Bạn: ' : '';
         return prefix + this.formatMessageContent(message);
     }
 

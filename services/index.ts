@@ -20,9 +20,11 @@ export { default as userSearchService } from './userSearchService';
 // Location Services
 export { default as locationFolderService } from './locationFolderService';
 
+// Activity Services
+export { default as activityService } from './activityService';
+
 // Chat Services
 export { default as chatService } from './chatService';
-export { webSocketService } from './webSocketService';
 
 // Utility Services
 export { default as CloudinaryService } from './cloudinaryService';

@@ -1,5 +1,12 @@
 import { create } from 'zustand';
 import { ChatConversation, ChatMember, ChatMessage } from '../types/chat';
+import { chatWebSocketManager } from '../services/chatWebSocketManager';
+import { conversationCleanupManager } from '../services/conversationCleanupManager';
+
+// MEMORY MANAGEMENT CONSTANTS
+const MAX_CONVERSATIONS_IN_MEMORY = 50;
+const MAX_MESSAGES_PER_CONVERSATION = 100;
+const INACTIVE_CONVERSATION_THRESHOLD = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 interface ChatState {
     // Conversations
@@ -16,8 +23,7 @@ interface ChatState {
     hasMoreMessages: { [conversationId: string]: boolean };
     lastMessageTimestamp: { [conversationId: string]: string };
 
-    // Legacy Messages (for backward compatibility)
-    messages: { [conversationId: string]: ChatMessage[] };
+    // Legacy Messages removed - using conversationMessages instead
 
     // Enterprise Message Caching & Sync
     cachedMessages: { [conversationId: string]: ChatMessage[] };
@@ -34,6 +40,10 @@ interface ChatState {
     selectedConversationId: string | null;
     isTyping: { [conversationId: string]: boolean };
     unreadCount: { [conversationId: string]: number };
+
+    // WebSocket State
+    websocketConnected: boolean;
+    websocketConnecting: boolean;
 }
 
 interface ChatActions {
@@ -64,13 +74,6 @@ interface ChatActions {
     getMessageSnapshot: (conversationId: string) => ChatMessage[];
     clearMessageSnapshot: (conversationId: string) => void;
 
-    // Legacy Messages (for backward compatibility)
-    setMessages: (conversationId: string, messages: ChatMessage[]) => void;
-    addMessage: (conversationId: string, message: ChatMessage) => void;
-    updateMessage: (conversationId: string, messageId: string, updates: Partial<ChatMessage>) => void;
-    removeMessage: (conversationId: string, messageId: string) => void;
-    clearMessages: (conversationId: string) => void;
-
     // Enterprise Message Caching
     getCachedMessages: (conversationId: string) => ChatMessage[];
     updateCachedMessages: (conversationId: string, messages: ChatMessage[]) => void;
@@ -95,6 +98,30 @@ interface ChatActions {
     incrementUnreadCount: (conversationId: string) => void;
     clearUnreadCount: (conversationId: string) => void;
 
+    // WebSocket Actions
+    connectWebSocket: () => Promise<void>;
+    disconnectWebSocket: () => Promise<void>;
+    subscribeToConversation: (conversationId: string) => void;
+    unsubscribeFromConversation: (conversationId: string) => void;
+    sendWebSocketMessage: (messageData: {
+        conversationId: string;
+        type: 'TEXT' | 'ACTIVITY';
+        content: {
+            text?: string;
+            // ACTIVITY content
+            activityId?: string;
+            name?: string;
+            purpose?: string;
+        };
+    }) => void;
+    setWebSocketConnected: (connected: boolean) => void;
+    setWebSocketConnecting: (connecting: boolean) => void;
+
+    // MEMORY MANAGEMENT ACTIONS
+    cleanupInactiveConversations: () => void;
+    cleanupOldMessages: (conversationId: string) => void;
+    limitConversationsInMemory: () => void;
+
     // Utility
     reset: () => void;
     resetConversation: (conversationId: string) => void;
@@ -117,8 +144,7 @@ const initialState: ChatState = {
     hasMoreMessages: {},
     lastMessageTimestamp: {},
 
-    // Legacy Messages (for backward compatibility)
-    messages: {},
+    // Legacy Messages removed - using conversationMessages instead
 
     // Enterprise Message Caching & Sync
     cachedMessages: {},
@@ -135,6 +161,10 @@ const initialState: ChatState = {
     selectedConversationId: null,
     isTyping: {},
     unreadCount: {},
+
+    // WebSocket State
+    websocketConnected: false,
+    websocketConnecting: false,
 };
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -142,20 +172,92 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     // ==================== CONVERSATIONS ====================
 
-    setConversations: (conversations) => set({ conversations }),
+    setConversations: (conversations) => set((state) => {
+        // MEMORY MANAGEMENT: Limit conversations in memory
+        const limitedConversations = conversations.length > MAX_CONVERSATIONS_IN_MEMORY
+            ? conversations.slice(0, MAX_CONVERSATIONS_IN_MEMORY)
+            : conversations;
 
-    addConversation: (conversation) => set((state) => ({
-        conversations: [conversation, ...state.conversations]
-    })),
+        if (conversations.length > MAX_CONVERSATIONS_IN_MEMORY) {
+            console.log(`🧹 [Memory] Limited conversations in memory: ${conversations.length} → ${limitedConversations.length}`);
+        }
 
-    updateConversation: (conversationId, updates) => set((state) => ({
-        conversations: state.conversations.map(conv =>
+        return { conversations: limitedConversations };
+    }),
+
+    addConversation: (conversation) => set((state) => {
+        const newConversations = [conversation, ...state.conversations];
+
+        // MEMORY MANAGEMENT: Auto cleanup if too many conversations
+        if (newConversations.length > MAX_CONVERSATIONS_IN_MEMORY) {
+            console.log(`🧹 [Memory] Auto cleanup triggered: ${newConversations.length} conversations`);
+            const limitedConversations = newConversations.slice(0, MAX_CONVERSATIONS_IN_MEMORY);
+            const removedConversations = newConversations.slice(MAX_CONVERSATIONS_IN_MEMORY);
+
+            // Remove data for removed conversations
+            const newConversationMessages = { ...state.conversationMessages };
+            const newMessageSnapshots = { ...state.messageSnapshots };
+            const newCachedMessages = { ...state.cachedMessages };
+            const newMembers = { ...state.members };
+            const newMessagesLoading = { ...state.messagesLoading };
+            const newMessagesError = { ...state.messagesError };
+            const newMembersLoading = { ...state.membersLoading };
+            const newMembersError = { ...state.membersError };
+
+            removedConversations.forEach(conv => {
+                delete newConversationMessages[conv.id];
+                delete newMessageSnapshots[conv.id];
+                delete newCachedMessages[conv.id];
+                delete newMembers[conv.id];
+                delete newMessagesLoading[conv.id];
+                delete newMessagesError[conv.id];
+                delete newMembersLoading[conv.id];
+                delete newMembersError[conv.id];
+            });
+
+            return {
+                conversations: limitedConversations,
+                conversationMessages: newConversationMessages,
+                messageSnapshots: newMessageSnapshots,
+                cachedMessages: newCachedMessages,
+                members: newMembers,
+                messagesLoading: newMessagesLoading,
+                messagesError: newMessagesError,
+                membersLoading: newMembersLoading,
+                membersError: newMembersError
+            };
+        }
+
+        // 🧹 CLEANUP: Trigger cleanup if too many conversations
+        if (newConversations.length > MAX_CONVERSATIONS_IN_MEMORY * 1.5) {
+            console.log('🧹 [ChatStore] Too many conversations, triggering cleanup');
+            conversationCleanupManager.cleanupInactiveConversations().catch(error => {
+                console.error('❌ [ChatStore] Cleanup failed:', error);
+            });
+        }
+
+        return { conversations: newConversations };
+    }),
+
+    updateConversation: (conversationId, updates) => set((state) => {
+        const updatedConversations = state.conversations.map(conv =>
             conv.id === conversationId ? { ...conv, ...updates } : conv
-        ),
-        currentConversation: state.currentConversation?.id === conversationId
-            ? { ...state.currentConversation, ...updates }
-            : state.currentConversation
-    })),
+        );
+
+        // SẮP XẾP LẠI conversations theo lastMessage.createdAt (DESC)
+        const sortedConversations = updatedConversations.sort((a, b) => {
+            const aTime = a.lastMessage?.createdAt || a.createdAt;
+            const bTime = b.lastMessage?.createdAt || b.createdAt;
+            return new Date(bTime).getTime() - new Date(aTime).getTime();
+        });
+
+        return {
+            conversations: sortedConversations,
+            currentConversation: state.currentConversation?.id === conversationId
+                ? { ...state.currentConversation, ...updates }
+                : state.currentConversation
+        };
+    }),
 
     removeConversation: (conversationId) => set((state) => ({
         conversations: state.conversations.filter(conv => conv.id !== conversationId),
@@ -173,37 +275,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     setConversationsError: (error) => set({ conversationsError: error }),
 
-    // ==================== MESSAGES ====================
-
-    setMessages: (conversationId, messages) => set((state) => ({
-        messages: {
-            ...state.messages,
-            [conversationId]: messages
-        }
-    })),
-
-    addMessage: (conversationId, message) => set((state) => ({
-        messages: {
-            ...state.messages,
-            [conversationId]: [...(state.messages[conversationId] || []), message]
-        }
-    })),
-
-    updateMessage: (conversationId, messageId, updates) => set((state) => ({
-        messages: {
-            ...state.messages,
-            [conversationId]: (state.messages[conversationId] || []).map(msg =>
-                msg.id === messageId ? { ...msg, ...updates } : msg
-            )
-        }
-    })),
-
-    removeMessage: (conversationId, messageId) => set((state) => ({
-        messages: {
-            ...state.messages,
-            [conversationId]: (state.messages[conversationId] || []).filter(msg => msg.id !== messageId)
-        }
-    })),
+    // ==================== LEGACY MESSAGES REMOVED ====================
+    // Using conversationMessages actions instead
 
     setMessagesLoading: (conversationId, loading) => set((state) => ({
         messagesLoading: {
@@ -219,45 +292,91 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         }
     })),
 
-    clearMessages: (conversationId) => set((state) => ({
-        messages: {
-            ...state.messages,
-            [conversationId]: []
-        }
-    })),
-
     // ==================== ENTERPRISE STORE-FIRST MESSAGES ====================
 
-    setConversationMessages: (conversationId, messages) => set((state) => ({
-        conversationMessages: {
-            ...state.conversationMessages,
-            [conversationId]: messages
-        },
-        lastMessageTimestamp: {
-            ...state.lastMessageTimestamp,
-            [conversationId]: messages.length > 0 ? messages[0].createdAt : ''
-        }
-    })),
+    setConversationMessages: (conversationId, messages) => set((state) => {
+        // OPTIMIZATION: Limit messages in store to reduce memory usage
+        const MAX_MESSAGES_IN_STORE = 200;
+        const limitedMessages = messages.length > MAX_MESSAGES_IN_STORE
+            ? messages.slice(-MAX_MESSAGES_IN_STORE) // Keep only the latest messages
+            : messages;
 
-    addConversationMessage: (conversationId, message) => set((state) => ({
-        conversationMessages: {
-            ...state.conversationMessages,
-            [conversationId]: [message, ...(state.conversationMessages[conversationId] || [])]
-        },
-        lastMessageTimestamp: {
-            ...state.lastMessageTimestamp,
-            [conversationId]: message.createdAt
+        if (messages.length > MAX_MESSAGES_IN_STORE) {
+            console.log(`✅ [ChatStore] Limited messages for conversation ${conversationId}: ${messages.length} → ${limitedMessages.length}`);
         }
-    })),
 
-    updateConversationMessage: (conversationId, messageId, updates) => set((state) => ({
-        conversationMessages: {
-            ...state.conversationMessages,
-            [conversationId]: (state.conversationMessages[conversationId] || []).map(msg =>
-                msg.id === messageId ? { ...msg, ...updates } : msg
-            )
+        return {
+            conversationMessages: {
+                ...state.conversationMessages,
+                [conversationId]: limitedMessages
+            },
+            lastMessageTimestamp: {
+                ...state.lastMessageTimestamp,
+                [conversationId]: limitedMessages.length > 0 ? limitedMessages[0].createdAt : ''
+            }
+        };
+    }),
+
+    addConversationMessage: (conversationId, message) => set((state) => {
+        const existingMessages = state.conversationMessages[conversationId] || [];
+
+        // Check if message already exists to prevent duplicates
+        const messageExists = existingMessages.some(msg => msg.id === message.id);
+
+        if (messageExists) {
+            console.log('⚠️ [ChatStore] Message already exists, skipping:', message.id);
+            return state; // Return unchanged state
         }
-    })),
+
+        // MEMORY MANAGEMENT: Limit messages in store to reduce memory usage
+        const newMessages = [message, ...existingMessages];
+        const limitedMessages = newMessages.length > MAX_MESSAGES_PER_CONVERSATION
+            ? newMessages.slice(0, MAX_MESSAGES_PER_CONVERSATION) // Keep only the latest messages
+            : newMessages;
+
+        if (newMessages.length > MAX_MESSAGES_PER_CONVERSATION) {
+            console.log(`🧹 [Memory] Limited messages for conversation ${conversationId}: ${newMessages.length} → ${limitedMessages.length}`);
+        }
+
+        return {
+            conversationMessages: {
+                ...state.conversationMessages,
+                [conversationId]: limitedMessages
+            },
+            lastMessageTimestamp: {
+                ...state.lastMessageTimestamp,
+                [conversationId]: message.createdAt
+            }
+        };
+    }),
+
+    updateConversationMessage: (conversationId, messageId, updates) => set((state) => {
+        const existingMessages = state.conversationMessages[conversationId] || [];
+
+        // If updating ID, check if new ID already exists
+        if (updates.id && updates.id !== messageId) {
+            const newIdExists = existingMessages.some(msg => msg.id === updates.id);
+            if (newIdExists) {
+                console.log('⚠️ [ChatStore] Message with new ID already exists, removing old message:', messageId);
+                // Remove old message instead of updating
+                return {
+                    conversationMessages: {
+                        ...state.conversationMessages,
+                        [conversationId]: existingMessages.filter(msg => msg.id !== messageId)
+                    }
+                };
+            }
+        }
+
+        return {
+            conversationMessages: {
+                ...state.conversationMessages,
+                [conversationId]: existingMessages.map(msg =>
+                    msg.id === messageId ? { ...msg, ...updates } : msg
+                )
+            }
+        };
+    }),
 
     removeConversationMessage: (conversationId, messageId) => set((state) => ({
         conversationMessages: {
@@ -454,8 +573,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     reset: () => set(initialState),
 
     resetConversation: (conversationId) => set((state) => ({
-        messages: {
-            ...state.messages,
+        conversationMessages: {
+            ...state.conversationMessages,
             [conversationId]: []
         },
         members: {
@@ -511,5 +630,157 @@ export const useChatStore = create<ChatStore>((set, get) => ({
                 preloadedConversations: []
             };
         }
+    }),
+
+    // ==================== WEBSOCKET ACTIONS ====================
+
+    connectWebSocket: async () => {
+        set({ websocketConnecting: true });
+        try {
+            await chatWebSocketManager.connect();
+            set({ websocketConnected: true, websocketConnecting: false });
+        } catch (error) {
+            console.error('Failed to connect WebSocket:', error);
+            set({ websocketConnected: false, websocketConnecting: false });
+        }
+    },
+
+    disconnectWebSocket: async () => {
+        await chatWebSocketManager.disconnect();
+        set({ websocketConnected: false, websocketConnecting: false });
+    },
+
+    subscribeToConversation: (conversationId) => {
+        chatWebSocketManager.subscribeToConversation(conversationId);
+    },
+
+    unsubscribeFromConversation: (conversationId) => {
+        chatWebSocketManager.unsubscribeFromConversation(conversationId);
+    },
+
+    sendWebSocketMessage: (messageData) => {
+        chatWebSocketManager.sendMessage(messageData);
+    },
+
+    setWebSocketConnected: (connected) => set({ websocketConnected: connected }),
+
+    setWebSocketConnecting: (connecting) => set({ websocketConnecting: connecting }),
+
+    // ==================== MEMORY MANAGEMENT ====================
+
+    cleanupInactiveConversations: () => set((state) => {
+        const now = Date.now();
+        const activeConversations = state.conversations.filter(conv => {
+            const lastActivity = new Date(conv.lastMessage?.createdAt || conv.createdAt).getTime();
+            return now - lastActivity <= INACTIVE_CONVERSATION_THRESHOLD;
+        });
+
+        const inactiveConversations = state.conversations.filter(conv => {
+            const lastActivity = new Date(conv.lastMessage?.createdAt || conv.createdAt).getTime();
+            return now - lastActivity > INACTIVE_CONVERSATION_THRESHOLD;
+        });
+
+        if (inactiveConversations.length > 0) {
+            console.log(`🧹 [Memory] Cleaning up ${inactiveConversations.length} inactive conversations`);
+
+            // Remove inactive conversations from memory
+            const newConversationMessages = { ...state.conversationMessages };
+            const newMessageSnapshots = { ...state.messageSnapshots };
+            const newCachedMessages = { ...state.cachedMessages };
+            const newMembers = { ...state.members };
+            const newMessagesLoading = { ...state.messagesLoading };
+            const newMessagesError = { ...state.messagesError };
+            const newMembersLoading = { ...state.membersLoading };
+            const newMembersError = { ...state.membersError };
+
+            inactiveConversations.forEach(conv => {
+                delete newConversationMessages[conv.id];
+                delete newMessageSnapshots[conv.id];
+                delete newCachedMessages[conv.id];
+                delete newMembers[conv.id];
+                delete newMessagesLoading[conv.id];
+                delete newMessagesError[conv.id];
+                delete newMembersLoading[conv.id];
+                delete newMembersError[conv.id];
+            });
+
+            return {
+                conversations: activeConversations,
+                conversationMessages: newConversationMessages,
+                messageSnapshots: newMessageSnapshots,
+                cachedMessages: newCachedMessages,
+                members: newMembers,
+                messagesLoading: newMessagesLoading,
+                messagesError: newMessagesError,
+                membersLoading: newMembersLoading,
+                membersError: newMembersError
+            };
+        }
+
+        return state;
+    }),
+
+    cleanupOldMessages: (conversationId) => set((state) => {
+        const messages = state.conversationMessages[conversationId] || [];
+        if (messages.length <= MAX_MESSAGES_PER_CONVERSATION) {
+            return state;
+        }
+
+        console.log(`🧹 [Memory] Cleaning up old messages for conversation ${conversationId}: ${messages.length} → ${MAX_MESSAGES_PER_CONVERSATION}`);
+
+        // Keep only the latest messages
+        const limitedMessages = messages.slice(0, MAX_MESSAGES_PER_CONVERSATION);
+
+        return {
+            conversationMessages: {
+                ...state.conversationMessages,
+                [conversationId]: limitedMessages
+            }
+        };
+    }),
+
+    limitConversationsInMemory: () => set((state) => {
+        if (state.conversations.length <= MAX_CONVERSATIONS_IN_MEMORY) {
+            return state;
+        }
+
+        console.log(`🧹 [Memory] Limiting conversations in memory: ${state.conversations.length} → ${MAX_CONVERSATIONS_IN_MEMORY}`);
+
+        // Keep only the most recent conversations
+        const limitedConversations = state.conversations.slice(0, MAX_CONVERSATIONS_IN_MEMORY);
+        const removedConversations = state.conversations.slice(MAX_CONVERSATIONS_IN_MEMORY);
+
+        // Remove data for removed conversations
+        const newConversationMessages = { ...state.conversationMessages };
+        const newMessageSnapshots = { ...state.messageSnapshots };
+        const newCachedMessages = { ...state.cachedMessages };
+        const newMembers = { ...state.members };
+        const newMessagesLoading = { ...state.messagesLoading };
+        const newMessagesError = { ...state.messagesError };
+        const newMembersLoading = { ...state.membersLoading };
+        const newMembersError = { ...state.membersError };
+
+        removedConversations.forEach(conv => {
+            delete newConversationMessages[conv.id];
+            delete newMessageSnapshots[conv.id];
+            delete newCachedMessages[conv.id];
+            delete newMembers[conv.id];
+            delete newMessagesLoading[conv.id];
+            delete newMessagesError[conv.id];
+            delete newMembersLoading[conv.id];
+            delete newMembersError[conv.id];
+        });
+
+        return {
+            conversations: limitedConversations,
+            conversationMessages: newConversationMessages,
+            messageSnapshots: newMessageSnapshots,
+            cachedMessages: newCachedMessages,
+            members: newMembers,
+            messagesLoading: newMessagesLoading,
+            messagesError: newMessagesError,
+            membersLoading: newMembersLoading,
+            membersError: newMembersError
+        };
     }),
 }));

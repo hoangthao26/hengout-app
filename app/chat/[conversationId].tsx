@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Compass, SendHorizontal, Users } from 'lucide-react-native';
+import { SendHorizontal, User, Users } from 'lucide-react-native';
 import NavigationService from '../../services/navigationService';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -22,6 +22,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { chatService } from '../../services/chatService';
 import { useChatStore } from '../../store/chatStore';
 import { useChatSync } from '../../hooks/useChatSync';
+import { useChatWebSocket } from '../../hooks/useChatWebSocket';
 import { ChatConversation, ChatMessage } from '../../types/chat';
 
 export default function ChatConversationScreen() {
@@ -59,6 +60,13 @@ export default function ChatConversationScreen() {
         syncMessages
     } = useChatSync();
 
+    // WebSocket for real-time messages
+    const {
+        subscribe,
+        unsubscribe,
+        sendMessage: sendWebSocketMessage
+    } = useChatWebSocket();
+
     // Get conversation from store or local state
     const conversation = conversations.find(c => c.id === conversationId) || currentConversation;
 
@@ -67,6 +75,8 @@ export default function ChatConversationScreen() {
     const [messageText, setMessageText] = useState('');
     const [page, setPage] = useState(0);
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+
+
 
     const flatListRef = useRef<FlatList>(null);
 
@@ -213,7 +223,7 @@ export default function ChatConversationScreen() {
             id: `temp_${Date.now()}`, // Temporary ID
             conversationId,
             senderId: 'current_user', // Will be replaced by actual user ID
-            senderName: 'You',
+            senderName: 'Bạn', // ✅ Consistent with WebSocket logic
             senderAvatar: '',
             content: { text: messageContent },
             type: 'TEXT',
@@ -244,34 +254,35 @@ export default function ChatConversationScreen() {
                         senderId: result.senderId,
                         senderName: result.senderName
                     });
-                    setMessages(prev => prev.map(msg =>
-                        msg.id === optimisticMessage.id
-                            ? { ...msg, id: result.id, senderId: result.senderId, senderName: result.senderName }
-                            : msg
-                    ));
                     console.log(`✅ [Enterprise Chat] Message sent successfully: ${result.id}`);
                 }
             } else {
-                // Fallback to direct API call
-                const response = await chatService.sendMessage({
-                    conversationId,
-                    type: 'TEXT',
-                    content: { text: messageContent }
-                });
-
-                if (response.status === 'success') {
-                    updateConversationMessage(conversationId, optimisticMessage.id, {
-                        id: response.data.id,
-                        senderId: response.data.senderId,
-                        senderName: response.data.senderName
+                // Try direct API call first
+                try {
+                    const response = await chatService.sendMessage({
+                        conversationId,
+                        type: 'TEXT',
+                        content: { text: messageContent }
                     });
-                    setMessages(prev => prev.map(msg =>
-                        msg.id === optimisticMessage.id
-                            ? { ...msg, id: response.data.id, senderId: response.data.senderId, senderName: response.data.senderName }
-                            : msg
-                    ));
-                } else {
-                    error('Không thể gửi tin nhắn');
+
+                    if (response.status === 'success') {
+                        updateConversationMessage(conversationId, optimisticMessage.id, {
+                            id: response.data.id,
+                            senderId: response.data.senderId,
+                            senderName: response.data.senderName
+                        });
+                    } else {
+                        throw new Error('API call failed');
+                    }
+                } catch (apiError) {
+                    // Fallback to WebSocket if API fails
+                    console.log('🔄 [Chat] API failed, trying WebSocket fallback');
+                    sendWebSocketMessage({
+                        conversationId,
+                        type: 'TEXT',
+                        content: { text: messageContent }
+                    });
+                    // Keep optimistic message as is - WebSocket will handle confirmation
                 }
             }
         } catch (err: any) {
@@ -286,6 +297,8 @@ export default function ChatConversationScreen() {
         }
     }, [messageText, conversationId, sending, chatSyncInitialized, sendMessageWithSync, error, addConversationMessage, updateConversationMessage]);
 
+
+
     // Handle back press
     const handleBack = useCallback(() => {
         router.back();
@@ -299,6 +312,17 @@ export default function ChatConversationScreen() {
         }
     }, [conversationId]); // Only depend on conversationId to avoid loop
 
+    // WebSocket subscription management
+    useEffect(() => {
+        if (conversationId) {
+            console.log('🔌 [Chat] Subscribing to WebSocket for conversation:', conversationId);
+            subscribe(conversationId);
+        }
+
+        // No cleanup - maintain subscription for "subscribe all conversations" strategy
+        // Conversations are managed globally by initializationService
+    }, [conversationId, subscribe]);
+
     // Load conversation if not in store
     useEffect(() => {
         if (!conversation && conversationId) {
@@ -311,6 +335,39 @@ export default function ChatConversationScreen() {
         // This will trigger re-render when conversation data changes in store
         // The conversation variable will automatically update due to Zustand subscription
     }, [conversation]);
+
+    // Sync messages from store to local state for real-time updates
+    useEffect(() => {
+        if (conversationId && conversationMessages[conversationId]) {
+            const storeMessages = conversationMessages[conversationId];
+            setMessages(prevMessages => {
+                // Only update if store has more messages or different messages
+                if (storeMessages.length !== prevMessages.length ||
+                    storeMessages.some((storeMsg, index) =>
+                        !prevMessages[index] || storeMsg.id !== prevMessages[index].id
+                    )) {
+
+                    // Remove duplicates by ID before syncing
+                    const uniqueMessages = storeMessages.filter((storeMsg, index, arr) =>
+                        arr.findIndex(msg => msg.id === storeMsg.id) === index
+                    );
+
+                    console.log('🔄 [Chat] Synced messages from store:', {
+                        storeCount: storeMessages.length,
+                        uniqueCount: uniqueMessages.length,
+                        localCount: prevMessages.length,
+                        latestMessage: uniqueMessages[0]?.content?.text?.substring(0, 20) + '...'
+                    });
+
+                    return uniqueMessages;
+                }
+                return prevMessages;
+            });
+        }
+    }, [conversationId, conversationMessages]);
+
+
+
 
     // Helper function to check if messages should be grouped
     // Note: With inverted FlatList, index 0 is the latest message
@@ -440,9 +497,7 @@ export default function ChatConversationScreen() {
                                     <Image source={{ uri: item.senderAvatar }} style={styles.senderAvatar} />
                                 ) : (
                                     <View style={styles.defaultSenderAvatar}>
-                                        <Text style={styles.senderAvatarText}>
-                                            {item.senderName?.charAt(0) || 'U'}
-                                        </Text>
+                                        <User size={16} color="#9CA3AF" />
                                     </View>
                                 )
                             ) : (
@@ -496,17 +551,21 @@ export default function ChatConversationScreen() {
                                 />
                             ) : (
                                 <View style={styles.defaultConversationAvatar}>
-                                    <Users size={20} color="#9CA3AF" />
+                                    {conversation?.type === 'GROUP' ? (
+                                        <Users size={20} color="#9CA3AF" />
+                                    ) : (
+                                        <User size={20} color="#9CA3AF" />
+                                    )}
                                 </View>
                             )}
                         </View>
-                        <Text style={[styles.headerTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                            {conversation?.name || 'Cuộc trò chuyện'}
-                        </Text>
+                        <View style={{ flex: 1 }}>
+                            <Text style={[styles.headerTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                                {conversation?.name || 'Cuộc trò chuyện'}
+                            </Text>
+                        </View>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.compassButton}>
-                        <Compass size={28} color={isDark ? '#FFFFFF' : '#000000'} />
-                    </TouchableOpacity>
+
                 </View>
 
                 {/* Messages List */}
@@ -528,6 +587,16 @@ export default function ChatConversationScreen() {
                         justifyContent: 'flex-start'
                     }}
                     style={{ flex: 1 }}
+                    // FlatList performance optimizations
+                    removeClippedSubviews={true}
+                    maxToRenderPerBatch={10}
+                    windowSize={10}
+                    initialNumToRender={20}
+                    getItemLayout={(data, index) => ({
+                        length: 60, // Estimated item height
+                        offset: 60 * index,
+                        index,
+                    })}
                 />
 
                 {/* Message Input */}
@@ -583,7 +652,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingTop: 50
+        paddingTop: 50,
+        paddingBottom: 2,
     },
     headerContent: {
         flexDirection: 'row',
@@ -600,7 +670,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: '#374151'
     },
-    headerTitle: { fontSize: 18, fontWeight: '600', flex: 1 },
+    headerTitle: { fontSize: 18, fontWeight: '600' },
     compassButton: { padding: 8, marginLeft: 8 },
     messageContainer: { marginVertical: 1, paddingHorizontal: 16 },
     myMessageContainer: { alignItems: 'flex-end' },
@@ -622,17 +692,17 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center'
     },
-    senderAvatarText: { fontSize: 12, fontWeight: '600', color: '#9CA3AF' },
     senderName: {
         fontSize: 12,
         fontWeight: '500',
         marginLeft: 48, // avatarContainer width (40) + marginRight (8)
+        marginTop: 16, // ✅ Thêm padding top cho tên người gửi
         marginBottom: 4
     },
     messageBubble: {
         maxWidth: '80%',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
+        paddingHorizontal: 14,
+        paddingVertical: 6,
         borderRadius: 18
     },
 
@@ -673,5 +743,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         alignSelf: 'center'
-    }
+    },
+
 });

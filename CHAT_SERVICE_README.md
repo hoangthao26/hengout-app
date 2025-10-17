@@ -237,7 +237,7 @@ useEffect(() => {
 // Use the store directly for real-time updates
 const { addMessage, updateConversation } = useChatStore();
 
-// Add message when received via WebSocket
+// Add message when received via API
 const handleNewMessage = (message: ChatMessage) => {
   addMessage(message.conversationId, message);
 };
@@ -269,7 +269,7 @@ export { default as chatService } from './chatService';
 ## Next Steps
 
 1. **Create Chat UI Components**: Build conversation list, message list, input components
-2. **Implement WebSocket**: Add real-time messaging capabilities
+2. **Implement Real-time**: Add real-time messaging capabilities
 3. **Add File Upload**: Implement image/file sharing
 4. **Add Push Notifications**: Notify users of new messages
 5. **Add Message Search**: Search through conversation history

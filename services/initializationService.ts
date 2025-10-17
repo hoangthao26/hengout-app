@@ -2,6 +2,9 @@ import { databaseService } from './databaseService';
 import { chatSyncService } from './chatSyncService';
 import { useAppStore } from '../store/appStore';
 import { useChatStore } from '../store/chatStore';
+import { smartSyncManager } from './smartSyncManager';
+import { conversationCleanupManager } from './conversationCleanupManager';
+import { appLifecycleManager } from './appLifecycleManager';
 import * as Location from 'expo-location';
 
 /**
@@ -78,11 +81,23 @@ class InitializationService {
             appStore.setServicesReady(true);
             console.log('✅ [InitializationService] Services ready');
 
-            // 5. Preload Chat Data for Instant Display (AFTER auth)
+            // 4.5. Initialize Conversation Cleanup Manager
+            conversationCleanupManager.initialize();
+            console.log('✅ [InitializationService] Cleanup manager ready');
+
+            // 4.6. Initialize App Lifecycle Manager
+            appLifecycleManager.initialize();
+            console.log('✅ [InitializationService] App lifecycle manager ready');
+
+            // 5. Initialize WebSocket Connection (AFTER auth)
+            await this.initializeWebSocket();
+            console.log('✅ [InitializationService] WebSocket ready');
+
+            // 6. Preload Chat Data for Instant Display (AFTER WebSocket)
             await this.preloadChatData();
             console.log('✅ [InitializationService] Chat data preloaded');
 
-            // 6. Mark app as ready
+            // 7. Mark app as ready
             appStore.setAppReady(true);
             this.isInitialized = true;
 
@@ -124,8 +139,13 @@ class InitializationService {
         if (this.hasInitAfterLogin) return;
         this.hasInitAfterLogin = true;
         try {
+            // Initialize location services
             const { locationService } = await import('./locationService');
             locationService.initCurrentVibes().catch(() => { });
+
+            // ✅ Reinitialize WebSocket after login
+            await this.reinitializeWebSocket();
+            console.log('✅ [InitializationService] WebSocket reinitialized after login');
         } catch (err) {
             console.log('ℹ️ [InitializationService] initAfterLogin skipped/failed', err);
         }
@@ -238,6 +258,55 @@ class InitializationService {
     }
 
     /**
+     * Initialize WebSocket connection and subscribe to all conversations
+     */
+    private async initializeWebSocket(): Promise<void> {
+        try {
+            console.log('🔌 [InitializationService] Initializing WebSocket connection...');
+
+            // Check if user is authenticated
+            const { AuthHelper } = await import('./authHelper');
+            const isAuthenticated = await AuthHelper.isAuthenticated();
+
+            if (!isAuthenticated) {
+                console.log('ℹ️ [InitializationService] User not authenticated, skipping WebSocket initialization');
+                return;
+            }
+
+            // Import WebSocket manager
+            const { chatWebSocketManager } = await import('./chatWebSocketManager');
+
+            // Connect WebSocket
+            await chatWebSocketManager.connect();
+            console.log('✅ [InitializationService] WebSocket connected');
+
+            // Subscribe to all conversations
+            const { chatSyncService } = await import('./chatSyncService');
+            const conversations = await chatSyncService.getConversations();
+
+            if (conversations.length > 0) {
+                console.log(`📡 [InitializationService] Subscribing to ${conversations.length} conversations...`);
+
+                // Subscribe to all conversations using the new method
+                const conversationIds = conversations.map(conversation => conversation.id);
+                await chatWebSocketManager.subscribeToAllConversations(conversationIds);
+
+                console.log('✅ [InitializationService] Subscribed to all conversations');
+
+                // SMART SYNC: Trigger initial smart sync for all conversations
+                smartSyncManager.scheduleBatchSync(conversationIds, 'app_startup');
+                console.log('🚀 [InitializationService] Smart sync scheduled for all conversations');
+            } else {
+                console.log('ℹ️ [InitializationService] No conversations to subscribe to');
+            }
+
+        } catch (error) {
+            console.error('❌ [InitializationService] WebSocket initialization failed:', error);
+            // Don't throw - WebSocket can be initialized later
+        }
+    }
+
+    /**
      * Preload chat data for instant display
      */
     private async preloadChatData(): Promise<void> {
@@ -270,23 +339,23 @@ class InitializationService {
                 chatStore.setConversations(conversations);
                 if (__DEV__) console.log(`📊 [InitializationService] Loaded ${conversations.length} conversations into store`);
 
-                // ✅ ENTERPRISE PRELOADING - Giống Messenger/Instagram
+                // PRELOADING - Giống Messenger/Instagram
                 const topConversations = conversations.slice(0, 15); // Top 15 conversations (tăng từ 5)
                 if (__DEV__) console.log(`⚡ [InitializationService] Preloading messages for ${topConversations.length} conversations...`);
 
-                // ✅ PARALLEL PRELOADING - Tất cả conversations load cùng lúc
+                //  PARALLEL PRELOADING - Tất cả conversations load cùng lúc
                 const preloadPromises = topConversations.map(async (conversation) => {
                     try {
-                        // ✅ SYNC MESSAGES TỪ SERVER TRƯỚC KHI PRELOAD
+                        //SYNC MESSAGES TỪ SERVER TRƯỚC KHI PRELOAD
                         // Reduce noise: skip per-conversation sync logs in MVP
                         await chatSyncService.syncMessages(conversation.id, 0, 50);
 
-                        // ✅ Preload 50 messages thay vì 20 (giống Messenger)
+                        //  Preload 50 messages thay vì 20 (giống Messenger)
                         const recentMessages = await chatSyncService.getMessages(conversation.id, 50, 0);
                         if (recentMessages.length > 0) {
                             // Store in conversation messages (50 messages)
                             chatStore.setConversationMessages(conversation.id, recentMessages);
-                            // ✅ Create snapshot 25 messages thay vì 10 (giống Instagram)
+                            // Create snapshot 25 messages thay vì 10 (giống Instagram)
                             chatStore.setMessageSnapshot(conversation.id, recentMessages.slice(0, 25));
                             // Skip per-conversation preload logs; keep summary only
 
@@ -305,6 +374,11 @@ class InitializationService {
                 await Promise.all(preloadPromises);
 
                 if (__DEV__) console.log('✅ [InitializationService] Chat data preloading completed');
+
+                // 🧹 CLEANUP: Trigger cleanup after data preload
+                conversationCleanupManager.cleanupInactiveConversations().catch(error => {
+                    console.error('❌ [InitializationService] Cleanup after preload failed:', error);
+                });
 
                 // ✅ Set chat data preloaded status
                 appStore.setChatDataPreloaded(true);
@@ -344,6 +418,20 @@ class InitializationService {
             error: appStore.initializationError,
             progress: appStore.getInitializationProgress()
         };
+    }
+
+    /**
+     * Reinitialize WebSocket after login/register
+     */
+    async reinitializeWebSocket(): Promise<void> {
+        try {
+            console.log('🔄 [InitializationService] Reinitializing WebSocket after auth...');
+            await this.initializeWebSocket();
+            console.log('✅ [InitializationService] WebSocket reinitialized successfully');
+        } catch (error) {
+            console.error('❌ [InitializationService] WebSocket reinitialization failed:', error);
+            // Don't throw - this is not critical
+        }
     }
 
     /**

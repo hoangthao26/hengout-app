@@ -169,6 +169,16 @@ export class RefreshTokenManager {
 
                     console.log('✅ [RefreshTokenManager] Token refresh successful');
 
+                    //Reinitialize WebSocket after token refresh
+                    try {
+                        const { initializationService } = await import('./initializationService');
+                        await initializationService.reinitializeWebSocket();
+                        console.log('✅ [RefreshTokenManager] WebSocket reinitialized after token refresh');
+                    } catch (wsError) {
+                        console.error('❌ [RefreshTokenManager] WebSocket reinitialization failed:', wsError);
+                        // Don't block token refresh flow
+                    }
+
                     // Schedule next refresh
                     await this.startMonitoring();
                     return true;

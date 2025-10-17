@@ -267,6 +267,9 @@ class NetworkErrorHandler {
             if (!wasOnline) {
                 console.log('🌐 Network connection restored');
                 this.notifyOnlineListeners(true);
+
+                // Reinitialize WebSocket after network reconnect
+                this.handleNetworkReconnect();
             }
         } catch (error) {
             const wasOnline = this.isOnline;
@@ -305,6 +308,30 @@ class NetworkErrorHandler {
                 this.onlineListeners.splice(index, 1);
             }
         };
+    }
+
+    /**
+     * Handle network reconnect - reinitialize WebSocket
+     */
+    private async handleNetworkReconnect(): Promise<void> {
+        try {
+            console.log('🔄 [NetworkErrorHandler] Handling network reconnect...');
+
+            // Check if user is authenticated before reinitializing WebSocket
+            const { useAuthStore } = await import('../store/authStore');
+            const isAuthenticated = useAuthStore.getState().isAuthenticated;
+
+            if (isAuthenticated) {
+                const { initializationService } = await import('./initializationService');
+                await initializationService.reinitializeWebSocket();
+                console.log('✅ [NetworkErrorHandler] WebSocket reinitialized after network reconnect');
+            } else {
+                console.log('ℹ️ [NetworkErrorHandler] User not authenticated, skipping WebSocket reinitialization');
+            }
+        } catch (error) {
+            console.error('❌ [NetworkErrorHandler] WebSocket reinitialization failed:', error);
+            // Don't block network reconnect flow
+        }
     }
 
     /**

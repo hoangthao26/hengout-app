@@ -11,6 +11,8 @@ export * from './auth';
 // Export Chat types
 export * from './chat';
 
+// Export Activity types
+export * from './activity';
 
 // Export Location Folder types
 export * from './locationFolder';

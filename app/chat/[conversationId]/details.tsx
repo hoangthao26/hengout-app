@@ -72,11 +72,14 @@ export default function ConversationDetailsScreen() {
             // Load from SQLite first (instant) if available
             if (chatSyncInitialized) {
                 // Conversation data is already available from store
-                // Just sync members in background
-                try {
-                    await syncMembers(conversationId);
-                } catch (syncError) {
-                    console.error('Background member sync failed:', syncError);
+                // Just sync members in background for GROUP conversations only
+                const conversation = conversations.find(c => c.id === conversationId) || currentConversation;
+                if (conversation?.type === 'GROUP') {
+                    try {
+                        await syncMembers(conversationId);
+                    } catch (syncError) {
+                        console.error('Background member sync failed:', syncError);
+                    }
                 }
             } else {
                 // Fallback to direct API call if SQLite not ready
@@ -118,7 +121,7 @@ export default function ConversationDetailsScreen() {
     };
 
     const handleAddMemberSuccess = () => {
-        // Reload conversation data after adding members
+        // Reload conversation data after adding members (only for GROUP conversations)
         loadConversation();
         setShowAddMemberModal(false);
     };

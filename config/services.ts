@@ -99,6 +99,14 @@ export const SERVICES_CONFIG = {
             GET_GROUP_MEMBERS: '/chat/conversations/:conversationId/members',
             ADD_MEMBER: '/chat/conversations/:conversationId/members/:memberId',
             REMOVE_MEMBER: '/chat/conversations/:conversationId/members/:memberId',
+            // Activity endpoints
+            GET_ACTIVITY_BY_ID: '/activities/:activityId',
+            GET_CONVERSATION_ACTIVITIES: '/activities/conversation/:conversationId',
+            GET_ACTIVITY_SUGGESTIONS: '/activities/:activityId/suggestions',
+            GET_ACTIVITY_RESULT: '/activities/:activityId/result',
+            CREATE_ACTIVITY: '/activities',
+            SUBMIT_ACTIVITY_PREFERENCE: '/activities/preferences',
+            VOTE_FOR_SUGGESTION: '/activities/vote',
         }
     },
 

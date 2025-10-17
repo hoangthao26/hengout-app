@@ -1,6 +1,7 @@
 import { databaseService } from './databaseService';
 import { chatService } from './chatService';
 import { ChatMessage, ChatConversation, ChatMember } from '../types/chat';
+import { smartSyncManager } from './smartSyncManager';
 
 class ChatSyncService {
     private isSyncing = false;
@@ -8,12 +9,12 @@ class ChatSyncService {
     private readonly SYNC_INTERVAL = 30000; // 30 seconds
 
     /**
-     * Initialize sync service
+     * Initialize sync service with Smart Sync
      */
     async initialize(): Promise<void> {
         await databaseService.initialize();
-        this.startPeriodicSync();
-        console.log('✅ Chat sync service initialized');
+        // 🚀 SMART SYNC: No more periodic sync - using event-driven sync instead
+        console.log('✅ Chat sync service initialized with Smart Sync');
     }
 
     /**
@@ -230,12 +231,13 @@ class ChatSyncService {
      */
     async sendMessage(messageData: {
         conversationId: string;
-        type: 'TEXT' | 'IMAGE' | 'FILE';
+        type: 'TEXT' | 'ACTIVITY';
         content: {
             text?: string;
-            imageUrl?: string;
-            fileName?: string;
-            fileUrl?: string;
+            // ACTIVITY content
+            activityId?: string;
+            name?: string;
+            purpose?: string;
         };
     }): Promise<ChatMessage> {
         await databaseService.initialize();
@@ -285,6 +287,13 @@ class ChatSyncService {
         try {
             console.log(`🔄 Syncing members for conversation ${conversationId}...`);
 
+            // Check conversation type first - only sync members for GROUP conversations
+            const conversation = await databaseService.getConversation(conversationId);
+            if (!conversation || conversation.type !== 'GROUP') {
+                console.log(`ℹ️ Skipping member sync for ${conversation?.type || 'unknown'} conversation`);
+                return [];
+            }
+
             // Fetch members from server
             const response = await chatService.getGroupMembers(conversationId);
 
@@ -333,7 +342,7 @@ class ChatSyncService {
 
                     const response = await chatService.sendMessage({
                         conversationId: message.conversationId,
-                        type: message.type as 'TEXT' | 'IMAGE' | 'FILE',
+                        type: message.type as 'TEXT' | 'ACTIVITY',
                         content: message.content
                     });
 
@@ -393,6 +402,50 @@ class ChatSyncService {
      */
     isSyncInProgress(): boolean {
         return this.isSyncing;
+    }
+
+    // ==================== SMART SYNC INTEGRATION ====================
+
+    /**
+     * Schedule smart sync for a conversation
+     */
+    scheduleSmartSync(conversationId: string, reason: string = 'manual'): void {
+        smartSyncManager.scheduleSync(conversationId, reason);
+    }
+
+    /**
+     * Schedule smart sync for multiple conversations
+     */
+    scheduleBatchSmartSync(conversationIds: string[], reason: string = 'batch'): void {
+        smartSyncManager.scheduleBatchSync(conversationIds, reason);
+    }
+
+    /**
+     * Force immediate smart sync for a conversation
+     */
+    async forceSmartSync(conversationId: string): Promise<void> {
+        await smartSyncManager.forceSync(conversationId);
+    }
+
+    /**
+     * Get smart sync statistics
+     */
+    getSmartSyncStats() {
+        return smartSyncManager.getSyncStats();
+    }
+
+    /**
+     * Clear smart sync queue
+     */
+    clearSmartSyncQueue(): void {
+        smartSyncManager.clearSyncQueue();
+    }
+
+    /**
+     * Reset smart sync manager
+     */
+    resetSmartSync(): void {
+        smartSyncManager.reset();
     }
 }
 

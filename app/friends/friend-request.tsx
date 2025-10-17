@@ -22,6 +22,8 @@ import NavigationService from '../../services/navigationService';
 import { socialService } from '../../services/socialService';
 import { userSearchService } from '../../services/userSearchService';
 import { useFriendStore, usePendingRequests } from '../../store/friendStore';
+import { useChatStore } from '../../store/chatStore';
+import { chatService } from '../../services/chatService';
 import { FriendRequest, SearchUser } from '../../types/social';
 
 
@@ -33,6 +35,9 @@ export default function FriendRequestScreen() {
     // Global state from FriendStore
     const pendingRequests = usePendingRequests();
     const { setPendingRequests, setLoadingPending } = useFriendStore();
+
+    // Chat store for refreshing conversations
+    const { setConversations } = useChatStore();
 
     // Local states
     const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
@@ -52,6 +57,22 @@ export default function FriendRequestScreen() {
         handleRejectRequestFromSearch,
         handleBlockUser,
     } = useFriendActions(searchResults, setSearchResults);
+
+    // Function to refresh conversations after friend request acceptance
+    const refreshConversations = useCallback(async () => {
+        try {
+            console.log('🔄 [Friend Request] Refreshing conversations after friend request acceptance...');
+            const response = await chatService.getConversations();
+            if (response.status === 'success') {
+                setConversations(response.data);
+                console.log('✅ [Friend Request] Conversations refreshed successfully');
+            } else {
+                console.warn('⚠️ [Friend Request] Failed to refresh conversations:', response.message);
+            }
+        } catch (error) {
+            console.error('❌ [Friend Request] Error refreshing conversations:', error);
+        }
+    }, [setConversations]);
 
     useEffect(() => {
         loadPendingRequests();
@@ -130,6 +151,9 @@ export default function FriendRequestScreen() {
 
             // Remove from pending requests immediately
             setPendingRequests(pendingRequests.filter((req: FriendRequest) => req.id !== requestId));
+
+            // Refresh conversations to show new conversation immediately
+            await refreshConversations();
         } catch (error: any) {
             console.error('Failed to accept friend request:', error);
             showError(`Failed to accept friend request: ${error.message}`,);

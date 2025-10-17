@@ -5,12 +5,13 @@ export interface ChatMessage {
     senderId: string;
     senderName: string;
     senderAvatar: string;
-    type: 'TEXT' | 'IMAGE' | 'FILE' | 'SYSTEM';
+    type: 'TEXT' | 'ACTIVITY';
     content: {
         text?: string;
-        imageUrl?: string;
-        fileName?: string;
-        fileUrl?: string;
+        // ACTIVITY content
+        activityId?: string;
+        name?: string;
+        purpose?: string;
     };
 
     createdAt: string;
@@ -63,12 +64,13 @@ export interface ChatResponse<T> {
 // Request Types
 export interface SendMessageRequest {
     conversationId: string;
-    type: 'TEXT' | 'IMAGE' | 'FILE';
+    type: 'TEXT' | 'ACTIVITY';
     content: {
         text?: string;
-        imageUrl?: string;
-        fileName?: string;
-        fileUrl?: string;
+        // ACTIVITY content
+        activityId?: string;
+        name?: string;
+        purpose?: string;
     };
 }
 

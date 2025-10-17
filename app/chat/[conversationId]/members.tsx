@@ -35,6 +35,12 @@ const MemberItem: React.FC<{
     const scaleValue = React.useRef(new Animated.Value(1)).current;
     const opacityValue = React.useRef(new Animated.Value(1)).current;
 
+    // Reset animation values on mount
+    React.useEffect(() => {
+        scaleValue.setValue(1);
+        opacityValue.setValue(1);
+    }, [scaleValue, opacityValue]);
+
     const handlePressIn = () => {
         if (canManage) {
             Animated.parallel([
@@ -85,6 +91,11 @@ const MemberItem: React.FC<{
                 }),
             ]).start(() => {
                 onPress(item);
+                // Ensure animation values are reset after ActionSheet
+                setTimeout(() => {
+                    scaleValue.setValue(1);
+                    opacityValue.setValue(1);
+                }, 100);
             });
         }
     };
@@ -104,9 +115,7 @@ const MemberItem: React.FC<{
                         />
                     ) : (
                         <View style={[styles.defaultAvatar, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
-                            <Text style={[styles.avatarText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                {item.userName.charAt(0).toUpperCase()}
-                            </Text>
+                            <User size={32} color={isDark ? '#9CA3AF' : '#6B7280'} />
                         </View>
                     )}
 
@@ -435,10 +444,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 16,
-    },
-    avatarText: {
-        fontSize: 22,
-        fontWeight: '600',
     },
     memberDetails: {
         flex: 1,

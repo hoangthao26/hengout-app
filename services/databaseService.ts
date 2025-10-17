@@ -44,7 +44,8 @@ class DatabaseService {
                 last_message_id TEXT,
                 last_message_text TEXT,
                 last_message_timestamp TEXT,
-                last_message_mine INTEGER NOT NULL DEFAULT 0
+                last_message_mine INTEGER NOT NULL DEFAULT 0,
+                last_message_sender_name TEXT
             );
         `);
 
@@ -91,9 +92,49 @@ class DatabaseService {
             CREATE INDEX IF NOT EXISTS idx_messages_synced ON messages (synced);
             CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations (updated_at);
             CREATE INDEX IF NOT EXISTS idx_members_conversation_id ON members (conversation_id);
+            CREATE INDEX IF NOT EXISTS idx_messages_conversation_created ON messages (conversation_id, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_conversations_last_message ON conversations (last_message_timestamp DESC);
+            CREATE INDEX IF NOT EXISTS idx_messages_mine ON messages (mine);
         `);
 
+        // DATABASE MIGRATION: Add last_message_sender_name column if not exists
+        await this.migrateDatabase();
+
         console.log('✅ Database tables created successfully');
+    }
+
+    /**
+     *  DATABASE MIGRATION: Add new columns to existing tables
+     */
+    private async migrateDatabase(): Promise<void> {
+        if (!this.db) throw new Error('Database not initialized');
+
+        try {
+            // Check if last_message_sender_name column exists
+            const tableInfo = await this.db.getAllAsync(`
+                PRAGMA table_info(conversations)
+            `);
+
+            const hasSenderNameColumn = tableInfo.some((column: any) =>
+                column.name === 'last_message_sender_name'
+            );
+
+            if (!hasSenderNameColumn) {
+                console.log('🔄 [DatabaseMigration] Adding last_message_sender_name column...');
+
+                await this.db.execAsync(`
+                    ALTER TABLE conversations 
+                    ADD COLUMN last_message_sender_name TEXT
+                `);
+
+                console.log('✅ [DatabaseMigration] Added last_message_sender_name column successfully');
+            } else {
+                console.log('ℹ️ [DatabaseMigration] last_message_sender_name column already exists');
+            }
+        } catch (error) {
+            console.error('❌ [DatabaseMigration] Migration failed:', error);
+            // Don't throw error - app should still work
+        }
     }
 
     // ==================== CONVERSATIONS ====================
@@ -110,8 +151,8 @@ class DatabaseService {
             INSERT OR REPLACE INTO conversations (
                 id, type, name, avatar_url, created_by, status, member_count, 
                 user_role, created_at, updated_at, last_message_id, 
-                last_message_text, last_message_timestamp, last_message_mine
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                last_message_text, last_message_timestamp, last_message_mine, last_message_sender_name
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             conversation.id,
             conversation.type || 'PRIVATE',
@@ -126,8 +167,47 @@ class DatabaseService {
             lastMessage?.id || null,
             lastMessage?.content.text || null,
             lastMessage?.createdAt || null,
-            lastMessage?.mine ? 1 : 0
+            lastMessage?.mine ? 1 : 0,
+            lastMessage?.senderName || null
         ]);
+    }
+
+    /**
+     * Update conversation's last message in database
+     */
+    async updateConversationLastMessage(
+        conversationId: string,
+        messageId: string,
+        messageTimestamp: string,
+        isMine: boolean,
+        senderName?: string
+    ): Promise<void> {
+        if (!this.db) throw new Error('Database not initialized');
+
+        await this.db.runAsync(`
+            UPDATE conversations 
+            SET 
+                last_message_id = ?,
+                last_message_timestamp = ?,
+                last_message_mine = ?,
+                last_message_sender_name = ?,
+                updated_at = ?
+            WHERE id = ?
+        `, [
+            messageId,
+            messageTimestamp,
+            isMine ? 1 : 0,
+            senderName || null,
+            new Date().toISOString(),
+            conversationId
+        ]);
+
+        console.log('✅ [DatabaseService] Updated conversation last message:', {
+            conversationId,
+            messageId,
+            messageTimestamp,
+            isMine
+        });
     }
 
     /**
@@ -217,9 +297,9 @@ class DatabaseService {
             message.senderAvatar || null,
             message.type || 'TEXT',
             message.content.text || null,
-            message.content.imageUrl || null,
-            message.content.fileName || null,
-            message.content.fileUrl || null,
+            null, // imageUrl - removed
+            null, // fileName - removed  
+            null, // fileUrl - removed
             message.createdAt || new Date().toISOString(),
             message.mine ? 1 : 0,
             'sent',
@@ -229,12 +309,13 @@ class DatabaseService {
         // 🚀 UPDATE CONVERSATION: Update last_message_timestamp when new message is saved
         await this.db.runAsync(`
             UPDATE conversations 
-            SET last_message_timestamp = ?, last_message_text = ?, last_message_mine = ?
+            SET last_message_timestamp = ?, last_message_text = ?, last_message_mine = ?, last_message_sender_name = ?
             WHERE id = ?
         `, [
             message.createdAt || new Date().toISOString(),
             message.content.text || '',
             message.mine ? 1 : 0,
+            message.senderName || null,
             message.conversationId
         ]);
     }
@@ -430,12 +511,12 @@ class DatabaseService {
                 id: row.last_message_id,
                 conversationId: row.id,
                 senderId: '',
-                senderName: '',
+                senderName: row.last_message_sender_name || '',
                 senderAvatar: '',
                 type: 'TEXT',
                 content: { text: row.last_message_text },
                 createdAt: row.last_message_timestamp,
-                // ✅ BỎ updatedAt THEO API (API không có field này)
+
                 mine: row.last_message_mine === 1
             } : undefined
         };
@@ -451,9 +532,10 @@ class DatabaseService {
             type: row.type,
             content: {
                 text: row.content_text,
-                imageUrl: row.content_image_url,
-                fileName: row.content_file_name,
-                fileUrl: row.content_file_url
+                // ACTIVITY content - will be null for TEXT messages
+                activityId: row.content_activity_id,
+                name: row.content_activity_name,
+                purpose: row.content_activity_purpose
             },
             createdAt: row.created_at,
             mine: row.mine === 1

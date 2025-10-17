@@ -21,11 +21,16 @@ import { useFriendActions } from '../../hooks/useFriendActions';
 import NavigationService from '../../services/navigationService';
 import { socialService } from '../../services/socialService';
 import { userSearchService } from '../../services/userSearchService';
+import { chatService } from '../../services/chatService';
+import { useChatStore } from '../../store/chatStore';
 import { Friend, SearchUser } from '../../types/social';
 
 export default function FriendsListScreen() {
     const isDark = useColorScheme() === 'dark';
     const { success: showSuccess, error: showError } = useToast();
+
+    // Chat store for refreshing conversations
+    const { setConversations } = useChatStore();
 
     const [friends, setFriends] = useState<Friend[]>([]);
     const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
@@ -43,6 +48,22 @@ export default function FriendsListScreen() {
         handleRejectRequestFromSearch,
         handleBlockUser,
     } = useFriendActions(searchResults, setSearchResults);
+
+    // Function to refresh conversations after friend actions
+    const refreshConversations = useCallback(async () => {
+        try {
+            console.log('🔄 [Friends List] Refreshing conversations after friend action...');
+            const response = await chatService.getConversations();
+            if (response.status === 'success') {
+                setConversations(response.data);
+                console.log('✅ [Friends List] Conversations refreshed successfully');
+            } else {
+                console.warn('⚠️ [Friends List] Failed to refresh conversations:', response.message);
+            }
+        } catch (error) {
+            console.error('❌ [Friends List] Error refreshing conversations:', error);
+        }
+    }, [setConversations]);
 
     useEffect(() => {
         loadFriends();
@@ -114,6 +135,9 @@ export default function FriendsListScreen() {
             await socialService.removeFriend(friendId);
             setFriends(prev => prev.filter(friend => friend.friendId !== friendId));
             showSuccess('Đã xóa bạn bè');
+
+            // Refresh conversations to update conversation list (private conversation may be hidden/removed)
+            await refreshConversations();
         } catch (error) {
             console.error('Error removing friend:', error);
             showError('Không thể xóa bạn bè');
@@ -125,6 +149,9 @@ export default function FriendsListScreen() {
             await socialService.blockFriend(friendId, 'BLOCKED');
             setFriends(prev => prev.filter(friend => friend.friendId !== friendId));
             showSuccess('Đã chặn bạn bè');
+
+            // Refresh conversations to update conversation list (private conversation may be hidden/removed)
+            await refreshConversations();
         } catch (error) {
             console.error('Error blocking friend:', error);
             showError('Không thể chặn bạn bè');
