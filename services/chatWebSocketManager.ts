@@ -16,6 +16,7 @@ class ChatWebSocketManager {
     private connectionCheckInterval: NodeJS.Timeout | null = null;
     private lastPingTime = 0;
     private pingInterval = 30000; // 30 seconds
+    private toastFunction: ((type: 'success' | 'info' | 'warning' | 'error', title: string, message?: string) => void) | null = null;
 
     // Network State Monitoring
     private networkUnsubscribe: (() => void) | null = null;
@@ -37,24 +38,24 @@ class ChatWebSocketManager {
 
         // Check network availability before connecting
         if (!this.isNetworkAvailable) {
-            console.log('⚠️ [ChatWebSocket] Network not available, skipping connection');
+            // Network not available, skipping connection
             return;
         }
 
         // Check circuit breaker state
         if (!this.isCircuitBreakerClosed()) {
-            console.log('🚨 [ChatWebSocket] Circuit breaker is open, skipping connection');
+            // Circuit breaker is open, skipping connection
             return;
         }
 
         this.isConnecting = true;
 
         try {
-            console.log('🔌 [ChatWebSocket] Connecting to WebSocket...');
+            // Connecting to WebSocket
             this.connection = await createWebSocketConnection('wss://api.hengout.app/social-service/ws/native');
             await this.connection.ready;
 
-            console.log('✅ [ChatWebSocket] Connected successfully');
+            // Connected successfully
             this.reconnectAttempts = 0;
             this.isConnecting = false;
 
@@ -88,7 +89,7 @@ class ChatWebSocketManager {
 
     async disconnect(): Promise<void> {
         if (this.connection) {
-            console.log('🔌 [ChatWebSocket] Disconnecting...');
+            // Disconnecting...
 
             // Stop connection monitoring
             this.stopConnectionMonitoring();
@@ -109,21 +110,27 @@ class ChatWebSocketManager {
         }
 
         if (this.subscribedConversations.has(conversationId)) {
-            console.log('📝 [ChatWebSocket] Already subscribed to conversation:', conversationId);
+            // Already subscribed to conversation
             return;
         }
 
-        console.log('📝 [ChatWebSocket] Subscribing to conversation:', conversationId);
+        // Subscribing to conversation
         this.subscribedConversations.add(conversationId);
 
+        // Subscribe to regular messages
         this.connection.subscribe(conversationId, async (message: WebSocketMessage) => {
+            await this.handleMessage(conversationId, message);
+        });
+
+        // Subscribe to activity updates
+        this.connection.subscribeToActivity(conversationId, async (message: WebSocketMessage) => {
             await this.handleMessage(conversationId, message);
         });
     }
 
     unsubscribeFromConversation(conversationId: string): void {
         this.subscribedConversations.delete(conversationId);
-        console.log('📝 [ChatWebSocket] Unsubscribed from conversation:', conversationId);
+        // Unsubscribed from conversation
     }
 
     /**
@@ -131,7 +138,7 @@ class ChatWebSocketManager {
      * This is the main strategy - maintain subscriptions for all conversations
      */
     async subscribeToAllConversations(conversationIds: string[]): Promise<void> {
-        console.log(`🔌 [ChatWebSocket] Subscribing to ${conversationIds.length} conversations`);
+        // Subscribing to conversations
 
         for (const conversationId of conversationIds) {
             if (!this.subscribedConversations.has(conversationId)) {
@@ -173,7 +180,7 @@ class ChatWebSocketManager {
         };
 
         this.connection.send(message);
-        console.log('📤 [ChatWebSocket] Message sent:', messageData.type);
+        // Message sent
 
         // SMART SYNC: Trigger smart sync for this conversation
         smartSyncManager.scheduleSync(messageData.conversationId, 'message_sent');
@@ -302,7 +309,11 @@ class ChatWebSocketManager {
                     chatMessage.id,
                     chatMessage.createdAt,
                     chatMessage.mine,
-                    chatMessage.senderName
+                    chatMessage.senderName,
+                    chatMessage.type,
+                    chatMessage.content.activityId,
+                    chatMessage.content.name,
+                    chatMessage.content.purpose
                 );
                 console.log('✅ [ChatWebSocket] Updated database for own message:', chatMessage.id);
             } catch (error) {
@@ -355,9 +366,182 @@ class ChatWebSocketManager {
         smartSyncManager.scheduleSync(conversationId, 'new_message_received');
     }
 
-    private handleActivityUpdate(conversationId: string, activityData: any): void {
-        console.log('📊 [ChatWebSocket] Activity update for conversation:', conversationId, activityData);
-        // Handle typing indicators, user presence, etc.
+    private async handleActivityUpdate(conversationId: string, activityData: any): Promise<void> {
+        console.log('📊 [ChatWebSocket] Activity update - FULL STRUCTURE:', {
+            conversationId,
+            activityData,
+            allActivityKeys: Object.keys(activityData || {}),
+            timestamp: new Date().toISOString()
+        });
+
+        if (activityData) {
+            console.log('📊 [ChatWebSocket] Activity details:', {
+                id: activityData.id,
+                name: activityData.name,
+                status: activityData.status,
+                createdBy: activityData.createdBy,
+                createdAt: activityData.createdAt
+            });
+
+            // Get current user info to determine if this is my activity
+            const { user } = useAuthStore.getState();
+            // Compare by creatorName instead of ID for better accuracy
+            const isMyActivity = user?.displayName === activityData.creatorName;
+
+            console.log('🔍 [ChatWebSocket] Activity creator info:', {
+                currentUserDisplayName: user?.displayName,
+                activityCreatorName: activityData.creatorName,
+                isMyActivity,
+                creatorName: activityData.creatorName,
+                creatorAvatar: activityData.creatorAvatar
+            });
+
+            const { addConversationMessage, updateConversationMessage, updateConversation, conversationMessages } = useChatStore.getState();
+
+            // Check if activity message already exists
+            const existingMessages = conversationMessages[conversationId] || [];
+            const existingActivityMessage = existingMessages.find(msg =>
+                msg.type === 'ACTIVITY' && msg.content.activityId === activityData.id
+            );
+
+            if (activityData.status === 'ON_GOING') {
+                // Only create new activity message for ON_GOING status
+                const activityMessage: ChatMessage = {
+                    id: `activity_${activityData.id}_${Date.now()}`,
+                    conversationId: conversationId,
+                    senderId: activityData.createdBy,
+                    senderName: activityData.creatorName || 'Unknown User',
+                    senderAvatar: activityData.creatorAvatar || '',
+                    type: 'ACTIVITY',
+                    content: {
+                        activityId: activityData.id,
+                        name: activityData.name,
+                        purpose: activityData.purpose || '',
+                        status: activityData.status,
+                        creatorName: activityData.creatorName,
+                        creatorAvatar: activityData.creatorAvatar
+                    },
+                    createdAt: activityData.createdAt,
+                    mine: isMyActivity
+                };
+
+                // Add to store
+                addConversationMessage(conversationId, activityMessage);
+
+                // Update conversation's last message
+                updateConversation(conversationId, {
+                    lastMessage: activityMessage
+                });
+
+                console.log('✅ [ChatWebSocket] New activity message created for ON_GOING status');
+                console.log('✅ [ChatWebSocket] Updated lastMessage for ON_GOING status:', activityData.name);
+
+                // ✅ CẬP NHẬT DATABASE ngay lập tức cho activity mới
+                try {
+                    await databaseService.updateConversationLastMessage(
+                        conversationId,
+                        activityMessage.id,
+                        activityMessage.createdAt,
+                        activityMessage.mine,
+                        activityMessage.senderName,
+                        activityMessage.type,
+                        activityMessage.content.activityId,
+                        activityMessage.content.name,
+                        activityMessage.content.purpose
+                    );
+                    console.log('✅ [ChatWebSocket] Updated database for new activity message:', activityMessage.id);
+                } catch (error) {
+                    console.error('❌ [ChatWebSocket] Failed to update database for new activity message:', error);
+                }
+            } else if (existingActivityMessage) {
+                // Update existing activity message with new status
+                updateConversationMessage(conversationId, existingActivityMessage.id, {
+                    content: {
+                        ...existingActivityMessage.content,
+                        status: activityData.status
+                    }
+                });
+
+                console.log(`🔄 [ChatWebSocket] Updated existing activity message status to: ${activityData.status}`);
+                console.log(`ℹ️ [ChatWebSocket] Skipped lastMessage update for status: ${activityData.status} (only ON_GOING updates lastMessage)`);
+
+                // Show toast notification for status changes
+                this.showActivityStatusToast(activityData.status, activityData.name);
+            } else {
+                // Fallback: create new message if existing not found (shouldn't happen normally)
+                console.warn('⚠️ [ChatWebSocket] Activity message not found, creating new one');
+                const activityMessage: ChatMessage = {
+                    id: `activity_${activityData.id}_${Date.now()}`,
+                    conversationId: conversationId,
+                    senderId: activityData.createdBy,
+                    senderName: activityData.creatorName || 'Unknown User',
+                    senderAvatar: activityData.creatorAvatar || '',
+                    type: 'ACTIVITY',
+                    content: {
+                        activityId: activityData.id,
+                        name: activityData.name,
+                        purpose: activityData.purpose || '',
+                        status: activityData.status,
+                        creatorName: activityData.creatorName,
+                        creatorAvatar: activityData.creatorAvatar
+                    },
+                    createdAt: activityData.createdAt,
+                    mine: isMyActivity
+                };
+
+                addConversationMessage(conversationId, activityMessage);
+
+                // ✅ CHỈ CẬP NHẬT LAST MESSAGE CHO ON_GOING STATUS
+                if (activityData.status === 'ON_GOING') {
+                    updateConversation(conversationId, {
+                        lastMessage: activityMessage
+                    });
+                    console.log('✅ [ChatWebSocket] Updated lastMessage for ON_GOING status in fallback');
+                } else {
+                    console.log(`ℹ️ [ChatWebSocket] Skipped lastMessage update for status: ${activityData.status} in fallback`);
+                }
+            }
+
+        }
+    }
+
+    private showActivityStatusToast(status: string, activityName: string): void {
+        console.log(`🔔 [ChatWebSocket] Activity status toast: ${status} for "${activityName}"`);
+
+        let toastTitle = '';
+        let toastMessage = '';
+        let toastType: 'success' | 'info' | 'warning' | 'error' = 'info';
+
+        switch (status) {
+            case 'ANALYZING':
+                toastTitle = 'Đang phân tích hoạt động';
+                toastMessage = `"${activityName}" đang được phân tích...`;
+                toastType = 'info';
+                break;
+            case 'VOTING':
+                toastTitle = 'Bắt đầu bình chọn';
+                toastMessage = `"${activityName}" - Nhấn để bình chọn!`;
+                toastType = 'warning';
+                break;
+            case 'COMPLETED':
+                toastTitle = 'Hoàn thành hoạt động';
+                toastMessage = `"${activityName}" đã hoàn thành! Xem kết quả`;
+                toastType = 'success';
+                break;
+            default:
+                toastTitle = 'Cập nhật trạng thái';
+                toastMessage = `"${activityName}" - ${status}`;
+                toastType = 'info';
+        }
+
+        // Show actual toast if toast function is available
+        if (this.toastFunction) {
+            console.log(`🔔 [WebSocket] Calling toast function: ${toastType} - ${toastTitle} - ${toastMessage}`);
+            this.toastFunction(toastType, toastTitle, toastMessage);
+        } else {
+            // Fallback to console log if no toast function set
+            console.log(`🔔 [Toast] No toast function set - ${toastTitle}: ${toastMessage}`);
+        }
     }
 
     private handleLocationUpdate(conversationId: string, locationData: any): void {
@@ -501,13 +685,7 @@ class ChatWebSocketManager {
             this.isConnectedToInternet = state.isInternetReachable ?? false;
             this.networkType = state.type;
 
-            console.log('🌐 [ChatWebSocket] Network state changed:', {
-                isConnected: this.isNetworkAvailable,
-                isInternetReachable: this.isConnectedToInternet,
-                type: this.networkType,
-                wasAvailable,
-                wasConnected
-            });
+            // Network state changed
 
             // Handle network state changes
             this.handleNetworkStateChange(wasAvailable, wasConnected);
@@ -682,6 +860,12 @@ class ChatWebSocketManager {
                 timeUntilReset: circuitBreakerStatus.timeUntilReset
             }
         };
+    }
+
+    // Set toast function from component
+    public setToastFunction(toastFn: (type: 'success' | 'info' | 'warning' | 'error', title: string, message?: string) => void): void {
+        this.toastFunction = toastFn;
+        console.log('🔔 [WebSocket Manager] Toast function set successfully');
     }
 
 }

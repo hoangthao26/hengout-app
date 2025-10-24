@@ -14,7 +14,7 @@ class ChatSyncService {
     async initialize(): Promise<void> {
         await databaseService.initialize();
         // 🚀 SMART SYNC: No more periodic sync - using event-driven sync instead
-        console.log('✅ Chat sync service initialized with Smart Sync');
+        // Chat sync service initialized with Smart Sync
     }
 
     /**
@@ -67,7 +67,7 @@ class ChatSyncService {
             this.isSyncing = true;
             await this.syncConversations();
             await this.syncUnsyncedMessages();
-            console.log('✅ Force sync completed');
+            // Force sync completed
         } catch (error) {
             console.error('Force sync failed:', error);
             throw error;
@@ -83,28 +83,28 @@ class ChatSyncService {
      */
     async syncConversations(): Promise<void> {
         try {
-            console.log('🔄 Syncing conversations...');
+            // Syncing conversations
 
             // 🚀 PROACTIVE: Check auth first
             const { AuthHelper } = await import('./authHelper');
             const isAuthenticated = await AuthHelper.isAuthenticated();
 
             if (!isAuthenticated) {
-                console.log('ℹ️ [ChatSyncService] User not authenticated, skipping conversation sync');
+                // User not authenticated, skipping conversation sync
                 return;
             }
 
             // 🚀 PROACTIVE: Check token expiry and refresh if needed
             const tokens = await AuthHelper.getTokens();
             if (tokens && tokens.expiresIn < 5 * 60 * 1000) { // 5 minutes - consistent with other services
-                console.log('⏰ [ChatSyncService] Token expiring soon, refreshing proactively');
+                // Token expiring soon, refreshing proactively
                 try {
                     // Use RefreshTokenManager for consistent refresh logic
                     const { refreshTokenManager } = await import('./refreshTokenManager');
                     await refreshTokenManager.performRefresh();
-                    console.log('✅ [ChatSyncService] Token refreshed successfully');
+                    // Token refreshed successfully
                 } catch (error) {
-                    console.log('⚠️ [ChatSyncService] Token refresh failed, will retry later');
+                    // Token refresh failed, will retry later
                     return; // Don't make API call with expired token
                 }
             }
@@ -116,7 +116,7 @@ class ChatSyncService {
             const stillAuthenticated = await AuthHelper.isAuthenticated();
 
             if (!stillAuthenticated) {
-                console.log('ℹ️ [ChatSyncService] User logged out during sync, aborting');
+                // User logged out during sync, aborting
                 return;
             }
 
@@ -126,12 +126,12 @@ class ChatSyncService {
                     await databaseService.saveConversation(conversation);
                 }
 
-                console.log(`✅ Synced ${response.data.length} conversations`);
+                // Synced conversations
             }
         } catch (error: any) {
             // 🚀 PROACTIVE: Handle 401 specifically
             if (error.response?.status === 401) {
-                console.log('🔐 [ChatSyncService] 401 error - user needs to login');
+                // 401 error - user needs to login
                 try {
                     const { AuthHelper } = await import('./authHelper');
                     await AuthHelper.logoutAndNavigate();
@@ -143,7 +143,7 @@ class ChatSyncService {
 
             // 🚀 DEFENSIVE: Don't throw error if user logged out
             if (error.message?.includes('User logged out')) {
-                console.log('ℹ️ [ChatSyncService] User logged out during conversation sync, aborting gracefully');
+                // User logged out during conversation sync, aborting gracefully
                 return;
             }
             console.error('Failed to sync conversations:', error);
@@ -174,14 +174,14 @@ class ChatSyncService {
      */
     async syncMessages(conversationId: string, page: number = 0, size: number = 50): Promise<ChatMessage[]> {
         try {
-            console.log(`🔄 Syncing messages for conversation ${conversationId}...`);
+            // Syncing messages for conversation
 
             // 🚀 CHECK AUTH FIRST: Only sync if user is authenticated
             const { AuthHelper } = await import('./authHelper');
             const isAuthenticated = await AuthHelper.isAuthenticated();
 
             if (!isAuthenticated) {
-                console.log('ℹ️ [ChatSyncService] User not authenticated, skipping message sync');
+                // User not authenticated, skipping message sync
                 return [];
             }
 
@@ -192,7 +192,7 @@ class ChatSyncService {
             const stillAuthenticated = await AuthHelper.isAuthenticated();
 
             if (!stillAuthenticated) {
-                console.log('ℹ️ [ChatSyncService] User logged out during message sync, aborting');
+                // User logged out during message sync, aborting
                 return [];
             }
 
@@ -202,7 +202,7 @@ class ChatSyncService {
                     await databaseService.saveMessage(message);
                 }
 
-                console.log(`✅ Synced ${response.data.length} messages`);
+                // Synced messages
                 return response.data;
             }
 
@@ -210,7 +210,7 @@ class ChatSyncService {
         } catch (error: any) {
             // 🚀 DEFENSIVE: Don't throw error if user logged out
             if (error.message?.includes('User logged out')) {
-                console.log('ℹ️ [ChatSyncService] User logged out during message sync, aborting gracefully');
+                // User logged out during message sync, aborting gracefully
                 return [];
             }
             console.error(`Failed to sync messages for conversation ${conversationId}:`, error);
@@ -285,12 +285,12 @@ class ChatSyncService {
      */
     async syncMembers(conversationId: string): Promise<ChatMember[]> {
         try {
-            console.log(`🔄 Syncing members for conversation ${conversationId}...`);
+            // Syncing members for conversation
 
             // Check conversation type first - only sync members for GROUP conversations
             const conversation = await databaseService.getConversation(conversationId);
             if (!conversation || conversation.type !== 'GROUP') {
-                console.log(`ℹ️ Skipping member sync for ${conversation?.type || 'unknown'} conversation`);
+                // Skipping member sync for conversation
                 return [];
             }
 
@@ -303,7 +303,7 @@ class ChatSyncService {
                     await databaseService.saveMember(member, conversationId);
                 }
 
-                console.log(`✅ Synced ${response.data.length} members`);
+                // Synced members
                 return response.data;
             }
 
@@ -333,7 +333,7 @@ class ChatSyncService {
 
             if (unsyncedMessages.length === 0) return;
 
-            console.log(`🔄 Syncing ${unsyncedMessages.length} unsynced messages...`);
+            // Syncing unsynced messages
 
             for (const message of unsyncedMessages) {
                 try {

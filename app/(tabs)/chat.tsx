@@ -139,15 +139,15 @@ export default function ChatScreen() {
         setFilteredConversations(conversations);
     }, [conversations]);
 
-    // ✅ OPTIMISTIC REFRESH - Không clear data khi refresh
+    // OPTIMISTIC REFRESH - Không clear data khi refresh
     const handleRefresh = useCallback(async () => {
         setRefreshing(true);
         try {
             if (chatSyncInitialized) {
-                // ✅ Force sync trong background, không clear UI
+                // Force sync trong background, không clear UI
                 await forceSync();
 
-                // ✅ Load fresh data từ database (đã được sync)
+                // Load fresh data từ database (đã được sync)
                 const freshConversations = await getConversationsFromDB();
                 setConversations(freshConversations);
                 setFilteredConversations(freshConversations);
@@ -173,9 +173,12 @@ export default function ChatScreen() {
 
     // Handle create group
     const handleCreateGroup = useCallback(() => {
-        setOnCreateGroupSuccess(() => loadConversations);
+        // Không cần reload toàn bộ danh sách nữa vì conversation đã được thêm vào store ngay lập tức
+        setOnCreateGroupSuccess(() => {
+            console.log('✅ [Chat] Group created successfully, conversation already added to store');
+        });
         openCreateGroupModal();
-    }, [setOnCreateGroupSuccess, openCreateGroupModal, loadConversations]);
+    }, [setOnCreateGroupSuccess, openCreateGroupModal]);
 
     // Load conversations on mount (only if not already loaded by initialization)
     useEffect(() => {
@@ -196,6 +199,18 @@ export default function ChatScreen() {
 
     // Render conversation item
     const renderConversationItem = ({ item }: { item: ChatConversation }) => {
+        // Debug log to check lastMessage data
+        if (item.lastMessage?.type === 'ACTIVITY') {
+            console.log('🔍 [ConversationList] Activity lastMessage:', {
+                conversationId: item.id,
+                conversationName: item.name,
+                lastMessage: item.lastMessage,
+                content: item.lastMessage.content,
+                name: item.lastMessage.content?.name,
+                purpose: item.lastMessage.content?.purpose
+            });
+        }
+
         const lastMessage = chatService.formatLastMessage(item);
         const timestamp = item.lastMessage ? chatService.formatTimestamp(item.lastMessage.createdAt) : '';
 
@@ -335,7 +350,7 @@ export default function ChatScreen() {
                     }
                 />
 
-                {/* Database Reset Button - Removed after use */}
+                {/* Database Reset Button - Commented out after one-time reset */}
                 {/* <DatabaseResetButton /> */}
 
             </View>
@@ -444,3 +459,6 @@ const styles = StyleSheet.create({
         color: '#9CA3AF',
     },
 });
+
+
+

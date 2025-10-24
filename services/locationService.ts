@@ -83,7 +83,7 @@ class LocationService {
             const response = await axiosInstance.post<LocationRecommendationsResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to get random recommendations:', error);
+            console.error('Failed to get random recommendations');
             throw error;
         }
     }

@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
     Bell,
+    Calendar,
     ChevronRight,
     Link,
     MoreHorizontal,
@@ -142,6 +143,10 @@ export default function ConversationDetailsScreen() {
 
     const handleCreateGroup = () => {
         setShowCreateGroupModal(true);
+    };
+
+    const handleViewActivities = () => {
+        NavigationService.goToConversationActivities(conversationId);
     };
 
     const handleCloseCreateGroupModal = () => {
@@ -316,6 +321,22 @@ export default function ConversationDetailsScreen() {
                                 <ChevronRight size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
                             </TouchableOpacity>
                         )}
+
+                        {/* Lịch sử hoạt động */}
+                        <TouchableOpacity style={styles.optionItem} onPress={handleViewActivities}>
+                            <View style={styles.optionLeft}>
+                                <Calendar size={28} color={isDark ? '#FFFFFF' : '#000000'} />
+                                <View style={styles.optionTextContainer}>
+                                    <Text style={[styles.optionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                                        Lịch sử hoạt động
+                                    </Text>
+                                    <Text style={[styles.optionSubtext, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                        Xem tất cả hoạt động trong cuộc trò chuyện
+                                    </Text>
+                                </View>
+                            </View>
+                            <ChevronRight size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                        </TouchableOpacity>
 
                         {!isGroup && (
                             <TouchableOpacity style={styles.optionItem} onPress={handleCreateGroup}>

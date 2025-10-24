@@ -15,6 +15,7 @@ import {
 import { useToast } from '../contexts/ToastContext';
 import { chatService } from '../services/chatService';
 import { socialService } from '../services/socialService';
+import { useChatStore } from '../store/chatStore';
 import { Friend } from '../types/social';
 import GradientButton from './GradientButton';
 
@@ -31,6 +32,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
 }) => {
     const isDark = useColorScheme() === 'dark';
     const { success: showSuccess, error: showError } = useToast();
+    const { addConversation } = useChatStore();
     const bottomSheetRef = useRef<BottomSheet>(null);
 
     const [groupName, setGroupName] = useState('');
@@ -101,6 +103,9 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             });
 
             if (response.status === 'success') {
+                // ✅ Thêm conversation mới vào store ngay lập tức
+                addConversation(response.data);
+
                 showSuccess('Tạo nhóm thành công');
                 onSuccess();
                 onClose();
@@ -117,7 +122,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
         } finally {
             setCreating(false);
         }
-    }, [groupName, selectedFriends, showError, showSuccess, onSuccess, onClose]);
+    }, [groupName, selectedFriends, showError, showSuccess, onSuccess, onClose, addConversation]);
 
     // Render friend item
     const renderFriendItem = ({ item }: { item: Friend }) => {

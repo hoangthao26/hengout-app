@@ -33,7 +33,7 @@ export default function SplashScreen() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        console.log('🚀 [SplashScreen] App started, initializing all services...');
+        console.log('🚀 Initializing app...');
 
         // Initialize authentication
         initializeAuth();
@@ -41,7 +41,7 @@ export default function SplashScreen() {
         // Initialize all services (Database, Location, Chat Services)
         await initializationService.initialize();
 
-        console.log('✅ [SplashScreen] All services initialized successfully');
+        console.log('✅ App initialized');
 
         // MVP: centralize lightweight user init on app start
         initSvc.initOnAppStart();
@@ -65,7 +65,7 @@ export default function SplashScreen() {
         const isLocationEnabled = await Location.hasServicesEnabledAsync();
 
         if (!isLocationEnabled) {
-          console.log('📍 [SplashScreen] Location services disabled, using HCMC fallback');
+          console.log('📍 Location disabled, using fallback');
           setLocationData({
             latitude: 10.8231,
             longitude: 106.6297,
@@ -78,7 +78,7 @@ export default function SplashScreen() {
         const { status } = await Location.requestForegroundPermissionsAsync();
 
         if (status !== 'granted') {
-          console.log('📍 [SplashScreen] Location permission denied, using HCMC fallback');
+          console.log('📍 Location permission denied, using fallback');
           setLocationData({
             latitude: 10.8231,
             longitude: 106.6297,
@@ -93,11 +93,7 @@ export default function SplashScreen() {
         });
 
         if (location) {
-          console.log('📍 [SplashScreen] GPS location obtained:', {
-            lat: location.coords.latitude,
-            lng: location.coords.longitude,
-            accuracy: location.coords.accuracy
-          });
+          console.log('📍 GPS location obtained');
 
           setLocationData({
             latitude: location.coords.latitude,
@@ -106,7 +102,7 @@ export default function SplashScreen() {
           });
         }
       } catch (error) {
-        console.log('📍 [SplashScreen] GPS error, using HCMC fallback:', error);
+        console.log('📍 GPS error, using fallback');
         setLocationData({
           latitude: 10.8231,
           longitude: 106.6297,
@@ -124,7 +120,7 @@ export default function SplashScreen() {
   useEffect(() => {
     const handleAppStateChange = (nextAppState: string) => {
       if (nextAppState === 'active' && isAuthenticated) {
-        console.log('📱 [SplashScreen] App became active, checking token...');
+        console.log('📱 App became active');
         refreshTokenManager.checkAndRefreshOnResume();
       }
     };
@@ -135,14 +131,7 @@ export default function SplashScreen() {
 
   // 🚀 ENTERPRISE FEATURE: Handle navigation based on app readiness
   useEffect(() => {
-    console.log('🔄 [SplashScreen] State changed:', {
-      isLoading,
-      isAuthenticated,
-      isAppReady,
-      isServicesReady,
-      isChatDataPreloaded, // ✅ Log chat data preloaded status
-      hasLocation: !!locationData
-    });
+    // State change monitoring (reduced logging)
 
     // ✅ ĐỢI CHAT DATA PRELOADED HOÀN THÀNH
     if (!isLoading && isAppReady && isChatDataPreloaded && locationData) {
@@ -155,11 +144,11 @@ export default function SplashScreen() {
         }).start(() => {
           // Navigate based on authentication state
           if (isAuthenticated) {
-            console.log('✅ [SplashScreen] User authenticated + GPS ready, navigating to main app');
+            console.log('✅ Navigating to main app');
             // Pass location data to Discover screen
             NavigationService.secureNavigateToDiscover(locationData);
           } else {
-            console.log('❌ [SplashScreen] User not authenticated, navigating to login');
+            console.log('❌ Navigating to login');
             NavigationService.goToLogin();
           }
         });

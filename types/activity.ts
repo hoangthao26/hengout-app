@@ -10,13 +10,16 @@ export interface Activity {
     id: string;
     name: string;
     purpose: string;
-    status: 'ON_GOING' | 'COMPLETED' | 'CANCELLED' | 'PENDING';
-    submitStartTime: string; // ISO 8601 datetime format
-    submitEndTime: string; // ISO 8601 datetime format
-    voteStartTime: string; // ISO 8601 datetime format
-    voteEndTime: string; // ISO 8601 datetime format
-    createdBy: string; // UUID format
-    createdAt: string; // ISO 8601 datetime format
+    status: 'ON_GOING' | 'ANALYZING' | 'VOTING' | 'COMPLETED';
+    submitStartTime: string;
+    submitEndTime: string;
+    voteStartTime: string;
+    voteEndTime: string;
+    createdBy: string;
+    createdAt: string;
+    creatorName?: string;
+    creatorAvatar?: string;
+    hasSubmitted?: boolean;
 }
 
 // Activity Suggestion Type

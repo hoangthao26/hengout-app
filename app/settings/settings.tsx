@@ -218,6 +218,24 @@ export default function SettingsScreen() {
                     />
                 </TouchableOpacity>
 
+                {/* Custom Swipe Option */}
+                <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={() => router.push('/settings/custom-swipe' as any)}
+                >
+                    <View style={styles.settingLeft}>
+                        <TestTube
+                            size={24}
+                            color={isDark ? '#F59E0B' : '#D97706'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>Custom Swipe (Reanimated)</Text>
+                    </View>
+                    <ChevronRight
+                        size={20}
+                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                    />
+                </TouchableOpacity>
+
 
 
                 {/* Logout Option */}

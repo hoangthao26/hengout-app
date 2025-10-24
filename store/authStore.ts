@@ -323,7 +323,7 @@ export const useAuthStore = create<AuthState>()(
                     try {
                         const { databaseService } = await import('../services/databaseService');
                         await databaseService.clearAllData();
-                        console.log('✅ [AuthStore] Database cleared successfully');
+                        // Database cleared successfully
                     } catch (dbError) {
                         console.error('❌ [AuthStore] Failed to clear database:', dbError);
                         // Don't throw - database clear failure shouldn't block logout
@@ -361,7 +361,7 @@ export const useAuthStore = create<AuthState>()(
             // 🚀 OPTIMISTIC LOGOUT: Fast logout for better UX
             fastLogout: async () => {
                 try {
-                    console.log('🚀 [AuthStore] Starting fast logout...');
+                    // Starting fast logout
 
                     // 🚀 IMMEDIATE STATE CLEAR: Clear UI state first
                     set({
@@ -414,7 +414,7 @@ export const useAuthStore = create<AuthState>()(
                             try {
                                 const { databaseService } = await import('../services/databaseService');
                                 await databaseService.clearAllData();
-                                console.log('✅ [AuthStore] Database cleared successfully (fast logout)');
+                                // Database cleared successfully (fast logout)
                             } catch (dbError) {
                                 console.error('❌ [AuthStore] Failed to clear database (fast logout):', dbError);
                                 // Don't throw - database clear failure shouldn't block logout
@@ -429,7 +429,7 @@ export const useAuthStore = create<AuthState>()(
                             appStore.setAppReady(false);
                             appStore.setInitializationError(null);
 
-                            console.log('✅ [AuthStore] Fast logout completed');
+                            // Fast logout completed
                         } catch (error: any) {
                             console.error('❌ [AuthStore] Background logout cleanup failed:', error);
                         }
@@ -442,7 +442,7 @@ export const useAuthStore = create<AuthState>()(
             },
 
             refreshTokens: async () => {
-                console.log('🔄 [AuthStore] Starting token refresh...');
+                // Starting token refresh
 
                 // 🚀 DELEGATE TO REFRESH TOKEN MANAGER: With store update
                 const success = await refreshTokenManager.performRefresh(true);
@@ -506,12 +506,7 @@ export const useAuthStore = create<AuthState>()(
                     set({ isLoading: true });
 
                     const storedTokens = await AuthHelper.getTokens();
-                    console.log('🔑 [AuthStore] Stored tokens from SecureStore:', {
-                        hasAccessToken: !!storedTokens?.accessToken,
-                        hasRefreshToken: !!storedTokens?.refreshToken,
-                        accessTokenLength: storedTokens?.accessToken?.length || 0,
-                        refreshTokenLength: storedTokens?.refreshToken?.length || 0,
-                    });
+                    // Stored tokens from SecureStore
 
                     if (storedTokens && storedTokens.accessToken) {
                         console.log('✅ [AuthStore] Found stored tokens, checking validity...');

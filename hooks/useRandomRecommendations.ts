@@ -41,15 +41,11 @@ export const useRandomRecommendations = ({ onError }: UseRandomRecommendationsPr
                 address: '', // Address is optional
             };
 
-            console.log('🔍 [useRandomRecommendations] Request body:', JSON.stringify(requestBody, null, 2));
-
             const response = await locationService.getRandomRecommendations(requestBody);
-
-            console.log('✅ [useRandomRecommendations] Response:', JSON.stringify(response, null, 2));
 
             if (response.status === 'success') {
                 setRecommendations(response.data);
-                console.log(`📍 [useRandomRecommendations] Loaded ${response.data.length} recommendations`);
+                console.log(`📍 Loaded ${response.data.length} random locations`);
                 return response.data;
             } else {
                 const errorMessage = response.message || 'Failed to get recommendations';
@@ -60,12 +56,7 @@ export const useRandomRecommendations = ({ onError }: UseRandomRecommendationsPr
             }
         } catch (err: any) {
             const errorMessage = err.message || 'Network error occurred';
-            console.log('💥 [useRandomRecommendations] Network Error:', {
-                message: errorMessage,
-                status: err.response?.status,
-                data: err.response?.data,
-                fullError: err
-            });
+            console.log('💥 [useRandomRecommendations] Network Error:', errorMessage);
             setError(errorMessage);
             onError?.(errorMessage);
             return [];

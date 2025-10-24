@@ -91,6 +91,7 @@ export const ROUTES = {
     CHAT_CONVERSATION: '/chat/[conversationId]',
     CHAT_DETAILS: '/chat/[conversationId]/details',
     CHAT_MEMBERS: '/chat/[conversationId]/members',
+    CONVERSATION_ACTIVITIES: '/chat/[conversationId]/activities',
 } as const;
 
 // Type for route keys - provides type safety
@@ -140,6 +141,7 @@ export const ROUTE_CONFIGS: Record<RouteKey, NavigationConfig> = {
     CHAT_CONVERSATION: { requiresAuth: true, analytics: { event: 'chat_conversation_accessed' } },
     CHAT_DETAILS: { requiresAuth: true, analytics: { event: 'chat_details_accessed' } },
     CHAT_MEMBERS: { requiresAuth: true, analytics: { event: 'chat_members_accessed' } },
+    CONVERSATION_ACTIVITIES: { requiresAuth: true, analytics: { event: 'conversation_activities_accessed' } },
 };
 
 // Navigation service class
@@ -471,6 +473,10 @@ class NavigationService {
 
     static async goToChatMembers(conversationId: string) {
         await this.navigateWithPathParams(ROUTES.CHAT_MEMBERS, { conversationId });
+    }
+
+    static async goToConversationActivities(conversationId: string) {
+        await this.navigateWithPathParams(ROUTES.CONVERSATION_ACTIVITIES, { conversationId });
     }
 
     static async goToTabs() {

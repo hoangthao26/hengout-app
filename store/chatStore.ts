@@ -182,7 +182,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             console.log(`🧹 [Memory] Limited conversations in memory: ${conversations.length} → ${limitedConversations.length}`);
         }
 
-        return { conversations: limitedConversations };
+        // SẮP XẾP conversations theo lastMessage.createdAt (DESC), nếu null thì dùng createdAt
+        const sortedConversations = limitedConversations.sort((a, b) => {
+            const aTime = a.lastMessage?.createdAt || a.createdAt;
+            const bTime = b.lastMessage?.createdAt || b.createdAt;
+            return new Date(bTime).getTime() - new Date(aTime).getTime();
+        });
+
+        return { conversations: sortedConversations };
     }),
 
     addConversation: (conversation) => set((state) => {
@@ -215,8 +222,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
                 delete newMembersError[conv.id];
             });
 
+            // SẮP XẾP conversations theo lastMessage.createdAt (DESC), nếu null thì dùng createdAt
+            const sortedLimitedConversations = limitedConversations.sort((a, b) => {
+                const aTime = a.lastMessage?.createdAt || a.createdAt;
+                const bTime = b.lastMessage?.createdAt || b.createdAt;
+                return new Date(bTime).getTime() - new Date(aTime).getTime();
+            });
+
             return {
-                conversations: limitedConversations,
+                conversations: sortedLimitedConversations,
                 conversationMessages: newConversationMessages,
                 messageSnapshots: newMessageSnapshots,
                 cachedMessages: newCachedMessages,
@@ -236,7 +250,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             });
         }
 
-        return { conversations: newConversations };
+        // SẮP XẾP conversations theo lastMessage.createdAt (DESC), nếu null thì dùng createdAt
+        const sortedConversations = newConversations.sort((a, b) => {
+            const aTime = a.lastMessage?.createdAt || a.createdAt;
+            const bTime = b.lastMessage?.createdAt || b.createdAt;
+            return new Date(bTime).getTime() - new Date(aTime).getTime();
+        });
+
+        return { conversations: sortedConversations };
     }),
 
     updateConversation: (conversationId, updates) => set((state) => {

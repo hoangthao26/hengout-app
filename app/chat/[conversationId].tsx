@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SendHorizontal, User, Users } from 'lucide-react-native';
+import { SendHorizontal, User, Users, Compass, Calendar, MapPin } from 'lucide-react-native';
 import NavigationService from '../../services/navigationService';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -24,11 +24,14 @@ import { useChatStore } from '../../store/chatStore';
 import { useChatSync } from '../../hooks/useChatSync';
 import { useChatWebSocket } from '../../hooks/useChatWebSocket';
 import { ChatConversation, ChatMessage } from '../../types/chat';
+import CreateActivityModal from '../../components/CreateActivityModal';
+import ActivityDetailsModal from '../../components/ActivityDetailsModal';
+import { chatWebSocketManager } from '../../services/chatWebSocketManager';
 
 export default function ChatConversationScreen() {
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
-    const { error } = useToast();
+    const { error, success, warning, info } = useToast();
     const router = useRouter();
     const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
     const insets = useSafeAreaInsets();
@@ -75,10 +78,91 @@ export default function ChatConversationScreen() {
     const [messageText, setMessageText] = useState('');
     const [page, setPage] = useState(0);
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+    const [showActivityModal, setShowActivityModal] = useState(false);
+    const [showActivityDetailsModal, setShowActivityDetailsModal] = useState(false);
+    const [selectedActivityId, setSelectedActivityId] = useState<string>('');
 
 
 
     const flatListRef = useRef<FlatList>(null);
+
+    // Helper function to remove duplicate messages by ID
+    const removeDuplicateMessages = (messages: ChatMessage[]): ChatMessage[] => {
+        return messages.filter((msg, index, arr) =>
+            arr.findIndex(m => m.id === msg.id) === index
+        );
+    };
+
+    // Render activity message content - completely separate from regular messages
+    const renderActivityMessage = (message: ChatMessage) => {
+        const { name, purpose, creatorName, creatorAvatar } = message.content;
+        const isMyMessage = message.mine;
+
+        // Use creator info from content if available, fallback to message sender info
+        const displayName = creatorName || message.senderName;
+        const displayAvatar = creatorAvatar || message.senderAvatar;
+
+        return (
+            <View style={styles.activityMessageWrapper}>
+                {/* Activity message container - centered and separate */}
+                <TouchableOpacity
+                    style={[
+                        styles.activityMessageContainer,
+                        isMyMessage ? styles.myActivityContainer : styles.otherActivityContainer
+                    ]}
+                    onPress={() => handleActivityDetails(message.content.activityId || '')}
+                    activeOpacity={0.7}
+                >
+                    {/* Activity header with sender info */}
+                    <View style={styles.activityHeader}>
+                        <View style={styles.activitySenderInfo}>
+                            {!isMyMessage && (
+                                <View style={styles.activityAvatarContainer}>
+                                    {displayAvatar ? (
+                                        <Image
+                                            source={{ uri: displayAvatar }}
+                                            style={styles.activitySenderAvatar}
+                                        />
+                                    ) : (
+                                        <View style={styles.activityDefaultAvatar}>
+                                            <User size={12} color="#9CA3AF" />
+                                        </View>
+                                    )}
+                                </View>
+                            )}
+                            <View style={styles.activityTitleContainer}>
+                                <Text style={styles.activitySenderName}>
+                                    {isMyMessage ? 'Bạn' : displayName}
+                                </Text>
+                                <Text style={styles.activityTitle}>
+                                    đã tạo hoạt động
+                                </Text>
+                            </View>
+                        </View>
+                        <Calendar size={16} color="#F48C06" />
+                    </View>
+
+                    <View style={styles.activityContent}>
+                        <Text style={styles.activityName}>
+                            {name || message.content?.name || 'Không có tên'}
+                        </Text>
+
+                        {(purpose || message.content?.purpose) && (
+                            <Text style={styles.activityPurpose}>
+                                {purpose || message.content?.purpose}
+                            </Text>
+                        )}
+
+                        {/* Tap indicator */}
+                        <View style={styles.tapIndicator}>
+                            <Text style={styles.tapIndicatorText}>Nhấn để xem chi tiết</Text>
+                        </View>
+                    </View>
+
+                </TouchableOpacity>
+            </View>
+        );
+    };
 
     // Load conversation details
     const loadConversation = useCallback(async () => {
@@ -132,12 +216,23 @@ export default function ChatConversationScreen() {
                     console.log(`💾 [Enterprise Chat] Loaded ${localMessages.length} messages from SQLite`);
 
                     if (pageNum === 0) {
-                        setMessages(localMessages);
-                        setConversationMessages(conversationId, localMessages);
-                        setMessageSnapshot(conversationId, localMessages.slice(0, 20)); // Keep recent 20 for instant display
+                        // Remove duplicates before setting messages
+                        const uniqueLocalMessages = removeDuplicateMessages(localMessages);
+                        setMessages(uniqueLocalMessages);
+                        setConversationMessages(conversationId, uniqueLocalMessages);
+                        setMessageSnapshot(conversationId, uniqueLocalMessages.slice(0, 20)); // Keep recent 20 for instant display
                     } else {
-                        setMessages(prev => [...prev, ...localMessages]);
-                        setConversationMessages(conversationId, [...storeMessages, ...localMessages]);
+                        // Remove duplicates when appending messages
+                        const uniqueNewMessages = localMessages.filter(msg =>
+                            !storeMessages.some(existingMsg => existingMsg.id === msg.id)
+                        );
+                        if (uniqueNewMessages.length > 0) {
+                            setMessages(prev => {
+                                const combined = [...prev, ...uniqueNewMessages];
+                                return removeDuplicateMessages(combined);
+                            });
+                            setConversationMessages(conversationId, [...storeMessages, ...uniqueNewMessages]);
+                        }
                     }
 
                     // 4. Background sync from server (only if needed)
@@ -155,24 +250,32 @@ export default function ChatConversationScreen() {
                                         setMessages(prev => {
                                             if (prev.length === 0 ||
                                                 (syncedMessages.length > 0 && syncedMessages[0].id !== prev[0].id)) {
-                                                const nextMessages = syncedMessages;
+                                                // Remove duplicates from synced messages
+                                                const uniqueSyncedMessages = removeDuplicateMessages(syncedMessages);
                                                 // Defer store updates to next tick to avoid cross-render setState warnings
                                                 setTimeout(() => {
-                                                    setConversationMessages(conversationId, nextMessages);
-                                                    setMessageSnapshot(conversationId, nextMessages.slice(0, 20));
+                                                    setConversationMessages(conversationId, uniqueSyncedMessages);
+                                                    setMessageSnapshot(conversationId, uniqueSyncedMessages.slice(0, 20));
                                                 }, 0);
-                                                return nextMessages;
+                                                return uniqueSyncedMessages;
                                             }
                                             return prev; // Keep local data if no newer messages
                                         });
                                     } else {
                                         setMessages(prev => {
-                                            const newMessages = [...prev, ...syncedMessages];
-                                            // Defer store updates to next tick to avoid cross-render setState warnings
-                                            setTimeout(() => {
-                                                setConversationMessages(conversationId, newMessages);
-                                            }, 0);
-                                            return newMessages;
+                                            // Remove duplicates when appending synced messages
+                                            const uniqueNewMessages = syncedMessages.filter(msg =>
+                                                !prev.some(existingMsg => existingMsg.id === msg.id)
+                                            );
+                                            if (uniqueNewMessages.length > 0) {
+                                                const newMessages = [...prev, ...uniqueNewMessages];
+                                                // Defer store updates to next tick to avoid cross-render setState warnings
+                                                setTimeout(() => {
+                                                    setConversationMessages(conversationId, newMessages);
+                                                }, 0);
+                                                return newMessages;
+                                            }
+                                            return prev;
                                         });
                                     }
                                     markSyncTime(conversationId);
@@ -191,12 +294,23 @@ export default function ChatConversationScreen() {
                         console.log(`🌐 [Enterprise Chat] Loaded ${response.data.length} messages from API`);
 
                         if (pageNum === 0) {
-                            setMessages(response.data);
-                            setConversationMessages(conversationId, response.data);
-                            setMessageSnapshot(conversationId, response.data.slice(0, 20));
+                            // Remove duplicates before setting messages
+                            const uniqueApiMessages = removeDuplicateMessages(response.data);
+                            setMessages(uniqueApiMessages);
+                            setConversationMessages(conversationId, uniqueApiMessages);
+                            setMessageSnapshot(conversationId, uniqueApiMessages.slice(0, 20));
                         } else {
-                            setMessages(prev => [...prev, ...response.data]);
-                            setConversationMessages(conversationId, [...storeMessages, ...response.data]);
+                            // Remove duplicates when appending messages
+                            const uniqueNewMessages = response.data.filter(msg =>
+                                !storeMessages.some(existingMsg => existingMsg.id === msg.id)
+                            );
+                            if (uniqueNewMessages.length > 0) {
+                                setMessages(prev => {
+                                    const combined = [...prev, ...uniqueNewMessages];
+                                    return removeDuplicateMessages(combined);
+                                });
+                                setConversationMessages(conversationId, [...storeMessages, ...uniqueNewMessages]);
+                            }
                         }
                     }
                 }
@@ -218,9 +332,9 @@ export default function ChatConversationScreen() {
         setMessageText('');
         setSending(true);
 
-        // Create optimistic message
+        // Create optimistic message with unique ID
         const optimisticMessage: ChatMessage = {
-            id: `temp_${Date.now()}`, // Temporary ID
+            id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // More unique temporary ID
             conversationId,
             senderId: 'current_user', // Will be replaced by actual user ID
             senderName: 'Bạn', // ✅ Consistent with WebSocket logic
@@ -304,6 +418,17 @@ export default function ChatConversationScreen() {
         router.back();
     }, [router]);
 
+    // Handle activity details
+    const handleActivityDetails = useCallback((activityId: string) => {
+        setSelectedActivityId(activityId);
+        setShowActivityDetailsModal(true);
+    }, []);
+
+    const handleCloseActivityDetails = useCallback(() => {
+        setShowActivityDetailsModal(false);
+        setSelectedActivityId('');
+    }, []);
+
     // Load data on mount
     useEffect(() => {
         if (conversationId) {
@@ -322,6 +447,31 @@ export default function ChatConversationScreen() {
         // No cleanup - maintain subscription for "subscribe all conversations" strategy
         // Conversations are managed globally by initializationService
     }, [conversationId, subscribe]);
+
+    // Set toast function for WebSocket manager
+    useEffect(() => {
+        const toastFunction = (type: 'success' | 'info' | 'warning' | 'error', title: string, message?: string) => {
+            console.log(`🔔 [Toast Function] Called with: ${type} - ${title} - ${message}`);
+            switch (type) {
+                case 'success':
+                    success(title, message);
+                    break;
+                case 'info':
+                    info(title, message);
+                    break;
+                case 'warning':
+                    warning(title, message);
+                    break;
+                case 'error':
+                    error(title, message);
+                    break;
+            }
+        };
+
+        // Set toast function directly
+        chatWebSocketManager.setToastFunction(toastFunction);
+        console.log('🔔 [Chat] Toast function set for WebSocket manager');
+    }, [success, info, warning, error]);
 
     // Load conversation if not in store
     useEffect(() => {
@@ -348,9 +498,7 @@ export default function ChatConversationScreen() {
                     )) {
 
                     // Remove duplicates by ID before syncing
-                    const uniqueMessages = storeMessages.filter((storeMsg, index, arr) =>
-                        arr.findIndex(msg => msg.id === storeMsg.id) === index
-                    );
+                    const uniqueMessages = removeDuplicateMessages(storeMessages);
 
                     console.log('🔄 [Chat] Synced messages from store:', {
                         storeCount: storeMessages.length,
@@ -378,6 +526,9 @@ export default function ChatConversationScreen() {
 
         if (nextMessage.mine) return true; // Show sender info before my message
 
+        // Always show sender info if next message is ACTIVITY type (to separate text from activity)
+        if (nextMessage.type === 'ACTIVITY') return true;
+
         // Check if same sender and within 5 minutes
         const currentTime = new Date(currentMessage.createdAt).getTime();
         const nextTime = new Date(nextMessage.createdAt).getTime();
@@ -393,6 +544,9 @@ export default function ChatConversationScreen() {
             if (!previousMessage) return true; // First message is always last in group
             if (!previousMessage.mine) return true; // Last in group if previous is other's message
 
+            // Always break group if previous message is ACTIVITY type
+            if (previousMessage.type === 'ACTIVITY') return true;
+
             // Check if same sender and within 5 minutes
             const currentTime = new Date(currentMessage.createdAt).getTime();
             const previousTime = new Date(previousMessage.createdAt).getTime();
@@ -405,6 +559,9 @@ export default function ChatConversationScreen() {
         if (!previousMessage) return true; // First message is always last in group
 
         if (previousMessage.mine) return true; // Last in group if previous is my message
+
+        // Always break group if previous message is ACTIVITY type
+        if (previousMessage.type === 'ACTIVITY') return true;
 
         // Check if same sender and within 5 minutes
         const currentTime = new Date(currentMessage.createdAt).getTime();
@@ -422,6 +579,9 @@ export default function ChatConversationScreen() {
         if (!nextMessage) return true; // Last message (oldest) is first in group
 
         if (!nextMessage.mine) return true; // First in group if next is other's message
+
+        // Always break group if next message is ACTIVITY type
+        if (nextMessage.type === 'ACTIVITY') return true;
 
         // Check if same sender and within 5 minutes
         const currentTime = new Date(currentMessage.createdAt).getTime();
@@ -468,6 +628,12 @@ export default function ChatConversationScreen() {
 
     // Render message item
     const renderMessage = ({ item, index }: { item: ChatMessage; index: number }) => {
+        // For ACTIVITY messages, render completely separate layout
+        if (item.type === 'ACTIVITY') {
+            return renderActivityMessage(item);
+        }
+
+        // Regular message rendering
         const isMyMessage = item.mine;
         // With inverted FlatList: index 0 = latest, index 1 = older, etc.
         const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
@@ -566,13 +732,28 @@ export default function ChatConversationScreen() {
                         </View>
                     </TouchableOpacity>
 
+                    {/* Compass Icon */}
+                    <TouchableOpacity
+                        style={styles.compassButton}
+                        onPress={() => setShowActivityModal(true)}
+                        activeOpacity={0.7}
+                    >
+                        <Compass
+                            size={32}
+                            color={isDark ? '#FFFFFF' : '#000000'}
+                        />
+                    </TouchableOpacity>
+
                 </View>
 
                 {/* Messages List */}
                 <FlatList
                     ref={flatListRef}
                     data={messages}
-                    keyExtractor={(item) => item.id}
+                    keyExtractor={(item, index) => {
+                        // This prevents duplicate key errors when messages have same ID
+                        return `${item.id}_${index}`;
+                    }}
                     renderItem={renderMessage}
                     inverted
                     onEndReached={() => {
@@ -641,6 +822,27 @@ export default function ChatConversationScreen() {
                         </View>
                     </View>
                 </KeyboardAvoidingView>
+
+                {/* Create Activity Modal */}
+                <CreateActivityModal
+                    visible={showActivityModal}
+                    onClose={() => setShowActivityModal(false)}
+                    conversationId={conversationId || ''}
+                    onActivityCreated={(activity) => {
+                        console.log('Activity created:', activity);
+                        // Handle activity creation success
+                    }}
+                />
+
+                {/* Activity Details Modal */}
+                <ActivityDetailsModal
+                    visible={showActivityDetailsModal}
+                    onClose={handleCloseActivityDetails}
+                    activityId={selectedActivityId}
+                    activityName={messages.find(msg =>
+                        msg.type === 'ACTIVITY' && msg.content.activityId === selectedActivityId
+                    )?.content?.name}
+                />
             </View>
         </ChatErrorBoundary>
     );
@@ -695,8 +897,8 @@ const styles = StyleSheet.create({
     senderName: {
         fontSize: 12,
         fontWeight: '500',
-        marginLeft: 48, // avatarContainer width (40) + marginRight (8)
-        marginTop: 16, // ✅ Thêm padding top cho tên người gửi
+        marginLeft: 48,
+        marginTop: 16,
         marginBottom: 4
     },
     messageBubble: {
@@ -714,6 +916,101 @@ const styles = StyleSheet.create({
     otherMessageLastInGroup: { backgroundColor: '#E5E7EB', borderTopLeftRadius: 4, borderTopRightRadius: 18, borderBottomRightRadius: 18, borderBottomLeftRadius: 18 },
     otherMessageMiddleInGroup: { backgroundColor: '#E5E7EB', borderTopLeftRadius: 4, borderBottomLeftRadius: 4, borderTopRightRadius: 18, borderBottomRightRadius: 18 },
     messageText: { fontSize: 16, lineHeight: 20 },
+    // Activity message styles - completely separate from regular messages
+    activityMessageWrapper: {
+        alignItems: 'center',
+        marginVertical: 8,
+        paddingHorizontal: 16,
+    },
+    activityMessageContainer: {
+        width: '85%',
+        maxWidth: 280,
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    myActivityContainer: {
+        backgroundColor: '#FEF3E2',
+        borderColor: '#F48C06',
+    },
+    otherActivityContainer: {
+        backgroundColor: '#F3F4F6',
+        borderColor: '#D1D5DB',
+    },
+    activityHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    activitySenderInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    activityAvatarContainer: {
+        marginRight: 8,
+    },
+    activitySenderAvatar: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+    },
+    activityDefaultAvatar: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: '#E5E7EB',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    activityTitleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    activitySenderName: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#1F2937',
+        marginRight: 4,
+    },
+    activityTitle: {
+        fontSize: 13,
+        fontWeight: '500',
+        color: '#6B7280',
+    },
+    activityContent: {
+        marginBottom: 0,
+    },
+    activityName: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 4,
+        color: '#1F2937',
+    },
+    activityPurpose: {
+        fontSize: 14,
+        lineHeight: 18,
+        color: '#6B7280',
+    },
+    tapIndicator: {
+        marginTop: 8,
+        paddingTop: 8,
+        borderTopWidth: 1,
+        borderTopColor: '#E5E7EB',
+        alignItems: 'center',
+    },
+    tapIndicatorText: {
+        fontSize: 12,
+        color: '#9CA3AF',
+        fontStyle: 'italic',
+    },
     messageStatusContainer: {
         marginTop: 4,
         alignItems: 'flex-end'

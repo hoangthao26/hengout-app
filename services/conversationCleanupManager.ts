@@ -25,7 +25,7 @@ class ConversationCleanupManager {
      * Initialize cleanup manager
      */
     initialize(): void {
-        console.log('🧹 [ConversationCleanup] Initializing smart cleanup manager');
+        // Initializing smart cleanup manager
         this.startPeriodicCleanup();
     }
 
@@ -41,7 +41,7 @@ class ConversationCleanupManager {
             this.performPeriodicCleanup();
         }, this.CLEANUP_INTERVAL);
 
-        console.log('🧹 [ConversationCleanup] Smart periodic cleanup scheduled every 24 hours');
+        // Smart periodic cleanup scheduled
     }
 
     /**
@@ -52,7 +52,7 @@ class ConversationCleanupManager {
             clearInterval(this.cleanupTimer);
             this.cleanupTimer = null;
         }
-        console.log('🧹 [ConversationCleanup] Periodic cleanup stopped');
+        // Periodic cleanup stopped
     }
 
     /**
@@ -60,15 +60,15 @@ class ConversationCleanupManager {
      */
     private async performPeriodicCleanup(): Promise<void> {
         if (this.isCleanupInProgress) {
-            console.log('⏭️ [ConversationCleanup] Cleanup already in progress, skipping');
+            // Cleanup already in progress, skipping
             return;
         }
 
         try {
-            console.log('🧹 [ConversationCleanup] Starting smart periodic cleanup...');
+            // Starting smart periodic cleanup
             await this.cleanupInactiveConversations();
             this.lastCleanupTime = Date.now();
-            console.log('✅ [ConversationCleanup] Smart periodic cleanup completed');
+            // Smart periodic cleanup completed
         } catch (error) {
             console.error('❌ [ConversationCleanup] Periodic cleanup failed:', error);
         }
@@ -83,18 +83,18 @@ class ConversationCleanupManager {
         errors: number;
     }> {
         if (this.isCleanupInProgress && !force) {
-            console.log('⏭️ [ConversationCleanup] Cleanup already in progress, skipping');
+            // Cleanup already in progress, skipping
             return { cleaned: 0, skipped: 0, errors: 0 };
         }
 
         try {
             this.isCleanupInProgress = true;
-            console.log('🧹 [ConversationCleanup] Starting smart conversation cleanup...');
+            // Starting smart conversation cleanup
 
             // Check if user is authenticated
             const { isAuthenticated } = useAuthStore.getState();
             if (!isAuthenticated) {
-                console.log('ℹ️ [ConversationCleanup] User not authenticated, skipping cleanup');
+                // User not authenticated, skipping cleanup
                 return { cleaned: 0, skipped: 0, errors: 0 };
             }
 
@@ -107,16 +107,16 @@ class ConversationCleanupManager {
             );
 
             if (conversationsToCleanup.length === 0) {
-                console.log('ℹ️ [ConversationCleanup] No conversations need cleanup');
+                // No conversations need cleanup
                 return { cleaned: 0, skipped: 0, errors: 0 };
             }
 
-            console.log(`🧹 [ConversationCleanup] Found ${conversationsToCleanup.length} conversations to cleanup`);
+            // Found conversations to cleanup
 
             // Cleanup in batches
             const result = await this.cleanupConversationsBatch(conversationsToCleanup);
 
-            console.log(`✅ [ConversationCleanup] Smart cleanup completed: ${result.cleaned} cleaned, ${result.skipped} skipped, ${result.errors} errors`);
+            // Smart cleanup completed
             return result;
 
         } catch (error) {
@@ -162,7 +162,7 @@ class ConversationCleanupManager {
         );
 
         if (shouldCleanup) {
-            console.log(`🧹 [ConversationCleanup] Marking for smart cleanup: ${conversation.id} (inactive: ${Math.round(timeSinceActivity / (24 * 60 * 60 * 1000))} days, unused: ${Math.round(timeSinceOpened / (24 * 60 * 60 * 1000))} days)`);
+            // Marking for smart cleanup
         }
 
         return shouldCleanup;
@@ -230,7 +230,7 @@ class ConversationCleanupManager {
      * Smart cleanup - chỉ clean data cũ, không xóa toàn bộ conversation
      */
     private async cleanupOldConversationData(conversation: any): Promise<void> {
-        console.log(`🧹 [ConversationCleanup] Smart cleaning conversation: ${conversation.id}`);
+        // Smart cleaning conversation
 
         try {
             // 1. Clean old messages (giữ 50 messages gần nhất)
@@ -245,7 +245,7 @@ class ConversationCleanupManager {
             // 4. Clean memory cache (không xóa conversation)
             await this.cleanupMemoryCache(conversation.id);
 
-            console.log(`✅ [ConversationCleanup] Smart cleaned conversation: ${conversation.id}`);
+            // Smart cleaned conversation
         } catch (error) {
             console.error(`❌ [ConversationCleanup] Failed to smart cleanup conversation ${conversation.id}:`, error);
             throw error;
@@ -261,7 +261,7 @@ class ConversationCleanupManager {
             const messages = await databaseService.getMessages(conversationId, 1000, 0); // Lấy tất cả
 
             if (messages.length <= this.MAX_MESSAGES_PER_CONVERSATION) {
-                console.log(`ℹ️ [ConversationCleanup] Conversation ${conversationId} has ${messages.length} messages, no cleanup needed`);
+                // Conversation has no cleanup needed
                 return;
             }
 
@@ -274,7 +274,7 @@ class ConversationCleanupManager {
             const keepMessages = sortedMessages.slice(0, this.MAX_MESSAGES_PER_CONVERSATION);
             const deleteMessages = sortedMessages.slice(this.MAX_MESSAGES_PER_CONVERSATION);
 
-            console.log(`🧹 [ConversationCleanup] Cleaning ${deleteMessages.length} old messages from conversation ${conversationId}`);
+            // Cleaning old messages from conversation
 
             // Xóa messages cũ từ database
             for (const message of deleteMessages) {
@@ -307,7 +307,7 @@ class ConversationCleanupManager {
         try {
             // TODO: Implement media cleanup when we add media support
             // For now, just log that we would clean media
-            console.log(`ℹ️ [ConversationCleanup] Media cleanup for conversation ${conversationId} - not implemented yet`);
+            // Media cleanup not implemented yet
         } catch (error) {
             console.error(`❌ [ConversationCleanup] Failed to cleanup old media for conversation ${conversationId}:`, error);
             throw error;
@@ -361,7 +361,7 @@ class ConversationCleanupManager {
                 console.log(`🧹 [ConversationCleanup] Cleaned cached messages for conversation ${conversationId}`);
             }
 
-            console.log(`✅ [ConversationCleanup] Memory cache cleaned for conversation ${conversationId}`);
+            // Memory cache cleaned for conversation
         } catch (error) {
             console.error(`❌ [ConversationCleanup] Failed to cleanup memory cache for conversation ${conversationId}:`, error);
             throw error;

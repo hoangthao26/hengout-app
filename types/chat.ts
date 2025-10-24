@@ -12,6 +12,9 @@ export interface ChatMessage {
         activityId?: string;
         name?: string;
         purpose?: string;
+        status?: string;
+        creatorName?: string;
+        creatorAvatar?: string;
     };
 
     createdAt: string;

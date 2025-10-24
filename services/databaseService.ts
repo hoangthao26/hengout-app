@@ -45,7 +45,11 @@ class DatabaseService {
                 last_message_text TEXT,
                 last_message_timestamp TEXT,
                 last_message_mine INTEGER NOT NULL DEFAULT 0,
-                last_message_sender_name TEXT
+                last_message_sender_name TEXT,
+                last_message_type TEXT DEFAULT 'TEXT',
+                last_message_activity_id TEXT,
+                last_message_activity_name TEXT,
+                last_message_activity_purpose TEXT
             );
         `);
 
@@ -62,6 +66,9 @@ class DatabaseService {
                 content_image_url TEXT,
                 content_file_name TEXT,
                 content_file_url TEXT,
+                content_activity_id TEXT,
+                content_activity_name TEXT,
+                content_activity_purpose TEXT,
                 created_at TEXT NOT NULL,
                 mine INTEGER NOT NULL DEFAULT 0,
                 status TEXT NOT NULL DEFAULT 'sent',
@@ -69,6 +76,31 @@ class DatabaseService {
                 FOREIGN KEY (conversation_id) REFERENCES conversations (id)
             );
         `);
+
+        // Migration: Add activity fields to existing messages table
+        try {
+            await this.db.execAsync(`
+                ALTER TABLE messages ADD COLUMN content_activity_id TEXT;
+            `);
+        } catch (error) {
+            // Column already exists, ignore error
+        }
+
+        try {
+            await this.db.execAsync(`
+                ALTER TABLE messages ADD COLUMN content_activity_name TEXT;
+            `);
+        } catch (error) {
+            // Column already exists, ignore error
+        }
+
+        try {
+            await this.db.execAsync(`
+                ALTER TABLE messages ADD COLUMN content_activity_purpose TEXT;
+            `);
+        } catch (error) {
+            // Column already exists, ignore error
+        }
 
         // Members table
         await this.db.execAsync(`
@@ -110,27 +142,44 @@ class DatabaseService {
         if (!this.db) throw new Error('Database not initialized');
 
         try {
-            // Check if last_message_sender_name column exists
+            // Check existing columns
             const tableInfo = await this.db.getAllAsync(`
                 PRAGMA table_info(conversations)
             `);
 
-            const hasSenderNameColumn = tableInfo.some((column: any) =>
-                column.name === 'last_message_sender_name'
-            );
+            const existingColumns = tableInfo.map((column: any) => column.name);
 
-            if (!hasSenderNameColumn) {
+            // Add last_message_sender_name column if not exists
+            if (!existingColumns.includes('last_message_sender_name')) {
                 console.log('🔄 [DatabaseMigration] Adding last_message_sender_name column...');
-
                 await this.db.execAsync(`
                     ALTER TABLE conversations 
                     ADD COLUMN last_message_sender_name TEXT
                 `);
-
                 console.log('✅ [DatabaseMigration] Added last_message_sender_name column successfully');
-            } else {
-                console.log('ℹ️ [DatabaseMigration] last_message_sender_name column already exists');
             }
+
+            // Add Activity message columns if not exist
+            const activityColumns = [
+                'last_message_type',
+                'last_message_activity_id',
+                'last_message_activity_name',
+                'last_message_activity_purpose'
+            ];
+
+            for (const columnName of activityColumns) {
+                if (!existingColumns.includes(columnName)) {
+                    console.log(`🔄 [DatabaseMigration] Adding ${columnName} column...`);
+                    const columnType = columnName === 'last_message_type' ? 'TEXT DEFAULT "TEXT"' : 'TEXT';
+                    await this.db.execAsync(`
+                        ALTER TABLE conversations 
+                        ADD COLUMN ${columnName} ${columnType}
+                    `);
+                    console.log(`✅ [DatabaseMigration] Added ${columnName} column successfully`);
+                }
+            }
+
+            console.log('ℹ️ [DatabaseMigration] All columns are up to date');
         } catch (error) {
             console.error('❌ [DatabaseMigration] Migration failed:', error);
             // Don't throw error - app should still work
@@ -151,8 +200,9 @@ class DatabaseService {
             INSERT OR REPLACE INTO conversations (
                 id, type, name, avatar_url, created_by, status, member_count, 
                 user_role, created_at, updated_at, last_message_id, 
-                last_message_text, last_message_timestamp, last_message_mine, last_message_sender_name
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                last_message_text, last_message_timestamp, last_message_mine, last_message_sender_name,
+                last_message_type, last_message_activity_id, last_message_activity_name, last_message_activity_purpose
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             conversation.id,
             conversation.type || 'PRIVATE',
@@ -168,7 +218,11 @@ class DatabaseService {
             lastMessage?.content.text || null,
             lastMessage?.createdAt || null,
             lastMessage?.mine ? 1 : 0,
-            lastMessage?.senderName || null
+            lastMessage?.senderName || null,
+            lastMessage?.type || 'TEXT',
+            lastMessage?.content.activityId || null,
+            lastMessage?.content.name || null,
+            lastMessage?.content.purpose || null
         ]);
     }
 
@@ -180,7 +234,11 @@ class DatabaseService {
         messageId: string,
         messageTimestamp: string,
         isMine: boolean,
-        senderName?: string
+        senderName?: string,
+        messageType?: string,
+        activityId?: string,
+        activityName?: string,
+        activityPurpose?: string
     ): Promise<void> {
         if (!this.db) throw new Error('Database not initialized');
 
@@ -191,6 +249,10 @@ class DatabaseService {
                 last_message_timestamp = ?,
                 last_message_mine = ?,
                 last_message_sender_name = ?,
+                last_message_type = ?,
+                last_message_activity_id = ?,
+                last_message_activity_name = ?,
+                last_message_activity_purpose = ?,
                 updated_at = ?
             WHERE id = ?
         `, [
@@ -198,6 +260,10 @@ class DatabaseService {
             messageTimestamp,
             isMine ? 1 : 0,
             senderName || null,
+            messageType || 'TEXT',
+            activityId || null,
+            activityName || null,
+            activityPurpose || null,
             new Date().toISOString(),
             conversationId
         ]);
@@ -206,7 +272,11 @@ class DatabaseService {
             conversationId,
             messageId,
             messageTimestamp,
-            isMine
+            isMine,
+            messageType,
+            activityId,
+            activityName,
+            activityPurpose
         });
     }
 
@@ -216,13 +286,25 @@ class DatabaseService {
     async getConversations(): Promise<ChatConversation[]> {
         if (!this.db) throw new Error('Database not initialized');
 
-        // 🚀 SẮP XẾP THEO lastMessage.createdAt (DESC - từ mới đến cũ)
+        // SẮP XẾP THEO lastMessage.createdAt (DESC - từ mới đến cũ)
         const result = await this.db.getAllAsync(`
             SELECT * FROM conversations 
             ORDER BY last_message_timestamp DESC, created_at DESC
         `);
 
-        return result.map(this.mapConversationFromDB);
+        const conversations = result.map(this.mapConversationFromDB);
+
+        // Load full lastMessage data for each conversation
+        for (const conversation of conversations) {
+            if (conversation.lastMessage) {
+                const fullMessage = await this.getMessageById(conversation.lastMessage.id);
+                if (fullMessage) {
+                    conversation.lastMessage = fullMessage;
+                }
+            }
+        }
+
+        return conversations;
     }
 
     /**
@@ -235,7 +317,30 @@ class DatabaseService {
             SELECT * FROM conversations WHERE id = ?
         `, [conversationId]);
 
-        return result ? this.mapConversationFromDB(result) : null;
+        const conversation = result ? this.mapConversationFromDB(result) : null;
+
+        // Load full lastMessage data
+        if (conversation?.lastMessage) {
+            const fullMessage = await this.getMessageById(conversation.lastMessage.id);
+            if (fullMessage) {
+                conversation.lastMessage = fullMessage;
+            }
+        }
+
+        return conversation;
+    }
+
+    /**
+     * Get message by ID from local database
+     */
+    async getMessageById(messageId: string): Promise<ChatMessage | null> {
+        if (!this.db) throw new Error('Database not initialized');
+
+        const result = await this.db.getFirstAsync(`
+            SELECT * FROM messages WHERE id = ?
+        `, [messageId]);
+
+        return result ? this.mapMessageFromDB(result) : null;
     }
 
     /**
@@ -287,8 +392,9 @@ class DatabaseService {
             INSERT OR REPLACE INTO messages (
                 id, conversation_id, sender_id, sender_name, sender_avatar,
                 type, content_text, content_image_url, content_file_name, 
-                content_file_url, created_at, mine, status, synced
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                content_file_url, content_activity_id, content_activity_name, content_activity_purpose,
+                created_at, mine, status, synced
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             message.id,
             message.conversationId,
@@ -300,22 +406,37 @@ class DatabaseService {
             null, // imageUrl - removed
             null, // fileName - removed  
             null, // fileUrl - removed
+            message.content.activityId || null,
+            message.content.name || null,
+            message.content.purpose || null,
             message.createdAt || new Date().toISOString(),
             message.mine ? 1 : 0,
             'sent',
             1 // synced
         ]);
 
-        // 🚀 UPDATE CONVERSATION: Update last_message_timestamp when new message is saved
+        // UPDATE CONVERSATION: Update last_message_timestamp when new message is saved
         await this.db.runAsync(`
             UPDATE conversations 
-            SET last_message_timestamp = ?, last_message_text = ?, last_message_mine = ?, last_message_sender_name = ?
+            SET 
+                last_message_timestamp = ?, 
+                last_message_text = ?, 
+                last_message_mine = ?, 
+                last_message_sender_name = ?,
+                last_message_type = ?,
+                last_message_activity_id = ?,
+                last_message_activity_name = ?,
+                last_message_activity_purpose = ?
             WHERE id = ?
         `, [
             message.createdAt || new Date().toISOString(),
             message.content.text || '',
             message.mine ? 1 : 0,
             message.senderName || null,
+            message.type || 'TEXT',
+            message.content.activityId || null,
+            message.content.name || null,
+            message.content.purpose || null,
             message.conversationId
         ]);
     }
@@ -513,10 +634,14 @@ class DatabaseService {
                 senderId: '',
                 senderName: row.last_message_sender_name || '',
                 senderAvatar: '',
-                type: 'TEXT',
-                content: { text: row.last_message_text },
+                type: (row.last_message_type || 'TEXT') as 'TEXT' | 'ACTIVITY',
+                content: {
+                    text: row.last_message_text,
+                    activityId: row.last_message_activity_id,
+                    name: row.last_message_activity_name,
+                    purpose: row.last_message_activity_purpose
+                },
                 createdAt: row.last_message_timestamp,
-
                 mine: row.last_message_mine === 1
             } : undefined
         };
@@ -557,3 +682,13 @@ class DatabaseService {
 // Export singleton instance
 export const databaseService = new DatabaseService();
 export default databaseService;
+
+
+
+
+
+
+
+
+
+

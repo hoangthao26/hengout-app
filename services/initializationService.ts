@@ -56,7 +56,7 @@ class InitializationService {
         const appStore = useAppStore.getState();
 
         try {
-            console.log('🚀 [InitializationService] Starting app initialization...');
+            console.log('🚀 Starting services...');
 
             // Reset error state
             appStore.setInitializationError(null);
@@ -64,44 +64,44 @@ class InitializationService {
             // 1. Initialize Database (Critical - must be first)
             await this.initializeDatabase();
             appStore.setDatabaseReady(true);
-            console.log('✅ [InitializationService] Database ready');
+            console.log('✅ Database ready');
 
             // 2. Initialize Location Services
             await this.initializeLocation();
             appStore.setLocationReady(true);
-            console.log('✅ [InitializationService] Location ready');
+            console.log('✅ Location ready');
 
             // 3. Initialize Auth Services (BEFORE API calls) ← PROACTIVE
             await this.initializeAuthServices();
             appStore.setAuthReady(true);
-            console.log('✅ [InitializationService] Auth ready');
+            console.log('✅ Auth ready');
 
             // 4. Initialize Chat Sync Services (AFTER auth)
             await this.initializeChatServices();
             appStore.setServicesReady(true);
-            console.log('✅ [InitializationService] Services ready');
+            console.log('✅ Services ready');
 
             // 4.5. Initialize Conversation Cleanup Manager
             conversationCleanupManager.initialize();
-            console.log('✅ [InitializationService] Cleanup manager ready');
+            // Cleanup manager ready
 
             // 4.6. Initialize App Lifecycle Manager
             appLifecycleManager.initialize();
-            console.log('✅ [InitializationService] App lifecycle manager ready');
+            // App lifecycle manager ready
 
             // 5. Initialize WebSocket Connection (AFTER auth)
             await this.initializeWebSocket();
-            console.log('✅ [InitializationService] WebSocket ready');
+            console.log('✅ WebSocket ready');
 
             // 6. Preload Chat Data for Instant Display (AFTER WebSocket)
             await this.preloadChatData();
-            console.log('✅ [InitializationService] Chat data preloaded');
+            console.log('✅ Chat data preloaded');
 
             // 7. Mark app as ready
             appStore.setAppReady(true);
             this.isInitialized = true;
 
-            console.log('🎉 [InitializationService] App initialization completed successfully');
+            console.log('🎉 App initialization completed');
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown initialization error';
@@ -128,7 +128,7 @@ class InitializationService {
             locationService.initCurrentVibes().catch(() => { });
         } catch (err) {
             // Non-critical
-            console.log('ℹ️ [InitializationService] initOnAppStart skipped/failed', err);
+            // initOnAppStart skipped/failed
         }
     }
 
@@ -145,9 +145,9 @@ class InitializationService {
 
             // ✅ Reinitialize WebSocket after login
             await this.reinitializeWebSocket();
-            console.log('✅ [InitializationService] WebSocket reinitialized after login');
+            // WebSocket reinitialized after login
         } catch (err) {
-            console.log('ℹ️ [InitializationService] initAfterLogin skipped/failed', err);
+            // initAfterLogin skipped/failed
         }
     }
 
@@ -157,7 +157,7 @@ class InitializationService {
     private async initializeDatabase(): Promise<void> {
         for (let attempt = 1; attempt <= this.MAX_RETRIES; attempt++) {
             try {
-                console.log(`🗄️ [InitializationService] Initializing database (attempt ${attempt}/${this.MAX_RETRIES})`);
+                // Initializing database
                 await databaseService.initialize();
                 return;
             } catch (error) {
@@ -178,13 +178,13 @@ class InitializationService {
      */
     private async initializeLocation(): Promise<void> {
         try {
-            console.log('📍 [InitializationService] Initializing location services...');
+            // Initializing location services
 
             // Check if location services are enabled
             const isLocationEnabled = await Location.hasServicesEnabledAsync();
 
             if (!isLocationEnabled) {
-                console.log('📍 [InitializationService] Location services disabled, using fallback');
+                // Location services disabled
                 return;
             }
 
@@ -192,11 +192,11 @@ class InitializationService {
             const { status } = await Location.requestForegroundPermissionsAsync();
 
             if (status !== 'granted') {
-                console.log('📍 [InitializationService] Location permission denied, using fallback');
+                // Location permission denied
                 return;
             }
 
-            console.log('✅ [InitializationService] Location services ready');
+            // Location services ready
 
         } catch (error) {
             console.error('❌ [InitializationService] Location initialization failed:', error);
@@ -209,33 +209,33 @@ class InitializationService {
      */
     private async initializeAuthServices(): Promise<void> {
         try {
-            console.log('🔐 [InitializationService] Initializing auth services...');
+            // Initializing auth services
 
             // Check if user is authenticated
             const { AuthHelper } = await import('./authHelper');
             const isAuthenticated = await AuthHelper.isAuthenticated();
 
             if (!isAuthenticated) {
-                console.log('ℹ️ [InitializationService] User not authenticated, skipping auth services');
+                // User not authenticated, skipping auth services
                 return;
             }
 
             // Check token expiry and refresh if needed
             const tokens = await AuthHelper.getTokens();
             if (tokens && tokens.expiresIn < 5 * 60 * 1000) { // 5 minutes - consistent with RefreshTokenManager
-                console.log('⏰ [InitializationService] Token expiring soon, refreshing proactively');
+                // Token expiring soon, refreshing
                 try {
                     // Use RefreshTokenManager for consistent refresh logic
                     const { refreshTokenManager } = await import('./refreshTokenManager');
                     await refreshTokenManager.performRefresh();
-                    console.log('✅ [InitializationService] Token refreshed successfully');
+                    // Token refreshed successfully
                 } catch (error) {
-                    console.log('⚠️ [InitializationService] Token refresh failed, will retry later');
+                    // Token refresh failed, will retry later
                     // Don't throw - auth services can be initialized later
                 }
             }
 
-            console.log('✅ [InitializationService] Auth services ready');
+            // Auth services ready
 
         } catch (error) {
             console.error('❌ [InitializationService] Auth services initialization failed:', error);
@@ -248,9 +248,9 @@ class InitializationService {
      */
     private async initializeChatServices(): Promise<void> {
         try {
-            console.log('💬 [InitializationService] Initializing chat services...');
+            // Initializing chat services
             await chatSyncService.initialize();
-            console.log('✅ [InitializationService] Chat services ready');
+            // Chat services ready
         } catch (error) {
             console.error('❌ [InitializationService] Chat services initialization failed:', error);
             // Don't throw - chat services can be initialized later
@@ -262,14 +262,14 @@ class InitializationService {
      */
     private async initializeWebSocket(): Promise<void> {
         try {
-            console.log('🔌 [InitializationService] Initializing WebSocket connection...');
+            // Initializing WebSocket connection
 
             // Check if user is authenticated
             const { AuthHelper } = await import('./authHelper');
             const isAuthenticated = await AuthHelper.isAuthenticated();
 
             if (!isAuthenticated) {
-                console.log('ℹ️ [InitializationService] User not authenticated, skipping WebSocket initialization');
+                // User not authenticated, skipping WebSocket
                 return;
             }
 
@@ -278,26 +278,26 @@ class InitializationService {
 
             // Connect WebSocket
             await chatWebSocketManager.connect();
-            console.log('✅ [InitializationService] WebSocket connected');
+            // WebSocket connected
 
             // Subscribe to all conversations
             const { chatSyncService } = await import('./chatSyncService');
             const conversations = await chatSyncService.getConversations();
 
             if (conversations.length > 0) {
-                console.log(`📡 [InitializationService] Subscribing to ${conversations.length} conversations...`);
+                // Subscribing to conversations
 
                 // Subscribe to all conversations using the new method
                 const conversationIds = conversations.map(conversation => conversation.id);
                 await chatWebSocketManager.subscribeToAllConversations(conversationIds);
 
-                console.log('✅ [InitializationService] Subscribed to all conversations');
+                // Subscribed to all conversations
 
                 // SMART SYNC: Trigger initial smart sync for all conversations
                 smartSyncManager.scheduleBatchSync(conversationIds, 'app_startup');
-                console.log('🚀 [InitializationService] Smart sync scheduled for all conversations');
+                // Smart sync scheduled
             } else {
-                console.log('ℹ️ [InitializationService] No conversations to subscribe to');
+                // No conversations to subscribe to
             }
 
         } catch (error) {
@@ -313,14 +313,14 @@ class InitializationService {
         const appStore = useAppStore.getState(); // ✅ Move appStore ra ngoài để access trong catch block
 
         try {
-            if (__DEV__) console.log('🚀 [InitializationService] Preloading chat data for instant display...');
+            // Preloading chat data for instant display
 
             // 🚀 CHECK AUTH FIRST: Only sync if user is authenticated
             const { AuthHelper } = await import('./authHelper');
             const isAuthenticated = await AuthHelper.isAuthenticated();
 
             if (!isAuthenticated) {
-                if (__DEV__) console.log('ℹ️ [InitializationService] User not authenticated, skipping chat data preload');
+                // User not authenticated, skipping chat data preload
                 appStore.setChatDataPreloaded(true);
                 return;
             }
@@ -328,20 +328,20 @@ class InitializationService {
             const chatStore = useChatStore.getState();
 
             // ✅ SYNC DATA TỪ SERVER TRƯỚC KHI PRELOAD
-            if (__DEV__) console.log('🔄 [InitializationService] Syncing conversations from server...');
+            // Syncing conversations from server
             await chatSyncService.syncConversations();
 
             // Get conversations from database (after sync)
             const conversations = await chatSyncService.getConversations();
-            if (__DEV__) console.log(`🔍 [InitializationService] Found ${conversations.length} conversations after sync`);
+            // Found conversations after sync
 
             if (conversations.length > 0) {
                 chatStore.setConversations(conversations);
-                if (__DEV__) console.log(`📊 [InitializationService] Loaded ${conversations.length} conversations into store`);
+                // Loaded conversations into store
 
                 // PRELOADING - Giống Messenger/Instagram
                 const topConversations = conversations.slice(0, 15); // Top 15 conversations (tăng từ 5)
-                if (__DEV__) console.log(`⚡ [InitializationService] Preloading messages for ${topConversations.length} conversations...`);
+                // Preloading messages for conversations
 
                 //  PARALLEL PRELOADING - Tất cả conversations load cùng lúc
                 const preloadPromises = topConversations.map(async (conversation) => {
@@ -373,7 +373,7 @@ class InitializationService {
                 // ✅ ĐỢI TẤT CẢ PRELOADING HOÀN THÀNH
                 await Promise.all(preloadPromises);
 
-                if (__DEV__) console.log('✅ [InitializationService] Chat data preloading completed');
+                // Chat data preloading completed
 
                 // 🧹 CLEANUP: Trigger cleanup after data preload
                 conversationCleanupManager.cleanupInactiveConversations().catch(error => {
@@ -383,7 +383,7 @@ class InitializationService {
                 // ✅ Set chat data preloaded status
                 appStore.setChatDataPreloaded(true);
             } else {
-                console.log('ℹ️ [InitializationService] No conversations to preload');
+                // No conversations to preload
                 // ✅ Set preloaded even if no conversations
                 appStore.setChatDataPreloaded(true);
             }
@@ -425,9 +425,9 @@ class InitializationService {
      */
     async reinitializeWebSocket(): Promise<void> {
         try {
-            console.log('🔄 [InitializationService] Reinitializing WebSocket after auth...');
+            // Reinitializing WebSocket after auth
             await this.initializeWebSocket();
-            console.log('✅ [InitializationService] WebSocket reinitialized successfully');
+            // WebSocket reinitialized successfully
         } catch (error) {
             console.error('❌ [InitializationService] WebSocket reinitialization failed:', error);
             // Don't throw - this is not critical
@@ -449,7 +449,7 @@ class InitializationService {
         appStore.setAppReady(false);
         appStore.setInitializationError(null);
 
-        console.log('🔄 [InitializationService] Initialization state reset');
+        // Initialization state reset
     }
 
     /**

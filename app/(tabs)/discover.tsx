@@ -382,7 +382,7 @@ export default function DiscoverScreen() {
             try {
                 // Check if we have location data from splash screen
                 if (lat && lng) {
-                    console.log('📍 [DiscoverScreen] Using location from splash:', { lat, lng, accuracy });
+                    console.log('📍 Using location from splash screen');
 
                     setInitialLocation({
                         lat: parseFloat(lat),
@@ -464,14 +464,14 @@ export default function DiscoverScreen() {
             // Move map center to the location (with delay to ensure map is ready)
             setTimeout(() => {
                 if (mapController) {
-                    console.log('🗺️ [Discover] Moving map center to location:', { lat, lng });
+                    console.log('🗺️ Moving map to location');
                     mapController.centerMapOnLocation(lat, lng, 0.005);
                 } else {
                     console.log('⚠️ [Discover] Map controller not ready yet, retrying...');
                     // Retry after a longer delay
                     setTimeout(() => {
                         if (mapController) {
-                            console.log('🗺️ [Discover] Moving map center to location (retry):', { lat, lng });
+                            console.log('🗺️ Moving map to location (retry)');
                             (mapController as any).centerMapOnLocation(lat, lng, 0.005);
                         }
                     }, 1000);
@@ -481,11 +481,11 @@ export default function DiscoverScreen() {
             // Fetch full location details and open card (fallback)
             const fetchLocationDetails = async () => {
                 try {
-                    console.log('🔄 [Discover] Fetching location details for auto-open:', locationId);
+                    console.log('🔄 Fetching location details for auto-open');
                     const response = await locationService.getLocationDetails(locationId);
 
                     if (response.status === 'success') {
-                        console.log('✅ [Discover] Location details fetched, opening card');
+                        console.log('✅ Location details fetched, opening card');
                         setSelectedLocationDetails(response.data);
                         setSelectedLocationForDetail(response.data);
                     } else {
@@ -501,7 +501,7 @@ export default function DiscoverScreen() {
             // Use location data if available, otherwise fetch from API
             if (locationData) {
                 try {
-                    console.log('✅ [Discover] Using location data from params');
+                    console.log('✅ Using location data from params');
                     const locationDetails = JSON.parse(locationData);
                     setSelectedLocationDetails(locationDetails);
                     setSelectedLocationForDetail(locationDetails);

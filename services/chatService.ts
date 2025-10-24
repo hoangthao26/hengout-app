@@ -196,7 +196,7 @@ class ChatService {
             case 'TEXT':
                 return message.content.text || '';
             case 'ACTIVITY':
-                return `🎯 ${message.content.name || 'Hoạt động'}: ${message.content.purpose || 'Không có mô tả'}`;
+                return `🎯 ${message.content.name || 'Hoạt động'}`;
             default:
                 return 'Tin nhắn không xác định';
         }

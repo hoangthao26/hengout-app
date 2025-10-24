@@ -9,6 +9,7 @@ export type WebSocketConnection = {
     ws: WebSocket;
     ready: Promise<void>;
     subscribe: (conversationId: string, onMessage: (message: WebSocketMessage) => void) => void;
+    subscribeToActivity: (conversationId: string, onMessage: (message: WebSocketMessage) => void) => void;
     send: (message: any) => void;
     disconnect: () => void;
     onClose?: (callback: (event: CloseEvent) => void) => void;
@@ -34,7 +35,7 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
     const errorCallbacks: ((error: Event) => void)[] = [];
 
     ws.onopen = () => {
-        console.log('🔌 WebSocket connected');
+        // WebSocket connected
         resolveReady();
     };
 
@@ -47,7 +48,7 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
     };
 
     ws.onclose = (event) => {
-        console.log('🔌 WebSocket closed:', event.code, event.reason);
+        // WebSocket closed
 
         // Handle different close codes
         if (event.code === 1001) {
@@ -76,7 +77,7 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
                     break;
 
                 case 'SUBSCRIBE_SUCCESS':
-                    console.log('✅ Subscribed to conversation:', message.data.conversationId);
+                    // Subscribed to conversation
                     break;
 
                 case 'NEW_MESSAGE':
@@ -88,10 +89,20 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
                     break;
 
                 case 'ACTIVITY_UPDATE':
+                    console.log('📊 [WebSocket] Activity update - FULL STRUCTURE:', {
+                        allMessageKeys: Object.keys(message),
+                        conversationId: message.data?.conversationId,
+                        fullMessage: message,
+                        activityData: message.data?.activity,
+                        messageType: 'ACTIVITY_UPDATE'
+                    });
+
                     const activityConversationId = message.data.conversationId;
                     const activityHandler = messageHandlers.get(`activity_${activityConversationId}`);
                     if (activityHandler) {
                         activityHandler(message);
+                    } else {
+                        console.log('⚠️ [WebSocket] No handler found for activity update:', activityConversationId);
                     }
                     break;
 
@@ -141,6 +152,12 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
         ws.send(JSON.stringify(subscribeMessage));
     }
 
+    function subscribeToActivity(conversationId: string, onMessage: (message: WebSocketMessage) => void) {
+        const key = `activity_${conversationId}`;
+        messageHandlers.set(key, onMessage);
+        // Registered activity handler
+    }
+
     function send(message: any) {
         if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify(message));
@@ -158,6 +175,7 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
         ws,
         ready,
         subscribe,
+        subscribeToActivity,
         send,
         disconnect,
         onClose: (callback: (event: CloseEvent) => void) => {

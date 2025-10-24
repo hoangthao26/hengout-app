@@ -68,6 +68,7 @@ export const SERVICES_CONFIG = {
     // Social Service
     SOCIAL_SERVICE: {
         BASE_URL: process.env.EXPO_PUBLIC_SOCIAL_SERVICE_URL || 'https://api.hengout.app/social-service/api/v1',
+        ACTIVITIES_BASE_URL: process.env.EXPO_PUBLIC_SOCIAL_SERVICE_ACTIVITIES_URL || 'https://api.hengout.app/social-service/api',
         ENDPOINTS: {
             FOLLOW_USER: '/users/:id/follow',
             UNFOLLOW_USER: '/users/:id/unfollow',
@@ -105,6 +106,24 @@ export const SERVICES_CONFIG = {
             GET_ACTIVITY_SUGGESTIONS: '/activities/:activityId/suggestions',
             GET_ACTIVITY_RESULT: '/activities/:activityId/result',
             CREATE_ACTIVITY: '/activities',
+            UPDATE_ACTIVITY: '/activities/:activityId',
+            DELETE_ACTIVITY: '/activities/:activityId',
+            SUBMIT_ACTIVITY_PREFERENCE: '/activities/preferences',
+            VOTE_FOR_SUGGESTION: '/activities/vote',
+        }
+    },
+
+    // Activities Service
+    ACTIVITIES_BASE_URL: {
+        BASE_URL: process.env.EXPO_PUBLIC_SOCIAL_SERVICE_ACTIVITIES_URL || 'https://api.hengout.app/social-service/api',
+        ENDPOINTS: {
+            GET_ACTIVITY_BY_ID: '/activities/:activityId',
+            GET_CONVERSATION_ACTIVITIES: '/activities/conversation/:conversationId',
+            GET_ACTIVITY_SUGGESTIONS: '/activities/:activityId/suggestions',
+            GET_ACTIVITY_RESULT: '/activities/:activityId/result',
+            CREATE_ACTIVITY: '/activities',
+            UPDATE_ACTIVITY: '/activities/:activityId',
+            DELETE_ACTIVITY: '/activities/:activityId',
             SUBMIT_ACTIVITY_PREFERENCE: '/activities/preferences',
             VOTE_FOR_SUGGESTION: '/activities/vote',
         }
@@ -130,13 +149,26 @@ export const getServiceUrl = (service: keyof typeof SERVICES_CONFIG, endpoint?: 
 };
 
 // Helper function to build full endpoint URL
-export const buildEndpointUrl = (service: keyof typeof SERVICES_CONFIG, endpointKey: string): string => {
+export const buildEndpointUrl = (service: keyof typeof SERVICES_CONFIG, endpointKey: string, params?: Record<string, string>): string => {
     const serviceConfig = SERVICES_CONFIG[service];
     const endpoint = (serviceConfig.ENDPOINTS as any)[endpointKey];
     if (!endpoint) {
         throw new Error(`Endpoint ${endpointKey} not found in ${service} service`);
     }
-    return `${serviceConfig.BASE_URL}${endpoint}`;
+
+    let finalEndpoint = endpoint;
+    if (params) {
+        Object.keys(params).forEach(key => {
+            finalEndpoint = finalEndpoint.replace(`:${key}`, params[key]);
+        });
+    }
+
+    // Use ACTIVITIES_BASE_URL for activity endpoints
+    const baseUrl = (endpointKey.includes('ACTIVITY') && (serviceConfig as any).ACTIVITIES_BASE_URL)
+        ? (serviceConfig as any).ACTIVITIES_BASE_URL
+        : serviceConfig.BASE_URL;
+
+    return `${baseUrl}${finalEndpoint}`;
 };
 
 // Export individual service configs for convenience

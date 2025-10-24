@@ -19,7 +19,7 @@ class SmartSyncManager {
      * Schedule sync for a specific conversation
      */
     scheduleSync(conversationId: string, reason: string = 'unknown'): void {
-        console.log(`🔄 [SmartSync] Scheduling sync for ${conversationId} (reason: ${reason})`);
+        // Scheduling sync for conversation
 
         // Update activity time
         this.lastActivityTime[conversationId] = Date.now();
@@ -35,7 +35,7 @@ class SmartSyncManager {
      * Schedule sync for multiple conversations
      */
     scheduleBatchSync(conversationIds: string[], reason: string = 'batch'): void {
-        console.log(`🔄 [SmartSync] Scheduling batch sync for ${conversationIds.length} conversations (reason: ${reason})`);
+        // Scheduling batch sync for conversations
 
         const now = Date.now();
         conversationIds.forEach(id => {
@@ -69,7 +69,7 @@ class SmartSyncManager {
 
         try {
             this.syncInProgress = true;
-            console.log(`🔄 [SmartSync] Processing sync queue: ${this.syncQueue.size} conversations`);
+            // Processing sync queue
 
             // Get conversations to sync
             const conversationsToSync = Array.from(this.syncQueue);
@@ -81,7 +81,7 @@ class SmartSyncManager {
             );
 
             if (conversationsNeedingSync.length === 0) {
-                console.log(`ℹ️ [SmartSync] No conversations need sync, skipping`);
+                // No conversations need sync, skipping
                 return;
             }
 
@@ -91,7 +91,7 @@ class SmartSyncManager {
             // Sync in batches
             await this.syncInBatches(prioritizedConversations);
 
-            console.log(`✅ [SmartSync] Completed sync for ${prioritizedConversations.length} conversations`);
+            // Completed sync for conversations
 
         } catch (error) {
             console.error('❌ [SmartSync] Sync failed:', error);
@@ -118,19 +118,19 @@ class SmartSyncManager {
         const timeSinceLastActivity = now - lastActivity;
 
         if (timeSinceLastSync < this.MIN_SYNC_INTERVAL) {
-            console.log(`⏭️ [SmartSync] Skipping ${conversationId} - synced recently (${Math.round(timeSinceLastSync / 1000)}s ago)`);
+            // Skipping - synced recently
             return false;
         }
 
         if (timeSinceLastActivity > this.MIN_SYNC_INTERVAL * 2) {
-            console.log(`⏭️ [SmartSync] Skipping ${conversationId} - no recent activity (${Math.round(timeSinceLastActivity / 1000)}s ago)`);
+            // Skipping - no recent activity
             return false;
         }
 
         // Check if user is authenticated
         const { isAuthenticated } = useAuthStore.getState();
         if (!isAuthenticated) {
-            console.log(`⏭️ [SmartSync] Skipping ${conversationId} - user not authenticated`);
+            // Skipping - user not authenticated
             return false;
         }
 
@@ -188,7 +188,7 @@ class SmartSyncManager {
      * Sync a batch of conversations
      */
     private async syncBatch(conversationIds: string[]): Promise<void> {
-        console.log(`🔄 [SmartSync] Syncing batch: ${conversationIds.join(', ')}`);
+        // Syncing batch
 
         const syncPromises = conversationIds.map(async (conversationId) => {
             try {
@@ -198,7 +198,7 @@ class SmartSyncManager {
                 // Update last sync time
                 this.lastSyncTime[conversationId] = Date.now();
 
-                console.log(`✅ [SmartSync] Synced conversation ${conversationId}`);
+                // Synced conversation
             } catch (error) {
                 console.error(`❌ [SmartSync] Failed to sync conversation ${conversationId}:`, error);
             }
@@ -211,12 +211,12 @@ class SmartSyncManager {
      * Force immediate sync for a conversation
      */
     async forceSync(conversationId: string): Promise<void> {
-        console.log(`🚀 [SmartSync] Force syncing conversation ${conversationId}`);
+        // Force syncing conversation
 
         try {
             await chatSyncService.syncMessages(conversationId, 0, 50);
             this.lastSyncTime[conversationId] = Date.now();
-            console.log(`✅ [SmartSync] Force sync completed for ${conversationId}`);
+            // Force sync completed
         } catch (error) {
             console.error(`❌ [SmartSync] Force sync failed for ${conversationId}:`, error);
             throw error;
@@ -249,7 +249,7 @@ class SmartSyncManager {
             clearTimeout(this.debounceTimer);
             this.debounceTimer = null;
         }
-        console.log(`🧹 [SmartSync] Cleared sync queue`);
+        // Cleared sync queue
     }
 
     /**
@@ -266,7 +266,7 @@ class SmartSyncManager {
             this.debounceTimer = null;
         }
 
-        console.log(`🔄 [SmartSync] Reset all sync data`);
+        // Reset all sync data
     }
 }
 
