@@ -71,10 +71,14 @@
     },
     "oauth": {
       "redirectUrls": [
-        "hengout://auth",
         "https://auth.expo.io/@trendslade/project-exe101",
+        "https://auth.expo.io/@trendslade/project-exe101/redirect",
         "http://localhost:8081"
       ]
+    },
+    "googleOAuth": {
+      "clientId": "857718557597-aagu5po0i0s3k1n6ke1633m8n8n05hg4.apps.googleusercontent.com",
+      "clientSecret": "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"
     }
   }
 }

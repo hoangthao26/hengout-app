@@ -276,6 +276,11 @@ export const useAuthStore = create<AuthState>()(
                     const { chatSyncService } = await import('../services/chatSyncService');
                     chatSyncService.stopSync();
 
+                    // 🚀 DISCONNECT WEBSOCKET: Disconnect WebSocket connection on logout
+                    const { useChatStore: useChatStoreForDisconnect } = await import('./chatStore');
+                    const chatStoreForDisconnect = useChatStoreForDisconnect.getState();
+                    await chatStoreForDisconnect.disconnectWebSocket();
+
                     // Get refresh token from current store state (not SecureStore)
                     const currentState = get();
                     if (currentState.tokens.refreshToken) {
@@ -299,9 +304,9 @@ export const useAuthStore = create<AuthState>()(
                     preferencesStore.clearPreferences();
 
                     // 🚀 CLEAR CHAT DATA: Prevent showing old user's chat data
-                    const { useChatStore } = await import('./chatStore');
-                    const chatStore = useChatStore.getState();
-                    chatStore.reset();
+                    const { useChatStore: useChatStoreForReset } = await import('./chatStore');
+                    const chatStoreForReset = useChatStoreForReset.getState();
+                    chatStoreForReset.reset();
 
                     // 🚀 CLEAR FRIEND DATA: Prevent showing old user's friends
                     const { useFriendStore } = await import('./friendStore');
@@ -389,6 +394,11 @@ export const useAuthStore = create<AuthState>()(
                             const { chatSyncService } = await import('../services/chatSyncService');
                             chatSyncService.stopSync();
 
+                            // 🚀 DISCONNECT WEBSOCKET: Disconnect WebSocket connection on fast logout
+                            const { useChatStore: useChatStoreForFastDisconnect } = await import('./chatStore');
+                            const chatStoreForFastDisconnect = useChatStoreForFastDisconnect.getState();
+                            await chatStoreForFastDisconnect.disconnectWebSocket();
+
                             // Clear tokens and data
                             await AuthHelper.clearTokens();
                             await OnboardingService.clearOnboardingStatus();
@@ -396,7 +406,7 @@ export const useAuthStore = create<AuthState>()(
                             // Clear all stores
                             const { useProfileStore } = await import('./profileStore');
                             const { usePreferencesStore } = await import('./preferencesStore');
-                            const { useChatStore } = await import('./chatStore');
+                            const { useChatStore: useChatStoreForFastReset } = await import('./chatStore');
                             const { useFriendStore } = await import('./friendStore');
                             const { useCollectionStore } = await import('./collectionStore');
                             const { useSearchStore } = await import('./searchStore');
@@ -404,13 +414,13 @@ export const useAuthStore = create<AuthState>()(
 
                             useProfileStore.getState().clearProfile();
                             usePreferencesStore.getState().clearPreferences();
-                            useChatStore.getState().reset();
+                            useChatStoreForFastReset.getState().reset();
                             useFriendStore.getState().reset();
                             useCollectionStore.getState().resetCollections();
                             useCollectionStore.getState().resetCurrentCollection();
                             useSearchStore.getState().clearSearch();
 
-                            // 🚀 CLEAR DATABASE: Clear all local database data (like WhatsApp/Telegram)
+                            // CLEAR DATABASE: Clear all local database data 
                             try {
                                 const { databaseService } = await import('../services/databaseService');
                                 await databaseService.clearAllData();

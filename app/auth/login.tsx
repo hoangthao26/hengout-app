@@ -104,14 +104,14 @@ export default function LoginScreen() {
     const handleGoogleSignIn = async () => {
         setGoogleLoading(true);
         try {
-            console.log('🚀 Starting Google OAuth...');
-            showInfo('Opening Google OAuth...',);
+            console.log('🔥 Starting Firebase Google Auth...');
+            showInfo('Opening Google Auth...',);
 
             // Start Google OAuth flow
             const result = await googleOAuthService.signIn();
 
             if (result.success && result.data) {
-                console.log('✅ Google OAuth successful:', result.data);
+                console.log('✅ Firebase Google Auth successful:', result.data);
                 showSuccess('Google login successful!',);
 
                 // Check onboarding status from auth response
@@ -127,7 +127,7 @@ export default function LoginScreen() {
                             const location = await Location.getCurrentPositionAsync({
                                 accuracy: Location.Accuracy.Balanced,
                             });
-                            console.log('📍 [Google Login] GPS location obtained:', {
+                            console.log('📍 [Firebase Google Login] GPS location obtained:', {
                                 lat: location.coords.latitude,
                                 lng: location.coords.longitude,
                                 accuracy: location.coords.accuracy
@@ -138,21 +138,21 @@ export default function LoginScreen() {
                                 accuracy: location.coords.accuracy || 0
                             });
                         } else {
-                            console.log('📍 [Google Login] Location permission denied, using fallback');
+                            console.log('📍 [Firebase Google Login] Location permission denied, using fallback');
                             NavigationService.secureNavigateToDiscover();
                         }
                     } catch (error) {
-                        console.log('📍 [Google Login] GPS error, using fallback:', error);
+                        console.log('📍 [Firebase Google Login] GPS error, using fallback:', error);
                         NavigationService.secureNavigateToDiscover();
                     }
                 }
             } else {
-                console.log('❌ Google OAuth failed:', result.error);
+                console.log('❌ Firebase Google Auth failed:', result.error);
                 showError('Đăng nhập Google thất bại', result.error || 'Không thể đăng nhập bằng Google');
             }
         } catch (error: any) {
-            console.error('❌ Google OAuth error:', error);
-            showError('Lỗi Google OAuth', `Đăng nhập Google thất bại: ${error.message}`);
+            console.error('❌ Firebase Google Auth error:', error);
+            showError('Lỗi Google Auth', `Đăng nhập Google thất bại: ${error.message}`);
         } finally {
             setGoogleLoading(false);
         }

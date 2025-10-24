@@ -37,7 +37,6 @@ export default function ActivityResultModal({
 
     const [resultData, setResultData] = useState<ActivityResult | null>(null);
     const [loading, setLoading] = useState(false);
-    const [imageStates, setImageStates] = useState<{ [key: string]: { loading: boolean, error: boolean } }>({});
 
     useEffect(() => {
         if (visible && activityId) {
@@ -76,14 +75,6 @@ export default function ActivityResultModal({
         }
 
         const { location, acceptCount, rejectCount } = suggestion;
-        const imageState = imageStates[suggestion.id] || { loading: true, error: false };
-
-        const updateImageState = (loading: boolean, error: boolean) => {
-            setImageStates(prev => ({
-                ...prev,
-                [suggestion.id]: { loading, error }
-            }));
-        };
 
         return (
             <View
@@ -96,28 +87,15 @@ export default function ActivityResultModal({
             >
                 {/* Location Image */}
                 <View style={styles.imageContainer}>
-                    {location.imageUrls && location.imageUrls.length > 0 && !imageState.error ? (
-                        <>
-                            <Image
-                                source={{ uri: location.imageUrls[0] }}
-                                style={styles.locationImage}
-                                resizeMode="cover"
-                                onLoadStart={() => updateImageState(true, false)}
-                                onLoad={() => updateImageState(false, false)}
-                                onError={() => updateImageState(false, true)}
-                            />
-                            {imageState.loading && (
-                                <View style={[styles.imageLoadingOverlay, { backgroundColor: isDark ? '#374151' : '#F3F4F6' }]}>
-                                    <ActivityIndicator size="large" color="#F48C06" />
-                                </View>
-                            )}
-                        </>
+                    {location.imageUrls && location.imageUrls.length > 0 ? (
+                        <Image
+                            source={{ uri: location.imageUrls[0] }}
+                            style={styles.locationImage}
+                            resizeMode="cover"
+                        />
                     ) : (
                         <View style={[styles.imagePlaceholder, { backgroundColor: isDark ? '#374151' : '#F3F4F6' }]}>
-                            <ActivityIndicator size="large" color="#F48C06" />
-                            <Text style={[styles.imageLoadingText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                Đang tải hình ảnh...
-                            </Text>
+                            <MapPin size={32} color={isDark ? '#9CA3AF' : '#6B7280'} />
                         </View>
                     )}
                     {isWinner && (
@@ -418,19 +396,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-    },
-    imageLoadingOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    imageLoadingText: {
-        fontSize: 12,
-        textAlign: 'center',
     },
     winnerBadge: {
         position: 'absolute',

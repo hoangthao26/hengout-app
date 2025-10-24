@@ -46,6 +46,18 @@ export default function RootLayout() {
                         if (!tokenMonitoringInterval) {
                             tokenMonitoringInterval = AuthHelper.startTokenMonitoring();
                         }
+
+                        // RECONNECT WEBSOCKET: Reconnect WebSocket when app becomes active
+                        try {
+                            const { useChatStore } = await import('../store/chatStore');
+                            const chatStore = useChatStore.getState();
+                            if (!chatStore.websocketConnected && !chatStore.websocketConnecting) {
+                                await chatStore.connectWebSocket();
+                                console.log('🔌 [RootLayout] WebSocket reconnected due to app active');
+                            }
+                        } catch (error) {
+                            console.error('❌ [RootLayout] Failed to reconnect WebSocket on active:', error);
+                        }
                     }
                 } catch (error) {
                     console.error('❌ Auth check failed:', error);
@@ -68,6 +80,16 @@ export default function RootLayout() {
                 if (tokenMonitoringInterval) {
                     AuthHelper.stopTokenMonitoring(tokenMonitoringInterval);
                     tokenMonitoringInterval = null;
+                }
+
+                //  DISCONNECT WEBSOCKET: Disconnect WebSocket when app goes to background
+                try {
+                    const { useChatStore } = await import('../store/chatStore');
+                    const chatStore = useChatStore.getState();
+                    await chatStore.disconnectWebSocket();
+                    console.log('🔌 [RootLayout] WebSocket disconnected due to app background/inactive');
+                } catch (error) {
+                    console.error('❌ [RootLayout] Failed to disconnect WebSocket on background:', error);
                 }
             }
         };
