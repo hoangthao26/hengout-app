@@ -29,11 +29,11 @@ export default function SplashScreen() {
     accuracy?: number;
   } | null>(null);
 
-  // 🚀 ENTERPRISE FEATURE: Initialize all services on app start (ONCE)
+  // ENTERPRISE FEATURE: Initialize all services on app start (ONCE)
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        console.log('🚀 Initializing app...');
+        console.log('Initializing app...');
 
         // Initialize authentication
         initializeAuth();
@@ -61,66 +61,52 @@ export default function SplashScreen() {
       if (!isServicesReady) return;
 
       try {
-        // Check if location services are enabled
-        const isLocationEnabled = await Location.hasServicesEnabledAsync();
+        // Import smart location service
+        const { smartLocationService } = await import('../services/smartLocationService');
 
-        if (!isLocationEnabled) {
-          console.log('📍 Location disabled, using fallback');
-          setLocationData({
-            latitude: 10.8231,
-            longitude: 106.6297,
-            accuracy: 0
-          });
-          return;
-        }
-
-        // Request permission
-        const { status } = await Location.requestForegroundPermissionsAsync();
-
-        if (status !== 'granted') {
-          console.log('📍 Location permission denied, using fallback');
-          setLocationData({
-            latitude: 10.8231,
-            longitude: 106.6297,
-            accuracy: 0
-          });
-          return;
-        }
-
-        // Get current location
-        const location = await Location.getCurrentPositionAsync({
+        // Try to get location with smart retry
+        const location = await smartLocationService.getCurrentLocation({
           accuracy: Location.Accuracy.Balanced,
+          timeout: 8000,
+          retries: 2,
+          useCache: true
         });
 
         if (location) {
-          console.log('📍 GPS location obtained');
+          console.log('📍 [Splash] Smart location obtained:', {
+            lat: location.latitude,
+            lng: location.longitude,
+            accuracy: location.accuracy,
+            source: location.source
+          });
 
           setLocationData({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            accuracy: location.coords.accuracy || undefined
+            latitude: location.latitude,
+            longitude: location.longitude,
+            accuracy: location.accuracy || 0
           });
+        } else {
+          console.log('📍 [Splash] No location available, will let user choose later');
+          // Don't set fallback location - let user choose in discover screen
+          setLocationData(null);
         }
       } catch (error) {
-        console.log('📍 GPS error, using fallback');
-        setLocationData({
-          latitude: 10.8231,
-          longitude: 106.6297,
-          accuracy: 0
-        });
+        console.log('📍 [Splash] Location error:', error);
+        // Don't set fallback location - let user choose in discover screen
+        setLocationData(null);
       }
     };
 
     getLocationData();
   }, [isServicesReady]);
 
-  // 🔥 Token monitoring is started by AuthStore to avoid duplicate starts (removed here)
+  // Token monitoring is started by AuthStore to avoid duplicate starts (removed here)
 
-  // 🔥 ENTERPRISE FEATURE: Handle app state changes for background refresh
+  // ENTERPRISE FEATURE: Handle app state changes for background refresh
   useEffect(() => {
     const handleAppStateChange = (nextAppState: string) => {
       if (nextAppState === 'active' && isAuthenticated) {
-        console.log('📱 App became active');
+        console.log('App became active');
         refreshTokenManager.checkAndRefreshOnResume();
       }
     };
@@ -129,7 +115,7 @@ export default function SplashScreen() {
     return () => subscription?.remove();
   }, [isAuthenticated]);
 
-  // 🚀 ENTERPRISE FEATURE: Handle navigation based on app readiness
+  // ENTERPRISE FEATURE: Handle navigation based on app readiness
   useEffect(() => {
     // State change monitoring (reduced logging)
 

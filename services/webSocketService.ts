@@ -123,7 +123,7 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
                     break;
 
                 case 'PONG':
-                    console.log('🏓 Pong received');
+                    console.log('Pong received');
                     break;
 
                 case 'ERROR':

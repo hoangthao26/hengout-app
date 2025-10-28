@@ -30,12 +30,12 @@ export const setLogoutMode = (mode: boolean) => {
     isLoggingOut = mode;
 };
 
-// 🚀 NEW: Function to set user logged out state
+// NEW: Function to set user logged out state
 export const setUserLoggedOut = (loggedOut: boolean) => {
     isUserLoggedOut = loggedOut;
 };
 
-// 🚀 NEW: Function to reset refresh state
+// NEW: Function to reset refresh state
 export const resetRefreshState = () => {
     isRefreshing = false;
     failedQueue = [];
@@ -113,7 +113,7 @@ axiosInstance.interceptors.response.use(
 
         // Handle specific error cases
         if (error.response?.status === 401) {
-            // 🚀 STOP INFINITE LOOP: Don't try to refresh if user is logged out
+            // STOP INFINITE LOOP: Don't try to refresh if user is logged out
             if (isLoggingOut || isUserLoggedOut) {
                 console.log('🚫 [Axios] User is logged out, silently ignoring 401 error');
                 // Return a silent rejection - don't log as error

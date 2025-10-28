@@ -145,12 +145,12 @@ export default function ProfileScreen() {
                 try {
                     const tokenInfo = await AuthHelper.getTokenInfo();
                     if (tokenInfo?.isAuthenticated && isProfileInitialized) {
-                        // 🚀 INSTANT DISPLAY: Always use cached data first
+                        // INSTANT DISPLAY: Always use cached data first
                         const currentProfile = profile;
                         if (currentProfile) {
-                            console.log('📱 [Profile] Using cached profile for instant display');
+                            console.log('[Profile] Using cached profile for instant display');
                         } else {
-                            console.log('📱 [Profile] No cached profile, fetching from server...');
+                            console.log('[Profile] No cached profile, fetching from server...');
                             fetchProfile();
                         }
                     }
@@ -173,10 +173,10 @@ export default function ProfileScreen() {
                 return;
             }
 
-            // 🚀 INSTANT DISPLAY: Check if profile already exists in store
+            // INSTANT DISPLAY: Check if profile already exists in store
             const currentProfile = profile;
             if (currentProfile) {
-                console.log('📱 [Profile] Profile already cached, displaying instantly');
+                console.log('[Profile] Profile already cached, displaying instantly');
                 setIsProfileInitialized(true);
                 return;
             }

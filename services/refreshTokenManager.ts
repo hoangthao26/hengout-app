@@ -33,7 +33,7 @@ export class RefreshTokenManager {
     private setupAppStateListener(): void {
         this.appStateSubscription = AppState.addEventListener('change', async (nextAppState: AppStateStatus) => {
             if (nextAppState === 'active') {
-                console.log('📱 [RefreshTokenManager] App resumed - checking token refresh');
+                console.log('[RefreshTokenManager] App resumed - checking token refresh');
                 await this.checkAndRefreshOnResume();
             }
         });
@@ -50,7 +50,7 @@ export class RefreshTokenManager {
         }
 
         try {
-            console.log('🚀 [RefreshTokenManager] Starting token monitoring...');
+            console.log('[RefreshTokenManager] Starting token monitoring...');
 
             // Check if user is authenticated
             const isAuthenticated = await AuthHelper.isAuthenticated();
@@ -186,7 +186,7 @@ export class RefreshTokenManager {
                     lastError = error;
                     console.error(`❌ [RefreshTokenManager] Refresh attempt ${attempt} failed:`, error);
 
-                    // 🚀 IMMEDIATE FAIL ON 401: Don't retry on 401 errors
+                    // IMMEDIATE FAIL ON 401: Don't retry on 401 errors
                     if (error.response?.status === 401 || error.message?.includes('Invalid refresh token')) {
                         console.log('🔐 [RefreshTokenManager] 401/Invalid token error - refresh failed');
                         return false;
@@ -232,7 +232,7 @@ export class RefreshTokenManager {
      */
     async checkAndRefreshOnResume(): Promise<void> {
         try {
-            console.log('📱 [RefreshTokenManager] Checking token on app resume...');
+            console.log('[RefreshTokenManager] Checking token on app resume...');
 
 
             const isAuthenticated = await AuthHelper.isAuthenticated();

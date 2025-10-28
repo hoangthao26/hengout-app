@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "project-exe101",
+    "name": "Hengout",
     "slug": "project-exe101",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/HengOut-Light.png",
     "scheme": "hengout",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -12,12 +12,20 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.hengout.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "Google OAuth",
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.481945533208-35u68ikm7dn5gv99me66b612i5uek4ms"
+            ]
+          }
+        ]
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/HengOut-Light.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -26,14 +34,14 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/HengOut-Light.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/HengOut-Light.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
@@ -77,8 +85,8 @@
       ]
     },
     "googleOAuth": {
-      "clientId": "857718557597-aagu5po0i0s3k1n6ke1633m8n8n05hg4.apps.googleusercontent.com",
-      "clientSecret": "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"
+      "clientId": "481945533208-35u68ikm7dn5gv99me66b612i5uek4ms.apps.googleusercontent.com",
+      "clientSecret": "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"
     }
   }
 }

@@ -1,0 +1,222 @@
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+import { TouchableOpacity, View, Text, ActivityIndicator, Image } from 'react-native';
+import { useEffect, useState } from 'react';
+import { authService } from '../services/authService';
+import { AuthHelper } from '../services/authHelper';
+import NavigationService from '../services/navigationService';
+import * as Location from 'expo-location';
+
+
+const webClientId = '481945533208-i48ed7onp65ks43qkekg72ion2lr5tgb.apps.googleusercontent.com';
+const iosClientId = '481945533208-35u68ikm7dn5gv99me66b612i5uek4ms.apps.googleusercontent.com';
+
+WebBrowser.maybeCompleteAuthSession();
+
+const LoginWithGoogle = () => {
+    const [loading, setLoading] = useState(false);
+
+    const config = {
+        webClientId: webClientId,
+        iosClientId: iosClientId,
+        scopes: ['openid', 'profile', 'email'],
+    };
+
+    // CONFIG
+    console.log('🔍 [Google OAuth] Config:', JSON.stringify(config, null, 2));
+
+    const [request, response, promptAsync] = Google.useAuthRequest(config);
+
+    //  REQUEST
+    if (request) {
+        console.log('🔍 [Google OAuth] Request object:', JSON.stringify(request, null, 2));
+    }
+
+    const handleToken = async () => {
+        if (response?.type === 'success') {
+            const { authentication } = response;
+            const accessToken = authentication?.accessToken;
+            const idToken = authentication?.idToken;
+
+            // DETAILED LOGGING - Full response object
+            console.log('🔍 [Google OAuth] Full Response Object:', JSON.stringify(response, null, 2));
+            console.log('🔍 [Google OAuth] Authentication Object:', JSON.stringify(authentication, null, 2));
+
+            // TOKEN LOGGING
+            console.log('🔑 Google Access Token:', accessToken);
+            console.log('🔑 Google ID Token:', idToken);
+
+            // 🔍 TOKEN DETAILS
+            if (idToken) {
+                try {
+                    // Decode JWT payload (without verification)
+                    const payload = JSON.parse(atob(idToken.split('.')[1]));
+                    console.log('🔍 [Google OAuth] ID Token Payload:', JSON.stringify(payload, null, 2));
+                    console.log('🔍 [Google OAuth] ID Token Audience (aud):', payload.aud);
+                    console.log('🔍 [Google OAuth] ID Token Authorized Party (azp):', payload.azp);
+                    console.log('🔍 [Google OAuth] ID Token Issuer (iss):', payload.iss);
+                    console.log('🔍 [Google OAuth] ID Token Subject (sub):', payload.sub);
+                    console.log('🔍 [Google OAuth] ID Token Email:', payload.email);
+                    console.log('🔍 [Google OAuth] ID Token Name:', payload.name);
+                } catch (error) {
+                    console.error('❌ [Google OAuth] Failed to decode ID token:', error);
+                }
+            }
+
+            if (idToken) {
+                setLoading(true);
+                try {
+                    console.log('🔄 Authenticating with backend...');
+
+                    // Call backend API with ID token
+                    const result = await authService.googleOAuthLogin(idToken);
+
+                    if (result.status === 'success' && result.data) {
+                        console.log('✅ Backend authentication successful:', result.data);
+
+                        // Save tokens to secure storage
+                        await AuthHelper.saveTokens({
+                            accessToken: result.data.accessToken,
+                            refreshToken: result.data.refreshToken,
+                            tokenType: result.data.tokenType || 'Bearer',
+                            expiresIn: result.data.expiresIn,
+                            expiresAt: Date.now() + result.data.expiresIn,
+                            role: result.data.role || '',
+                            onboardingComplete: result.data.onboardingComplete,
+                        });
+
+                        console.log('✅ Google login successful!');
+
+                        // Check onboarding status
+                        if (result.data.onboardingComplete === false) {
+                            console.log('Onboarding not complete, redirecting to wizard');
+                            NavigationService.goToOnboardingWizard();
+                        } else {
+                            console.log('Onboarding complete, navigating to tabs');
+
+                            // Get current location with smart retry
+                            try {
+                                const { smartLocationService } = await import('../services/smartLocationService');
+
+                                const location = await smartLocationService.getCurrentLocation({
+                                    accuracy: Location.Accuracy.High,
+                                    timeout: 10000,
+                                    retries: 3,
+                                    useCache: true
+                                });
+
+                                if (location) {
+                                    console.log('📍 [Google Login] Smart location obtained:', {
+                                        lat: location.latitude,
+                                        lng: location.longitude,
+                                        accuracy: location.accuracy,
+                                        source: location.source
+                                    });
+
+                                    NavigationService.secureNavigateToDiscover({
+                                        latitude: location.latitude,
+                                        longitude: location.longitude,
+                                        accuracy: location.accuracy || 0
+                                    });
+                                } else {
+                                    console.log('📍 [Google Login] No location available, navigating to discover for user choice');
+                                    NavigationService.secureNavigateToDiscover();
+                                }
+                            } catch (error) {
+                                console.log('📍 [Google Login] Location error:', error);
+                                NavigationService.secureNavigateToDiscover();
+                            }
+                        }
+                    } else {
+                        console.error('❌ Backend authentication failed:', result);
+                    }
+                } catch (error: any) {
+                    console.error('❌ Backend authentication error:', error);
+                } finally {
+                    setLoading(false);
+                }
+            } else {
+                console.error('❌ No ID token received from Google');
+            }
+        } else if (response?.type === 'error') {
+            console.error('❌ [Google OAuth] Login failed:', response.error);
+            console.error('❌ [Google OAuth] Full error response:', JSON.stringify(response, null, 2));
+        } else if (response?.type === 'cancel') {
+            console.log('ℹ️ [Google OAuth] User cancelled login');
+        } else {
+            console.log('ℹ️ [Google OAuth] Unknown response type:', response?.type);
+            console.log('ℹ️ [Google OAuth] Full response:', JSON.stringify(response, null, 2));
+        }
+    };
+
+    useEffect(() => {
+        handleToken();
+    }, [response]);
+
+    return (
+        <View style={{ width: '100%', alignItems: 'center' }}>
+            <TouchableOpacity
+                onPress={() => promptAsync()}
+                disabled={loading}
+                style={{
+                    backgroundColor: '#FFFFFF',
+                    borderWidth: 1,
+                    borderColor: '#DADCE0',
+                    borderRadius: 8,
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 2,
+                    elevation: 2,
+                    width: '100%',
+                    maxWidth: 300,
+                    minHeight: 48,
+                }}
+            >
+                {loading ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                        <ActivityIndicator color="#4285F4" size="small" />
+                        <Text style={{
+                            color: '#3C4043',
+                            fontSize: 16,
+                            fontWeight: '500',
+                            marginLeft: 8,
+                            fontFamily: 'Roboto, sans-serif'
+                        }}>
+                            Đang xác thực...
+                        </Text>
+                    </View>
+                ) : (
+                    <>
+                        {/* Google Logo */}
+                        <Image
+                            source={require('../assets/images/Google__G__logo.svg.png')}
+                            style={{
+                                width: 20,
+                                height: 20,
+                                marginRight: 12,
+                            }}
+                            resizeMode="contain"
+                        />
+
+                        <Text style={{
+                            color: '#3C4043',
+                            fontSize: 16,
+                            fontWeight: '500',
+                            fontFamily: 'Roboto, sans-serif'
+                        }}>
+                            Đăng nhập với Google
+                        </Text>
+                    </>
+                )}
+            </TouchableOpacity>
+        </View>
+    );
+};
+
+export { LoginWithGoogle };

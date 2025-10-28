@@ -155,7 +155,7 @@ export default function EditProfileScreen() {
 
     const ensureSquareImage = async (imageUri: string): Promise<string> => {
         try {
-            console.log('🔧 Ensuring square image for:', imageUri);
+            console.log('Ensuring square image for:', imageUri);
 
             // Get image info first
             const imageInfo = await ImageManipulator.manipulateAsync(
@@ -164,7 +164,7 @@ export default function EditProfileScreen() {
                 { format: ImageManipulator.SaveFormat.JPEG }
             );
 
-            console.log('🔧 Original dimensions:', `${imageInfo.width}x${imageInfo.height}`);
+            console.log('Original dimensions:', `${imageInfo.width}x${imageInfo.height}`);
 
             // Target size for all avatars
             const TARGET_SIZE = 1024;
@@ -177,7 +177,7 @@ export default function EditProfileScreen() {
                 const x = (imageInfo.width - size) / 2;
                 const y = (imageInfo.height - size) / 2;
 
-                console.log('🔧 Cropping to square:', `${size}x${size} from (${x}, ${y})`);
+                console.log('Cropping to square:', `${size}x${size} from (${x}, ${y})`);
 
                 manipulations.push({
                     crop: {
@@ -190,7 +190,7 @@ export default function EditProfileScreen() {
             }
 
             // Always resize to target size for consistency
-            console.log('🔧 Resizing to standard size:', `${TARGET_SIZE}x${TARGET_SIZE}`);
+            console.log('Resizing to standard size:', `${TARGET_SIZE}x${TARGET_SIZE}`);
             manipulations.push({
                 resize: {
                     width: TARGET_SIZE,
@@ -208,7 +208,7 @@ export default function EditProfileScreen() {
                 }
             );
 
-            console.log('🔧 Final dimensions:', `${processedImage.width}x${processedImage.height}`);
+            console.log('Final dimensions:', `${processedImage.width}x${processedImage.height}`);
             return processedImage.uri;
         } catch (error) {
             console.error('❌ Error ensuring square image:', error);
@@ -241,23 +241,23 @@ export default function EditProfileScreen() {
     };
 
     const handleAvatarActionPress = async (action: string) => {
-        console.log('🎯 Action pressed:', action);
+        console.log('Action pressed:', action);
 
         try {
-            console.log('🚀 Starting action:', action);
+            console.log('Starting action:', action);
             switch (action) {
                 case 'camera':
-                    console.log('📷 Taking photo...');
+                    console.log('Taking photo...');
                     // Don't close modal yet, let crop screen handle it
                     await takePhoto();
                     break;
                 case 'gallery':
-                    console.log('📸 Picking from gallery...');
+                    console.log('Picking from gallery...');
                     // Don't close modal yet, let crop screen handle it
                     await pickImageFromGallery();
                     break;
                 case 'view':
-                    console.log('👁️ Viewing avatar...');
+                    console.log('Viewing avatar...');
                     setShowAvatarModal(false);
                     if (profile?.avatarUrl) {
                         setShowImageViewer(true);
@@ -358,10 +358,10 @@ export default function EditProfileScreen() {
                         <TouchableOpacity
                             style={styles.changePhotoButton}
                             onPress={() => {
-                                console.log('🎯 Change photo button pressed');
-                                console.log('🎯 Current showAvatarModal:', showAvatarModal);
+                                console.log('Change photo button pressed');
+                                console.log('Current showAvatarModal:', showAvatarModal);
                                 setShowAvatarModal(true);
-                                console.log('🎯 Set showAvatarModal to true');
+                                console.log('Set showAvatarModal to true');
                             }}
                             disabled={uploadingAvatar}
                             activeOpacity={0.7}
@@ -471,7 +471,7 @@ export default function EditProfileScreen() {
                 transparent={true}
                 animationType="slide"
                 onRequestClose={() => {
-                    console.log('🎯 Modal close requested');
+                    console.log('Modal close requested');
                     setShowAvatarModal(false);
                 }}
             >
@@ -479,7 +479,7 @@ export default function EditProfileScreen() {
                     style={styles.modalBackdrop}
                     activeOpacity={1}
                     onPress={() => {
-                        console.log('🎯 Modal backdrop pressed');
+                        console.log('Modal backdrop pressed');
                         setShowAvatarModal(false);
                     }}
                 >

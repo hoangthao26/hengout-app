@@ -41,8 +41,8 @@ class ActivityService {
         try {
             const endpoint = buildEndpointUrl('ACTIVITIES_BASE_URL', 'CREATE_ACTIVITY');
 
-            // 🚀 Log request body for debugging
-            console.log('🚀 [ActivityService] Creating activity with data:', {
+            // Log request body for debugging
+            console.log('[ActivityService] Creating activity with data:', {
                 endpoint,
                 baseUrl: this.baseUrl,
                 fullUrl: endpoint,
@@ -52,7 +52,7 @@ class ActivityService {
 
             const response = await axiosInstance.post<CreateActivityResponse>(endpoint, activityData);
 
-            // 🚀 Log response for debugging
+            // Log response for debugging
             console.log('✅ [ActivityService] Activity created successfully:', {
                 status: response.status,
                 responseData: response.data,
@@ -91,7 +91,7 @@ class ActivityService {
             const response = await axiosInstance.get<ActivityResponse[]>(endpoint);
             return response.data;
         } catch (error: any) {
-            // 🚀 DEFENSIVE: Don't throw error if user logged out
+            // DEFENSIVE: Don't throw error if user logged out
             if (error.message?.includes('User logged out')) {
                 console.log('ℹ️ [ActivityService] User logged out, skipping activities fetch');
                 return [];
@@ -157,7 +157,7 @@ class ActivityService {
         try {
             const endpoint = buildEndpointUrl('ACTIVITIES_BASE_URL', 'SUBMIT_ACTIVITY_PREFERENCE');
 
-            console.log('🚀 [ActivityService] Submitting activity preference:', {
+            console.log('[ActivityService] Submitting activity preference:', {
                 endpoint,
                 preferenceData,
                 timestamp: new Date().toISOString()
@@ -182,7 +182,7 @@ class ActivityService {
                 timestamp: new Date().toISOString()
             });
 
-            // 🚀 DEFENSIVE: Don't throw error if user logged out
+            // DEFENSIVE: Don't throw error if user logged out
             if (error.message?.includes('User logged out')) {
                 console.log('ℹ️ [ActivityService] User logged out, skipping preference submission');
                 throw new Error('User logged out');
@@ -222,7 +222,7 @@ class ActivityService {
         try {
             const endpoint = buildEndpointUrl('ACTIVITIES_BASE_URL', 'GET_ACTIVITY_SUGGESTIONS', { activityId });
 
-            console.log('🚀 [ActivityService] Getting activity suggestions:', {
+            console.log('[ActivityService] Getting activity suggestions:', {
                 endpoint,
                 activityId,
                 timestamp: new Date().toISOString()
@@ -259,7 +259,7 @@ class ActivityService {
         try {
             const endpoint = buildEndpointUrl('ACTIVITIES_BASE_URL', 'VOTE_FOR_SUGGESTION');
 
-            console.log('🚀 [ActivityService] Voting for suggestion:', {
+            console.log('[ActivityService] Voting for suggestion:', {
                 endpoint,
                 activityId,
                 suggestionId,

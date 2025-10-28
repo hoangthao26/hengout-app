@@ -20,10 +20,11 @@ const { width: screenWidth } = Dimensions.get('window');
 interface SimpleToastProps {
     toast: ToastType;
     onHide: (id: string) => void;
+    onPress?: () => void;
     onActionPress?: (action: ToastType['action']) => void;
 }
 
-const SimpleToast: React.FC<SimpleToastProps> = ({ toast, onHide, onActionPress }) => {
+const SimpleToast: React.FC<SimpleToastProps> = ({ toast, onHide, onPress, onActionPress }) => {
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -157,7 +158,9 @@ const SimpleToast: React.FC<SimpleToastProps> = ({ toast, onHide, onActionPress 
             },
         };
 
-        return baseConfig[toast.type] || baseConfig.info;
+        // Handle message type by falling back to info
+        const toastType = toast.type === 'message' ? 'info' : toast.type;
+        return baseConfig[toastType] || baseConfig.info;
     };
 
     const config = getToastConfig();
@@ -222,7 +225,13 @@ const SimpleToast: React.FC<SimpleToastProps> = ({ toast, onHide, onActionPress 
             </Animated.View>
             <Pressable
                 style={styles.toastContent}
-                onPress={toast.action ? () => onActionPress?.(toast.action) : undefined}
+                onPress={() => {
+                    if (onPress) {
+                        onPress();
+                    } else if (toast.action) {
+                        onActionPress?.(toast.action);
+                    }
+                }}
             >
                 <View style={styles.iconContainer}>
                     {/* Radial gradient effect - chỉ 1 layer nhỏ nhất */}

@@ -12,6 +12,7 @@ class ChatWebSocketManager {
     private subscribedConversations = new Set<string>();
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 5;
+    private lastConnectionStatus: boolean | null = null;
     private reconnectDelay = 1000;
     private connectionCheckInterval: NodeJS.Timeout | null = null;
     private lastPingTime = 0;
@@ -71,9 +72,22 @@ class ChatWebSocketManager {
             // Start connection monitoring
             this.startConnectionMonitoring();
 
-            // Re-subscribe to all conversations
-            for (const conversationId of this.subscribedConversations) {
-                this.subscribeToConversation(conversationId);
+            // Re-subscribe to all conversations (silent mode)
+            if (this.subscribedConversations.size > 0) {
+                console.log(`🔄 [ChatWebSocket] Re-subscribing to ${this.subscribedConversations.size} conversations...`);
+                for (const conversationId of this.subscribedConversations) {
+                    this.subscribeToConversation(conversationId, true); // Silent mode
+                }
+                console.log(`✅ [ChatWebSocket] Re-subscribed to ${this.subscribedConversations.size} conversations`);
+            }
+
+            // OPTIMIZED: Trigger sync when reconnected
+            if (this.subscribedConversations.size > 0) {
+                console.log('🔄 [ChatWebSocket] Reconnected, triggering sync for subscribed conversations');
+
+                // Trigger smart sync for all subscribed conversations
+                const conversationIds = Array.from(this.subscribedConversations);
+                smartSyncManager.scheduleBatchSync(conversationIds, 'websocket_reconnect');
             }
 
         } catch (error) {
@@ -89,7 +103,7 @@ class ChatWebSocketManager {
 
     async disconnect(): Promise<void> {
         if (this.connection) {
-            // Disconnecting...
+            console.log('🔌 [ChatWebSocket] Disconnecting WebSocket...');
 
             // Stop connection monitoring
             this.stopConnectionMonitoring();
@@ -99,33 +113,61 @@ class ChatWebSocketManager {
 
             this.connection.disconnect();
             this.connection = null;
-            this.subscribedConversations.clear();
+            // ✅ FIXED: Don't clear subscribedConversations to maintain subscription list
+            // this.subscribedConversations.clear();
+
+            console.log('✅ [ChatWebSocket] WebSocket disconnected successfully');
+        } else {
+            console.log('ℹ️ [ChatWebSocket] No connection to disconnect');
         }
     }
 
-    subscribeToConversation(conversationId: string): void {
+    subscribeToConversation(conversationId: string, silent: boolean = false): void {
         if (!this.connection) {
             console.warn('⚠️ [ChatWebSocket] Not connected, cannot subscribe to conversation:', conversationId);
             return;
         }
 
-        if (this.subscribedConversations.has(conversationId)) {
-            // Already subscribed to conversation
+        // 🛡️ PROTECTION: Check if WebSocket is in valid state
+        if (this.connection.ws.readyState !== 1) { // WebSocket.OPEN = 1
+            console.warn(`⚠️ [ChatWebSocket] WebSocket not in OPEN state (${this.connection.ws.readyState}), cannot subscribe to conversation:`, conversationId);
             return;
         }
 
-        // Subscribing to conversation
-        this.subscribedConversations.add(conversationId);
+        if (!silent) {
+            if (this.subscribedConversations.has(conversationId)) {
+                // Reduce noise: only log first few re-subscriptions
+                if (this.subscribedConversations.size <= 3) {
+                    console.log(`ℹ️ [ChatWebSocket] Re-subscribing to conversation: ${conversationId}`);
+                }
+            } else {
+                console.log(`🔌 [ChatWebSocket] Subscribing to conversation: ${conversationId}`);
+            }
+        }
 
-        // Subscribe to regular messages
-        this.connection.subscribe(conversationId, async (message: WebSocketMessage) => {
-            await this.handleMessage(conversationId, message);
-        });
+        try {
+            // Always add to subscribed list (in case of re-subscription)
+            this.subscribedConversations.add(conversationId);
 
-        // Subscribe to activity updates
-        this.connection.subscribeToActivity(conversationId, async (message: WebSocketMessage) => {
-            await this.handleMessage(conversationId, message);
-        });
+            // Subscribe to regular messages
+            this.connection.subscribe(conversationId, async (message: WebSocketMessage) => {
+                await this.handleMessage(conversationId, message);
+            });
+
+            // Subscribe to activity updates
+            this.connection.subscribeToActivity(conversationId, async (message: WebSocketMessage) => {
+                await this.handleMessage(conversationId, message);
+            });
+
+            if (!silent) {
+                console.log(`✅ [ChatWebSocket] Successfully subscribed to conversation: ${conversationId}`);
+            }
+        } catch (error) {
+            console.error(`❌ [ChatWebSocket] Failed to subscribe to conversation ${conversationId}:`, error);
+            // Remove from subscribed list if failed
+            this.subscribedConversations.delete(conversationId);
+            throw error;
+        }
     }
 
     unsubscribeFromConversation(conversationId: string): void {
@@ -138,13 +180,13 @@ class ChatWebSocketManager {
      * This is the main strategy - maintain subscriptions for all conversations
      */
     async subscribeToAllConversations(conversationIds: string[]): Promise<void> {
-        // Subscribing to conversations
+        console.log(`🔌 [ChatWebSocket] Subscribing to ${conversationIds.length} conversations...`);
 
         for (const conversationId of conversationIds) {
-            if (!this.subscribedConversations.has(conversationId)) {
-                this.subscribeToConversation(conversationId);
-            }
+            this.subscribeToConversation(conversationId);
         }
+
+        console.log(`✅ [ChatWebSocket] Subscribed to ${conversationIds.length} conversations`);
     }
 
     /**
@@ -152,6 +194,14 @@ class ChatWebSocketManager {
      */
     getSubscribedConversations(): string[] {
         return Array.from(this.subscribedConversations);
+    }
+
+    /**
+     * Clear all subscriptions (used when user logs out)
+     */
+    clearSubscriptions(): void {
+        this.subscribedConversations.clear();
+        console.log('🧹 [ChatWebSocket] Cleared all subscriptions');
     }
 
     sendMessage(messageData: {
@@ -341,10 +391,14 @@ class ChatWebSocketManager {
 
         addConversationMessage(conversationId, chatMessage);
 
-        // Update conversation's last message
+        // Update conversation's last message and trigger conversation list update
         updateConversation(conversationId, {
             lastMessage: chatMessage
         });
+
+        // ✅ REAL-TIME CONVERSATION LIST UPDATE
+        // Force conversation list to update by triggering a store update
+        console.log('🔄 [ChatWebSocket] Updating conversation list for real-time display');
 
         // ✅ CẬP NHẬT DATABASE để thứ tự conversations thay đổi
         try {
@@ -362,7 +416,7 @@ class ChatWebSocketManager {
 
         console.log('✅ [ChatWebSocket] New message added to store:', chatMessage.id);
 
-        // 🚀 SMART SYNC: Trigger smart sync for this conversation
+        // SMART SYNC: Trigger smart sync for this conversation
         smartSyncManager.scheduleSync(conversationId, 'new_message_received');
     }
 
@@ -641,7 +695,7 @@ class ChatWebSocketManager {
             // Send ping to check connection
             this.connection.send({ type: 'PING' });
             this.lastPingTime = Date.now();
-            console.log('🏓 [ChatWebSocket] Ping sent');
+            console.log('[ChatWebSocket] Ping sent');
         } catch (error) {
             console.error('❌ [ChatWebSocket] Ping failed:', error);
             this.handleConnectionLoss();
@@ -668,7 +722,13 @@ class ChatWebSocketManager {
      * Check if connection is healthy
      */
     isConnected(): boolean {
-        return this.connection !== null && !this.isConnecting;
+        const connected = this.connection !== null && !this.isConnecting;
+        // Reduce noise: only log when status changes
+        if (this.lastConnectionStatus !== connected) {
+            console.log(`🔍 [ChatWebSocket] Connection status: ${connected ? 'connected' : 'disconnected'}`);
+            this.lastConnectionStatus = connected;
+        }
+        return connected;
     }
 
     /**

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { ChevronRight, LogOut, Settings, TestTube } from 'lucide-react-native';
+import { ChevronRight, LogOut, Settings, TestTube, Bell } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import Header from '../../components/Header';
@@ -29,7 +29,7 @@ export default function SettingsScreen() {
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            // 🚀 OPTIMISTIC LOGOUT: Navigate immediately for better UX
+                            // OPTIMISTIC LOGOUT: Navigate immediately for better UX
                             setIsLoggingOut(true);
 
                             // 1. Navigate to login immediately
@@ -41,12 +41,12 @@ export default function SettingsScreen() {
                             // 3. Background logout (non-blocking)
                             setTimeout(async () => {
                                 try {
-                                    // 🚀 SET LOGOUT FLAGS: Prevent race conditions
+                                    // SET LOGOUT FLAGS: Prevent race conditions
                                     const { setLogoutMode, setUserLoggedOut } = await import('../../config/axios');
                                     setLogoutMode(true);
                                     setUserLoggedOut(true);
 
-                                    // 🚀 BACKGROUND LOGOUT: Clear data without blocking UI
+                                    // BACKGROUND LOGOUT: Clear data without blocking UI
                                     await fastLogout();
                                 } catch (error: any) {
                                     console.error('Background logout failed:', error);
@@ -101,7 +101,28 @@ export default function SettingsScreen() {
                     />
                 </TouchableOpacity>
 
-                {/* Gesture Test Option */}
+                {/* Notifications Option */}
+                {/* <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={() => router.push('/settings/notifications')}
+                >
+                    <View style={styles.settingLeft}>
+                        <Bell
+                            size={24}
+                            color={isDark ? '#FFFFFF' : '#000000'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            Notifications
+                        </Text>
+                    </View>
+                    <ChevronRight
+                        size={20}
+                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                    />
+                </TouchableOpacity> */}
+
+                {/* TEST OPTIONS - COMMENTED OUT FOR PRODUCTION */}
+                {/* 
                 <TouchableOpacity
                     style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
                     onPress={() => router.push('/settings/gesture-test')}
@@ -121,27 +142,8 @@ export default function SettingsScreen() {
                     />
                 </TouchableOpacity>
 
-                {/* Simple Gesture Test Option */}
-                <TouchableOpacity
-                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
-                    onPress={() => router.push('/settings/simple-gesture-test')}
-                >
-                    <View style={styles.settingLeft}>
-                        <TestTube
-                            size={24}
-                            color={isDark ? '#FFFFFF' : '#000000'}
-                        />
-                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                            Simple Gesture Test
-                        </Text>
-                    </View>
-                    <ChevronRight
-                        size={20}
-                        color={isDark ? '#9CA3AF' : '#6B7280'}
-                    />
-                </TouchableOpacity>
+                
 
-                {/* Ultra Simple Test Option */}
                 <TouchableOpacity
                     style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
                     onPress={() => router.push('/settings/ultra-simple-test')}
@@ -161,7 +163,6 @@ export default function SettingsScreen() {
                     />
                 </TouchableOpacity>
 
-                {/* Toast Test Option */}
                 <TouchableOpacity
                     style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
                     onPress={() => router.push('/settings/toast-test')}
@@ -181,8 +182,6 @@ export default function SettingsScreen() {
                     />
                 </TouchableOpacity>
 
-
-                {/* Swipe Test Option */}
                 <TouchableOpacity
                     style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
                     onPress={() => router.push('/settings/swipe-test' as any)}
@@ -200,7 +199,6 @@ export default function SettingsScreen() {
                     />
                 </TouchableOpacity>
 
-                {/* Swipe Example Option */}
                 <TouchableOpacity
                     style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
                     onPress={() => router.push('/settings/swipe-example' as any)}
@@ -218,7 +216,6 @@ export default function SettingsScreen() {
                     />
                 </TouchableOpacity>
 
-                {/* Custom Swipe Option */}
                 <TouchableOpacity
                     style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
                     onPress={() => router.push('/settings/custom-swipe' as any)}
@@ -235,6 +232,7 @@ export default function SettingsScreen() {
                         color={isDark ? '#9CA3AF' : '#6B7280'}
                     />
                 </TouchableOpacity>
+                */}
 
 
 

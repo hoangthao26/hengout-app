@@ -266,7 +266,7 @@ export default function ActivityResultModal({
                             {/* Winner */}
                             <View style={[styles.section, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}>
                                 <Text style={[styles.sectionTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                                    🏆 Địa điểm thắng cuộc
+                                    Địa điểm thắng cuộc
                                 </Text>
                                 {renderLocationCard(resultData.winnerSuggestion, true)}
                             </View>

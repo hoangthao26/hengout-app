@@ -55,7 +55,7 @@ const SwipeExampleScreen = () => {
             return (
                 <View style={[styles.renderFlippedCardContainer, { backgroundColor: isDark ? '#374151' : '#baeee5' }]}>
                     <Text style={[styles.text, { color: isDark ? '#FFFFFF' : '#001a72' }]}>
-                        Flipped content 🚀 {index}
+                        Flipped content {index}
                     </Text>
                 </View>
             );

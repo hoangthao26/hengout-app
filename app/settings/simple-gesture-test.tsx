@@ -1,107 +1,76 @@
 import React from 'react';
-import { View, Text, StyleSheet, useColorScheme } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
-    withSpring,
 } from 'react-native-reanimated';
-import Header from '../../components/Header';
+import {
+    Gesture,
+    GestureDetector,
+    GestureHandlerRootView,
+} from 'react-native-gesture-handler';
+import { StyleSheet, Dimensions } from 'react-native';
 
-export default function SimpleGestureTestScreen() {
-    const router = useRouter();
-    const isDark = useColorScheme() === 'dark';
+function clamp(val: number, min: number, max: number) {
+    return Math.min(Math.max(val, min), max);
+}
 
-    // Simple animation value
-    const scale = useSharedValue(1);
+const { width, height } = Dimensions.get('screen');
 
-    // Simple tap gesture
-    const tapGesture = Gesture.Tap()
-        .onStart(() => {
-            console.log('Simple tap started');
-        })
-        .onEnd(() => {
-            console.log('Simple tap ended');
-            scale.value = withSpring(1.2, {}, () => {
-                scale.value = withSpring(1);
-            });
-        });
+export default function App() {
+    const translationX = useSharedValue(0);
+    const translationY = useSharedValue(0);
+    const prevTranslationX = useSharedValue(0);
+    const prevTranslationY = useSharedValue(0);
 
-    // Animated style
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scale.value }],
+    const animatedStyles = useAnimatedStyle(() => ({
+        transform: [
+            { translateX: translationX.value },
+            { translateY: translationY.value },
+        ],
     }));
 
+    const pan = Gesture.Pan()
+        .minDistance(1)
+        .onStart(() => {
+            prevTranslationX.value = translationX.value;
+            prevTranslationY.value = translationY.value;
+        })
+        .onUpdate((event) => {
+            const maxTranslateX = width / 2 - 50;
+            const maxTranslateY = height / 2 - 50;
+
+            translationX.value = clamp(
+                prevTranslationX.value + event.translationX,
+                -maxTranslateX,
+                maxTranslateX
+            );
+            translationY.value = clamp(
+                prevTranslationY.value + event.translationY,
+                -maxTranslateY,
+                maxTranslateY
+            );
+        })
+        .runOnJS(true);
+
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            <Header
-                title="Simple Gesture Test"
-                showBackButton
-                onBackPress={() => router.back()}
-            />
-
-            <View style={styles.content}>
-                <Text style={[styles.title, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                    Simple Gesture Test
-                </Text>
-
-                <Text style={[styles.instruction, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                    Tap the box below to test gesture
-                </Text>
-
-                <GestureDetector gesture={tapGesture}>
-                    <Animated.View style={[
-                        styles.testBox,
-                        { backgroundColor: isDark ? '#374151' : '#E5E7EB' },
-                        animatedStyle
-                    ]}>
-                        <Text style={[styles.boxText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                            Tap Me
-                        </Text>
-                    </Animated.View>
-                </GestureDetector>
-            </View>
-        </View>
+        <GestureHandlerRootView style={styles.container}>
+            <GestureDetector gesture={pan}>
+                <Animated.View style={[animatedStyles, styles.box]}></Animated.View>
+            </GestureDetector>
+        </GestureHandlerRootView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-    },
-    content: {
-        flex: 1,
-        justifyContent: 'center',
         alignItems: 'center',
-        padding: 20,
+        justifyContent: 'center',
     },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 20,
-    },
-    instruction: {
-        fontSize: 16,
-        textAlign: 'center',
-        marginBottom: 40,
-    },
-    testBox: {
-        width: 150,
-        height: 150,
+    box: {
+        width: 100,
+        height: 100,
+        backgroundColor: '#b58df1',
         borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-    },
-    boxText: {
-        fontSize: 18,
-        fontWeight: '600',
     },
 });
-
-

@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
-import { Search, UserPlus, Users, User, X } from 'lucide-react-native';
+import { Search, UserPlus, Users, User, X, PlusCircle, MessageCirclePlus } from 'lucide-react-native';
 import NavigationService from '../../services/navigationService';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { ChatErrorBoundary } from '../../components/errorBoundaries';
 import {
     ActivityIndicator,
@@ -23,6 +24,9 @@ import { useChatStore } from '../../store/chatStore';
 import { useChatSync } from '../../hooks/useChatSync';
 import { ChatConversation } from '../../types/chat';
 import DatabaseResetButton from '../../components/DatabaseResetButton';
+import Badge from '../../components/Badge';
+import { useNotificationStore } from '../../store/notificationStore';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ChatScreen() {
     const colorScheme = useColorScheme();
@@ -36,11 +40,13 @@ export default function ChatScreen() {
         conversationsLoading,
         setConversations,
         setConversationsLoading,
-        // Enterprise Store-First Messages
+        // Store-First Messages
         setConversationMessages,
         setMessageSnapshot,
         preloadMessages
     } = useChatStore();
+
+    const { hasUnreadMessages } = useNotificationStore();
 
     // SQLite Chat Sync
     const {
@@ -63,7 +69,7 @@ export default function ChatScreen() {
         }
     }, [conversations]);
 
-    // Enterprise Preloading Strategy: Load conversations + recent messages
+    // Preloading Strategy: Load conversations + recent messages
     const loadConversations = useCallback(async () => {
         try {
             setConversationsLoading(true);
@@ -92,7 +98,7 @@ export default function ChatScreen() {
                 }
             }
         } catch (err: any) {
-            // 🚀 DEFENSIVE: Don't show error if user logged out
+            // DEFENSIVE: Don't show error if user logged out
             if (err.message?.includes('User logged out')) {
                 console.log('ℹ️ [Chat] User logged out, skipping conversation load');
                 return;
@@ -180,13 +186,24 @@ export default function ChatScreen() {
         openCreateGroupModal();
     }, [setOnCreateGroupSuccess, openCreateGroupModal]);
 
-    // Load conversations on mount (only if not already loaded by initialization)
+    // Load conversations on mount and when screen is focused
     useEffect(() => {
-        // Only load if conversations are empty (not preloaded by initialization service)
-        if (conversations.length === 0) {
-            loadConversations();
-        }
-    }, [loadConversations, conversations.length]);
+        // Load conversations on initial mount
+        loadConversations();
+    }, [loadConversations]);
+
+    // ✅ REMOVED: useFocusEffect reload - not needed because:
+    // 1. WebSocket updates store in real-time
+    // 2. Store changes trigger UI re-render automatically
+    // 3. Reloading from database can overwrite real-time updates
+    // 4. This was causing the "old preview" issue
+
+    // useFocusEffect(
+    //     useCallback(() => {
+    //         console.log('🔄 [Chat] Screen focused, reloading conversations...');
+    //         loadConversations();
+    //     }, [loadConversations])
+    // );
 
     // Update filtered conversations when store conversations change
     useEffect(() => {
@@ -262,12 +279,33 @@ export default function ChatScreen() {
                             </Text>
                         )}
                     </View>
-                    <Text
-                        style={[styles.lastMessage, { color: isDark ? '#9CA3AF' : '#6B7280' }]}
-                        numberOfLines={1}
-                    >
-                        {lastMessage}
-                    </Text>
+                    <View style={styles.lastMessageContainer}>
+                        <Text
+                            style={[
+                                styles.lastMessage,
+                                {
+                                    // Highlight when has unread messages
+                                    fontWeight: hasUnreadMessages(item.id) ? '600' : '400',
+                                    color: hasUnreadMessages(item.id)
+                                        ? (isDark ? '#FFFFFF' : '#000000')
+                                        : (isDark ? '#9CA3AF' : '#6B7280')
+                                }
+                            ]}
+                            numberOfLines={1}
+                        >
+                            {lastMessage}
+                        </Text>
+                        {/* Gradient dot for unread messages */}
+                        {hasUnreadMessages(item.id) && (
+                            <LinearGradient
+                                colors={['#FAA307', '#F48C06', '#DC2F02', '#9D0208']}
+                                locations={[0, 0.31, 0.69, 1]}
+                                start={{ x: 0, y: 1 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.unreadDot}
+                            />
+                        )}
+                    </View>
                 </View>
             </TouchableOpacity>
         );
@@ -282,7 +320,7 @@ export default function ChatScreen() {
                     showBackButton={false}
                     rightIcons={[
                         {
-                            icon: UserPlus,
+                            icon: MessageCirclePlus,
                             size: 28,
                             onPress: handleCreateGroup,
                         }
@@ -443,8 +481,20 @@ const styles = StyleSheet.create({
         fontSize: 14,
         marginLeft: 8,
     },
+    lastMessageContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
     lastMessage: {
         fontSize: 14,
+        flex: 1,
+        marginRight: 8,
+    },
+    unreadDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
     },
     emptyState: {
         flex: 1,

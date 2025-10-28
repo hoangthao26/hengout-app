@@ -2,9 +2,9 @@ import { router } from 'expo-router';
 import * as Location from 'expo-location';
 
 /**
- * Enterprise Navigation Service - Production Ready
+ * Navigation Service - Production Ready
  * 
- * Enterprise Features:
+ * Features:
  * 1. Role-based access control (RBAC)
  * 2. Analytics and tracking
  * 3. Deep linking support
@@ -24,7 +24,7 @@ import * as Location from 'expo-location';
  * - Use feature flags for conditional navigation
  */
 
-// Enterprise navigation configuration
+// Navigation configuration
 interface NavigationConfig {
     requiresAuth?: boolean;
     requiredRoles?: string[];
@@ -97,7 +97,7 @@ export const ROUTES = {
 // Type for route keys - provides type safety
 export type RouteKey = keyof typeof ROUTES;
 
-// Enterprise route configurations
+// Route configurations
 export const ROUTE_CONFIGS: Record<RouteKey, NavigationConfig> = {
     // Main routes
     HOME: { requiresAuth: false, analytics: { event: 'home_visited' } },
@@ -149,7 +149,7 @@ class NavigationService {
     private static navigationHistory: NavigationEvent[] = [];
     private static isNavigating = false;
 
-    // Enterprise navigation methods with guards and analytics
+    // Navigation methods with guards and analytics
     static async navigate(route: string, options?: { skipAuth?: boolean; skipAnalytics?: boolean }) {
         try {
             if (this.isNavigating) {
@@ -287,7 +287,7 @@ class NavigationService {
         return router.canGoBack();
     }
 
-    // Enterprise helper methods
+    // Helper methods
     private static getRouteKey(route: string): RouteKey | null {
         const routeEntry = Object.entries(ROUTES).find(([_, value]) => value === route);
         return routeEntry ? (routeEntry[0] as RouteKey) : null;
@@ -359,11 +359,11 @@ class NavigationService {
 
     private static navigateToFallback(originalRoute: string) {
         // Navigate to a safe fallback route
-        console.log(`🔄 Fallback navigation from ${originalRoute} to home`);
+        console.log(`Fallback navigation from ${originalRoute} to home`);
         router.replace(ROUTES.HOME as any);
     }
 
-    // Enterprise specific navigation methods
+    // Specific navigation methods
     static async goToLogin() {
         await this.navigate(ROUTES.LOGIN, { skipAuth: true });
     }
@@ -485,52 +485,41 @@ class NavigationService {
     }
 
     static async goToDiscover() {
-        // 🚀 ENTERPRISE: Auto-get GPS location for discover navigation
+        // Auto-get GPS location for discover navigation
         try {
             console.log('📍 [NavigationService] Auto-getting GPS for discover navigation...');
 
-            // Check if location services are enabled
-            const isLocationEnabled = await Location.hasServicesEnabledAsync();
+            // Import smart location service
+            const { smartLocationService } = await import('./smartLocationService');
 
-            if (!isLocationEnabled) {
-                console.log('📍 [NavigationService] Location services disabled, navigating without GPS');
-                await this.replace(ROUTES.DISCOVER);
-                return;
-            }
-
-            // Request permission
-            const { status } = await Location.requestForegroundPermissionsAsync();
-
-            if (status !== 'granted') {
-                console.log('📍 [NavigationService] Location permission denied, navigating without GPS');
-                await this.replace(ROUTES.DISCOVER);
-                return;
-            }
-
-            // Get current location
-            const location = await Location.getCurrentPositionAsync({
+            // Try to get location with smart retry
+            const location = await smartLocationService.getCurrentLocation({
                 accuracy: Location.Accuracy.Balanced,
+                timeout: 8000,
+                retries: 2,
+                useCache: true
             });
 
             if (location) {
-                console.log('📍 [NavigationService] GPS obtained for discover:', {
-                    lat: location.coords.latitude,
-                    lng: location.coords.longitude,
-                    accuracy: location.coords.accuracy
+                console.log('📍 [NavigationService] Smart location obtained for discover:', {
+                    lat: location.latitude,
+                    lng: location.longitude,
+                    accuracy: location.accuracy,
+                    source: location.source
                 });
 
                 // Navigate with GPS data
                 await this.secureNavigateToDiscover({
-                    latitude: location.coords.latitude,
-                    longitude: location.coords.longitude,
-                    accuracy: location.coords.accuracy || 0
+                    latitude: location.latitude,
+                    longitude: location.longitude,
+                    accuracy: location.accuracy || 0
                 });
             } else {
-                console.log('📍 [NavigationService] No location data, navigating without GPS');
+                console.log('📍 [NavigationService] No location available, navigating to discover for user choice');
                 await this.replace(ROUTES.DISCOVER);
             }
         } catch (error) {
-            console.log('📍 [NavigationService] GPS error, navigating without GPS:', error);
+            console.log('📍 [NavigationService] Location error, navigating to discover for user choice:', error);
             await this.replace(ROUTES.DISCOVER);
         }
     }
@@ -539,7 +528,7 @@ class NavigationService {
         await this.replace(ROUTES.HOME);
     }
 
-    // Enterprise secure navigation methods
+    // Secure navigation methods
     static async secureNavigateToTabs() {
         // Replace entire stack to prevent back navigation to auth screens
         await this.replace(ROUTES.TABS);
@@ -564,7 +553,7 @@ class NavigationService {
         await this.replace(ROUTES.HOME);
     }
 
-    // Enterprise logout navigation - replaces entire stack to prevent back navigation
+    // Logout navigation - replaces entire stack to prevent back navigation
     static async logoutToLogin() {
         // Replace entire navigation stack to prevent back navigation
         // This ensures user cannot swipe back to authenticated screens
@@ -577,7 +566,7 @@ class NavigationService {
         await this.replace(ROUTES.LOGIN, { skipAuth: true });
     }
 
-    // Enterprise utility methods
+    // Utility methods
     static getNavigationHistory(): NavigationEvent[] {
         return [...this.navigationHistory];
     }

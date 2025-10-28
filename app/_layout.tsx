@@ -11,6 +11,7 @@ import ToastContainer from '../components/ToastContainer';
 import { ToastProvider } from '../contexts/ToastContext';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ErrorCategory, ErrorSeverity } from '../types/error';
+import NotificationInitializer from '../components/NotificationInitializer';
 import '../global.css';
 import '../localizations/i18n';
 import { AuthHelper } from '../services/authHelper';
@@ -33,6 +34,31 @@ export default function RootLayout() {
     React.useEffect(() => {
         let tokenMonitoringInterval: NodeJS.Timeout | null = null;
 
+        // Initialize app lifecycle manager for WebSocket handling
+        const initializeAppLifecycle = async () => {
+            try {
+                const { appLifecycleManager } = await import('../services/appLifecycleManager');
+                appLifecycleManager.initialize();
+                console.log('[RootLayout] App lifecycle manager initialized');
+            } catch (error) {
+                console.error('❌ [RootLayout] Failed to initialize app lifecycle manager:', error);
+            }
+        };
+
+        // Initialize notification manager
+        const initializeNotificationManager = async () => {
+            try {
+                const { notificationManager } = await import('../services/notificationManager');
+                // Note: Toast context and navigation will be initialized later when available
+                console.log('🔔 [RootLayout] Notification manager imported');
+            } catch (error) {
+                console.error('❌ [RootLayout] Failed to import notification manager:', error);
+            }
+        };
+
+        initializeAppLifecycle();
+        initializeNotificationManager();
+
         const handleAppStateChange = async (nextAppState: AppStateStatus) => {
             if (nextAppState === 'active') {
                 // Check authentication status when app becomes active
@@ -47,17 +73,8 @@ export default function RootLayout() {
                             tokenMonitoringInterval = AuthHelper.startTokenMonitoring();
                         }
 
-                        // RECONNECT WEBSOCKET: Reconnect WebSocket when app becomes active
-                        try {
-                            const { useChatStore } = await import('../store/chatStore');
-                            const chatStore = useChatStore.getState();
-                            if (!chatStore.websocketConnected && !chatStore.websocketConnecting) {
-                                await chatStore.connectWebSocket();
-                                console.log('🔌 [RootLayout] WebSocket reconnected due to app active');
-                            }
-                        } catch (error) {
-                            console.error('❌ [RootLayout] Failed to reconnect WebSocket on active:', error);
-                        }
+                        // ✅ OPTIMIZED: WebSocket reconnection is now handled by appLifecycleManager
+                        // No need to handle WebSocket here to avoid conflicts
                     }
                 } catch (error) {
                     console.error('❌ Auth check failed:', error);
@@ -82,15 +99,8 @@ export default function RootLayout() {
                     tokenMonitoringInterval = null;
                 }
 
-                //  DISCONNECT WEBSOCKET: Disconnect WebSocket when app goes to background
-                try {
-                    const { useChatStore } = await import('../store/chatStore');
-                    const chatStore = useChatStore.getState();
-                    await chatStore.disconnectWebSocket();
-                    console.log('🔌 [RootLayout] WebSocket disconnected due to app background/inactive');
-                } catch (error) {
-                    console.error('❌ [RootLayout] Failed to disconnect WebSocket on background:', error);
-                }
+                // ✅ OPTIMIZED: WebSocket disconnection is now handled by appLifecycleManager
+                // No need to handle WebSocket here to avoid conflicts
             }
         };
 
@@ -132,57 +142,59 @@ export default function RootLayout() {
 
     return (
         <ToastProvider>
-            <ErrorBoundary
-                category={ErrorCategory.SYSTEM}
-                severity={ErrorSeverity.CRITICAL}
-                enableRecovery={true}
-                maxRetries={3}
-                onError={(error) => {
-                    console.error('🚨 Root ErrorBoundary caught error:', error);
-                    globalErrorHandler.reportError(
-                        error.originalError || new Error(error.message),
-                        error.category,
-                        error.severity,
-                        error.context
-                    );
-                }}
-            >
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                    <Stack screenOptions={{
-                        headerShown: false,
-                        gestureEnabled: true, // Enable swipe back by default
-                        animation: 'slide_from_right'
-                    }}>
-                        <Stack.Screen name="index" />
-                        <Stack.Screen name="auth/login" options={{ gestureEnabled: false }} />
-                        <Stack.Screen name="auth/signup" />
-                        <Stack.Screen name="auth/verify-otp" options={{ gestureEnabled: false }} />
-                        <Stack.Screen name="auth/forgot-password" />
-                        <Stack.Screen name="auth/reset-password-otp" options={{ gestureEnabled: false }} />
-                        <Stack.Screen name="auth/reset-password" options={{ gestureEnabled: false }} />
-                        <Stack.Screen name="auth/initialize-profile" options={{ gestureEnabled: false }} />
-                        <Stack.Screen name="auth/onboarding-wizard" options={{ gestureEnabled: false }} />
-                        <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
-                        <Stack.Screen name="profile/edit-profile" />
-                        <Stack.Screen name="profile/edit-name" />
-                        <Stack.Screen name="profile/edit-bio" />
-                        <Stack.Screen name="profile/edit-gender" />
-                        <Stack.Screen name="profile/edit-date-of-birth" />
-                        <Stack.Screen name="profile/view-avatar" />
-                        <Stack.Screen name="friends/friend-request" />
-                        <Stack.Screen name="friends/friends-list" />
-                        <Stack.Screen name="friends/sent-requests" />
-                        <Stack.Screen name="collections/collections" />
-                        <Stack.Screen name="collections/collection-detail" />
-                        <Stack.Screen name="settings/settings" />
-                        <Stack.Screen name="settings/preferences" />
-                        <Stack.Screen name="settings/gesture-test" />
-                        <Stack.Screen name="settings/simple-gesture-test" />
-                        <Stack.Screen name="settings/ultra-simple-test" />
-                    </Stack>
-                    <ToastContainer />
-                </GestureHandlerRootView>
-            </ErrorBoundary>
+            <NotificationInitializer>
+                <ErrorBoundary
+                    category={ErrorCategory.SYSTEM}
+                    severity={ErrorSeverity.CRITICAL}
+                    enableRecovery={true}
+                    maxRetries={3}
+                    onError={(error) => {
+                        console.error('🚨 Root ErrorBoundary caught error:', error);
+                        globalErrorHandler.reportError(
+                            error.originalError || new Error(error.message),
+                            error.category,
+                            error.severity,
+                            error.context
+                        );
+                    }}
+                >
+                    <GestureHandlerRootView style={{ flex: 1 }}>
+                        <Stack screenOptions={{
+                            headerShown: false,
+                            gestureEnabled: true, // Enable swipe back by default
+                            animation: 'slide_from_right'
+                        }}>
+                            <Stack.Screen name="index" />
+                            <Stack.Screen name="auth/login" options={{ gestureEnabled: false }} />
+                            <Stack.Screen name="auth/signup" />
+                            <Stack.Screen name="auth/verify-otp" options={{ gestureEnabled: false }} />
+                            <Stack.Screen name="auth/forgot-password" />
+                            <Stack.Screen name="auth/reset-password-otp" options={{ gestureEnabled: false }} />
+                            <Stack.Screen name="auth/reset-password" options={{ gestureEnabled: false }} />
+                            <Stack.Screen name="auth/initialize-profile" options={{ gestureEnabled: false }} />
+                            <Stack.Screen name="auth/onboarding-wizard" options={{ gestureEnabled: false }} />
+                            <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
+                            <Stack.Screen name="profile/edit-profile" />
+                            <Stack.Screen name="profile/edit-name" />
+                            <Stack.Screen name="profile/edit-bio" />
+                            <Stack.Screen name="profile/edit-gender" />
+                            <Stack.Screen name="profile/edit-date-of-birth" />
+                            <Stack.Screen name="profile/view-avatar" />
+                            <Stack.Screen name="friends/friend-request" />
+                            <Stack.Screen name="friends/friends-list" />
+                            <Stack.Screen name="friends/sent-requests" />
+                            <Stack.Screen name="collections/collections" />
+                            <Stack.Screen name="collections/collection-detail" />
+                            <Stack.Screen name="settings/settings" />
+                            <Stack.Screen name="settings/preferences" />
+                            <Stack.Screen name="settings/gesture-test" />
+                            <Stack.Screen name="settings/simple-gesture-test" />
+                            <Stack.Screen name="settings/ultra-simple-test" />
+                        </Stack>
+                        <ToastContainer />
+                    </GestureHandlerRootView>
+                </ErrorBoundary>
+            </NotificationInitializer>
         </ToastProvider>
     );
 }

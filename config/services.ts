@@ -129,6 +129,33 @@ export const SERVICES_CONFIG = {
         }
     },
 
+    // Subscription Service
+    SUBSCRIPTION_SERVICE: {
+        BASE_URL: process.env.EXPO_PUBLIC_SUBSCRIPTION_SERVICE_URL || 'https://api.hengout.app/subscription-service/api/v1',
+        ENDPOINTS: {
+            // Plans
+            GET_PLANS: '/subscriptions/plans',
+            GET_ACTIVE_SUBSCRIPTION: '/subscriptions/active',
+            ACTIVATE_SUBSCRIPTION: '/subscriptions/activate',
+
+            // User Limits
+            GET_FOLDER_LIMITS: '/users/limits/folder',
+            GET_FRIEND_LIMITS: '/users/limits/friend',
+            GET_GROUP_LIMITS: '/users/limits/group',
+
+            // Payments
+            CHECK_PAYMENT: '/payments/check',
+            CREATE_PAYMENT: '/payments/create',
+            CONFIRM_WEBHOOK: '/payments/confirm-webhook',
+            CANCEL_PAYMENT: '/payments/cancel',
+
+            // Group Management
+            GET_GROUP_STATUS: '/groups/:groupId/status',
+            INIT_GROUP: '/groups/init',
+            APPLY_GROUP_BOOST: '/group-boosts/apply',
+        }
+    },
+
     // Gateway Management
     GATEWAY: {
         BASE_URL: process.env.EXPO_PUBLIC_GATEWAY_URL || 'https://api.hengout.app/gateway/api/v1',
@@ -176,4 +203,5 @@ export const AUTH_SERVICE = SERVICES_CONFIG.AUTH_SERVICE;
 export const USER_SERVICE = SERVICES_CONFIG.USER_SERVICE;
 export const LOCATION_SERVICE = SERVICES_CONFIG.LOCATION_SERVICE;
 export const SOCIAL_SERVICE = SERVICES_CONFIG.SOCIAL_SERVICE;
+export const SUBSCRIPTION_SERVICE = SERVICES_CONFIG.SUBSCRIPTION_SERVICE;
 export const GATEWAY = SERVICES_CONFIG.GATEWAY;

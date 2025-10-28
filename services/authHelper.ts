@@ -185,7 +185,7 @@ export class AuthHelper {
             await OnboardingService.clearOnboardingStatus();
             console.log('✅ Local tokens and onboarding status cleared');
 
-            // 🚀 CLEAR DATABASE: Clear all local database data (like WhatsApp/Telegram)
+            // CLEAR DATABASE: Clear all local database data (like WhatsApp/Telegram)
             try {
                 const { databaseService } = await import('./databaseService');
                 await databaseService.clearAllData();
@@ -195,7 +195,7 @@ export class AuthHelper {
                 // Don't throw - database clear failure shouldn't block logout
             }
 
-            // 🚀 SET LOGOUT FLAGS: Prevent infinite 401 loops
+            // SET LOGOUT FLAGS: Prevent infinite 401 loops
             try {
                 const { setLogoutMode, setUserLoggedOut } = await import('../config/axios');
                 setLogoutMode(true);
@@ -241,7 +241,7 @@ export class AuthHelper {
             // Clear local tokens
             await this.clearTokens();
 
-            // 🚀 CLEAR DATABASE: Clear all local database data (like WhatsApp/Telegram)
+            // CLEAR DATABASE: Clear all local database data (like WhatsApp/Telegram)
             try {
                 const { databaseService } = await import('./databaseService');
                 await databaseService.clearAllData();

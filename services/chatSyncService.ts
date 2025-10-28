@@ -13,7 +13,7 @@ class ChatSyncService {
      */
     async initialize(): Promise<void> {
         await databaseService.initialize();
-        // 🚀 SMART SYNC: No more periodic sync - using event-driven sync instead
+        // SMART SYNC: No more periodic sync - using event-driven sync instead
         // Chat sync service initialized with Smart Sync
     }
 
@@ -85,7 +85,7 @@ class ChatSyncService {
         try {
             // Syncing conversations
 
-            // 🚀 PROACTIVE: Check auth first
+            // PROACTIVE: Check auth first
             const { AuthHelper } = await import('./authHelper');
             const isAuthenticated = await AuthHelper.isAuthenticated();
 
@@ -94,7 +94,7 @@ class ChatSyncService {
                 return;
             }
 
-            // 🚀 PROACTIVE: Check token expiry and refresh if needed
+            // PROACTIVE: Check token expiry and refresh if needed
             const tokens = await AuthHelper.getTokens();
             if (tokens && tokens.expiresIn < 5 * 60 * 1000) { // 5 minutes - consistent with other services
                 // Token expiring soon, refreshing proactively
@@ -112,7 +112,7 @@ class ChatSyncService {
             // Fetch conversations from server
             const response = await chatService.getConversations();
 
-            // 🚀 DEFENSIVE: Check if user is still authenticated after API call
+            // DEFENSIVE: Check if user is still authenticated after API call
             const stillAuthenticated = await AuthHelper.isAuthenticated();
 
             if (!stillAuthenticated) {
@@ -129,7 +129,7 @@ class ChatSyncService {
                 // Synced conversations
             }
         } catch (error: any) {
-            // 🚀 PROACTIVE: Handle 401 specifically
+            // PROACTIVE: Handle 401 specifically
             if (error.response?.status === 401) {
                 // 401 error - user needs to login
                 try {
@@ -141,7 +141,7 @@ class ChatSyncService {
                 }
             }
 
-            // 🚀 DEFENSIVE: Don't throw error if user logged out
+            // DEFENSIVE: Don't throw error if user logged out
             if (error.message?.includes('User logged out')) {
                 // User logged out during conversation sync, aborting gracefully
                 return;
@@ -176,7 +176,7 @@ class ChatSyncService {
         try {
             // Syncing messages for conversation
 
-            // 🚀 CHECK AUTH FIRST: Only sync if user is authenticated
+            // CHECK AUTH FIRST: Only sync if user is authenticated
             const { AuthHelper } = await import('./authHelper');
             const isAuthenticated = await AuthHelper.isAuthenticated();
 
@@ -188,7 +188,7 @@ class ChatSyncService {
             // Fetch messages from server
             const response = await chatService.getMessages(conversationId, page, size);
 
-            // 🚀 DEFENSIVE: Check if user is still authenticated after API call
+            // DEFENSIVE: Check if user is still authenticated after API call
             const stillAuthenticated = await AuthHelper.isAuthenticated();
 
             if (!stillAuthenticated) {
@@ -208,7 +208,7 @@ class ChatSyncService {
 
             return [];
         } catch (error: any) {
-            // 🚀 DEFENSIVE: Don't throw error if user logged out
+            // DEFENSIVE: Don't throw error if user logged out
             if (error.message?.includes('User logged out')) {
                 // User logged out during message sync, aborting gracefully
                 return [];

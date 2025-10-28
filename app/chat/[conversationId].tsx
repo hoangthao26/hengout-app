@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SendHorizontal, User, Users, Compass, Calendar, MapPin } from 'lucide-react-native';
 import NavigationService from '../../services/navigationService';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
     FlatList,
     Image,
@@ -27,12 +28,14 @@ import { ChatConversation, ChatMessage } from '../../types/chat';
 import CreateActivityModal from '../../components/CreateActivityModal';
 import ActivityDetailsModal from '../../components/ActivityDetailsModal';
 import { chatWebSocketManager } from '../../services/chatWebSocketManager';
+import { notificationManager } from '../../services/notificationManager';
 
 export default function ChatConversationScreen() {
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
     const { error, success, warning, info } = useToast();
     const router = useRouter();
+    const navigation = useNavigation();
     const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
     const insets = useSafeAreaInsets();
 
@@ -40,7 +43,7 @@ export default function ChatConversationScreen() {
         conversations,
         currentConversation,
         setCurrentConversation,
-        // Enterprise Store-First Messages
+        // Store-First Messages
         conversationMessages,
         messageSnapshots,
         getMessageSnapshot,
@@ -48,7 +51,7 @@ export default function ChatConversationScreen() {
         addConversationMessage,
         updateConversationMessage,
         setMessageSnapshot,
-        // Enterprise Caching
+        // Caching
         getCachedMessages,
         updateCachedMessages,
         shouldSyncMessages,
@@ -178,23 +181,23 @@ export default function ChatConversationScreen() {
         }
     }, [conversationId, error, setCurrentConversation]);
 
-    // Enterprise Store-First Message Loading
+    // Store-First Message Loading
     const loadMessages = useCallback(
         async (pageNum: number) => {
             if (!conversationId || isLoadingMessages) return;
 
             setIsLoadingMessages(true);
-            console.log(`🚀 [Enterprise Chat] Loading messages for conversation: ${conversationId}, page: ${pageNum}`);
+            console.log(`Loading messages for conversation: ${conversationId}, page: ${pageNum}`);
 
             try {
                 // 1. Check store first (instant display)
                 const storeMessages = conversationMessages[conversationId] || [];
-                console.log(`🔍 [Enterprise Chat] DEBUG - Store check: conversationId=${conversationId}, storeMessages.length=${storeMessages.length}`);
-                console.log(`🔍 [Enterprise Chat] DEBUG - All conversationMessages keys:`, Object.keys(conversationMessages));
+                console.log(`DEBUG - Store check: conversationId=${conversationId}, storeMessages.length=${storeMessages.length}`);
+                console.log(`DEBUG - All conversationMessages keys:`, Object.keys(conversationMessages));
 
                 if (pageNum === 0 && storeMessages.length > 0) {
                     setMessages(storeMessages);
-                    console.log(`⚡ [Enterprise Chat] Instant display: ${storeMessages.length} messages from store`);
+                    console.log(`Instant display: ${storeMessages.length} messages from store`);
                     setIsLoadingMessages(false);
                     return; // Exit early if we have store messages
                 }
@@ -204,16 +207,16 @@ export default function ChatConversationScreen() {
                 if (pageNum === 0 && snapshotMessages.length > 0) {
                     setMessages(snapshotMessages);
                     setConversationMessages(conversationId, snapshotMessages);
-                    console.log(`⚡ [Enterprise Chat] Instant display: ${snapshotMessages.length} messages from snapshot`);
+                    console.log(`Instant display: ${snapshotMessages.length} messages from snapshot`);
                     setIsLoadingMessages(false);
                     return; // Exit early if we have snapshot messages
                 }
 
                 // 3. Load from SQLite (fast fallback)
                 if (chatSyncInitialized) {
-                    console.log(`💾 [Enterprise Chat] Loading from SQLite...`);
+                    console.log(`Loading from SQLite...`);
                     const localMessages = await getMessagesFromDB(conversationId, 50, pageNum * 50);
-                    console.log(`💾 [Enterprise Chat] Loaded ${localMessages.length} messages from SQLite`);
+                    console.log(`Loaded ${localMessages.length} messages from SQLite`);
 
                     if (pageNum === 0) {
                         // Remove duplicates before setting messages
@@ -237,13 +240,13 @@ export default function ChatConversationScreen() {
 
                     // 4. Background sync from server (only if needed)
                     if (shouldSyncMessages(conversationId)) {
-                        console.log(`🔄 [Enterprise Chat] Starting background sync...`);
+                        console.log(`Starting background sync...`);
                         setTimeout(async () => {
                             try {
                                 const response = await chatService.getMessages(conversationId, pageNum, 50);
                                 if (response.status === 'success') {
                                     const syncedMessages = response.data;
-                                    console.log(`🔄 [Enterprise Chat] Synced ${syncedMessages.length} messages from server`);
+                                    console.log(`Synced ${syncedMessages.length} messages from server`);
 
                                     if (pageNum === 0) {
                                         // Only update if server has newer messages
@@ -288,10 +291,10 @@ export default function ChatConversationScreen() {
                     }
                 } else {
                     // Fallback to direct API call if SQLite not ready
-                    console.log(`🌐 [Enterprise Chat] Loading from API (SQLite not ready)...`);
+                    console.log(`Loading from API (SQLite not ready)...`);
                     const response = await chatService.getMessages(conversationId, pageNum, 50);
                     if (response.status === 'success') {
-                        console.log(`🌐 [Enterprise Chat] Loaded ${response.data.length} messages from API`);
+                        console.log(`Loaded ${response.data.length} messages from API`);
 
                         if (pageNum === 0) {
                             // Remove duplicates before setting messages
@@ -324,7 +327,7 @@ export default function ChatConversationScreen() {
         [conversationId, chatSyncInitialized, getMessagesFromDB, error, isLoadingMessages, conversationMessages, getMessageSnapshot, setConversationMessages, setMessageSnapshot, shouldSyncMessages, markSyncTime]
     );
 
-    // Enterprise Optimistic UI Send Message
+    // Optimistic UI Send Message
     const sendMessage = useCallback(async () => {
         if (!messageText.trim() || !conversationId || sending) return;
 
@@ -341,7 +344,7 @@ export default function ChatConversationScreen() {
             senderAvatar: '',
             content: { text: messageContent },
             type: 'TEXT',
-            // 🚀 REMOVED: Message status not supported by API
+            // REMOVED: Message status not supported by API
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             mine: true
@@ -351,7 +354,7 @@ export default function ChatConversationScreen() {
             // 1. Add to store immediately (optimistic UI)
             addConversationMessage(conversationId, optimisticMessage);
             setMessages(prev => [optimisticMessage, ...prev]);
-            console.log(`⚡ [Enterprise Chat] Optimistic message added: ${messageContent}`);
+            console.log(`Optimistic message added: ${messageContent}`);
 
             if (chatSyncInitialized) {
                 // 2. Send to server with sync
@@ -368,7 +371,7 @@ export default function ChatConversationScreen() {
                         senderId: result.senderId,
                         senderName: result.senderName
                     });
-                    console.log(`✅ [Enterprise Chat] Message sent successfully: ${result.id}`);
+                    console.log(`Message sent successfully: ${result.id}`);
                 }
             } else {
                 // Try direct API call first
@@ -403,7 +406,7 @@ export default function ChatConversationScreen() {
             console.error('Failed to send message:', err);
             error('Lỗi khi gửi tin nhắn');
 
-            // 🚀 REMOVED: No need to update status since we don't show status indicators
+            // REMOVED: No need to update status since we don't show status indicators
 
             setMessageText(messageContent); // Restore message text
         } finally {
@@ -413,8 +416,9 @@ export default function ChatConversationScreen() {
 
 
 
-    // Handle back press
+    // Handle back press - use router.back() like settings for natural animation
     const handleBack = useCallback(() => {
+        // Use router.back() for natural slide_from_right animation like other pages
         router.back();
     }, [router]);
 
@@ -429,24 +433,56 @@ export default function ChatConversationScreen() {
         setSelectedActivityId('');
     }, []);
 
-    // Load data on mount
+    // Load data on mount - only run once
     useEffect(() => {
         if (conversationId) {
+            // Set current conversation immediately for notification tracking
+            const conversation = conversations.find(c => c.id === conversationId);
+            if (conversation) {
+                setCurrentConversation(conversation);
+                console.log('🔔 [Chat] Set current conversation for notification tracking:', conversationId);
+            }
+
             loadConversation();
             loadMessages(0);
+
+            // 🔔 NOTIFICATION: Mark conversation as read when opened
+            try {
+                notificationManager.markConversationAsRead(conversationId);
+                console.log('✅ [Chat] Marked conversation as read:', conversationId);
+            } catch (error) {
+                console.error('❌ [Chat] Failed to mark conversation as read:', error);
+            }
         }
-    }, [conversationId]); // Only depend on conversationId to avoid loop
+    }, [conversationId]); // Only depend on conversationId
+
+    // Mark conversation as read when entering conversation - only on focus
+    useFocusEffect(
+        React.useCallback(() => {
+            if (conversationId) {
+                console.log('🔔 [Chat] Focus effect - marking conversation as read:', conversationId);
+                try {
+                    notificationManager.markConversationAsRead(conversationId);
+                } catch (error) {
+                    console.error('❌ [Chat] Failed to mark conversation as read in focus effect:', error);
+                }
+            }
+
+            // No cleanup needed - only run on focus
+        }, [conversationId])
+    );
 
     // WebSocket subscription management
     useEffect(() => {
         if (conversationId) {
-            console.log('🔌 [Chat] Subscribing to WebSocket for conversation:', conversationId);
-            subscribe(conversationId);
+            //  OPTIMIZED: Không cần subscribe nữa vì đã subscribe toàn bộ khi mở app
+            // subscribe(conversationId);
+            console.log('🔌 [Chat] Conversation opened:', conversationId, '- Already subscribed globally');
         }
 
         // No cleanup - maintain subscription for "subscribe all conversations" strategy
         // Conversations are managed globally by initializationService
-    }, [conversationId, subscribe]);
+    }, [conversationId]);
 
     // Set toast function for WebSocket manager
     useEffect(() => {
@@ -473,12 +509,12 @@ export default function ChatConversationScreen() {
         console.log('🔔 [Chat] Toast function set for WebSocket manager');
     }, [success, info, warning, error]);
 
-    // Load conversation if not in store
+    // Load conversation if not in store - only when conversation changes
     useEffect(() => {
         if (!conversation && conversationId) {
             loadConversation();
         }
-    }, [conversation, conversationId, loadConversation]);
+    }, [conversation, conversationId]); // Remove loadConversation from dependencies
 
     // Listen for conversation updates from store
     useEffect(() => {
@@ -512,8 +548,26 @@ export default function ChatConversationScreen() {
                 return prevMessages;
             });
         }
-    }, [conversationId, conversationMessages]);
+    }, [conversationId, conversationMessages[conversationId]]); // Only depend on specific conversation messages
 
+    // Simple approach: Mark as read when component unmounts
+    useEffect(() => {
+        return () => {
+            // Mark conversation as read when component unmounts (any way of leaving)
+            if (conversationId) {
+                console.log('🔔 [Chat] Component unmount - marking conversation as read:', conversationId);
+                try {
+                    notificationManager.markConversationAsRead(conversationId);
+                } catch (error) {
+                    console.error('❌ [Chat] Failed to mark conversation as read on unmount:', error);
+                }
+            }
+
+            // Clear current conversation when leaving
+            console.log('🔔 [Chat] Clearing current conversation on unmount');
+            setCurrentConversation(null);
+        };
+    }, [conversationId, setCurrentConversation]);
 
 
 
@@ -687,7 +741,7 @@ export default function ChatConversationScreen() {
                             {chatService.formatMessageContent(item)}
                         </Text>
 
-                        {/* 🚀 REMOVED: Hide all message status indicators */}
+                        {/* REMOVED: Hide all message status indicators */}
                     </View>
                 </View>
             </View>

@@ -43,11 +43,11 @@ const CustomMapView: React.FC<MapViewProps> = ({
             onLocationSelect(newLocation);
         }
 
-        // Enterprise: Remove debug logs in production
+        // Remove debug logs in production
     };
 
     const handleUserLocationPress = () => {
-        // Enterprise: Remove debug logs in production
+        // Remove debug logs in production
         // Could trigger analytics or user action here
     };
 

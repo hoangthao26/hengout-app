@@ -27,7 +27,7 @@ class GlobalErrorHandler {
             return;
         }
 
-        console.log('🚀 Initializing Global Error Handler...');
+        console.log('Initializing Global Error Handler...');
 
         // Handle unhandled JavaScript errors
         this.setupJavaScriptErrorHandler();

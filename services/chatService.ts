@@ -27,7 +27,7 @@ class ChatService {
             const response = await axiosInstance.get<ChatResponse<ChatConversation[]>>(endpoint);
             return response.data;
         } catch (error: any) {
-            // 🚀 DEFENSIVE: Don't throw error if user logged out
+            // DEFENSIVE: Don't throw error if user logged out
             if (error.message?.includes('User logged out')) {
                 console.log('ℹ️ [ChatService] User logged out, skipping conversation fetch');
                 return { status: 'success', data: [], message: 'User logged out' };
@@ -196,7 +196,7 @@ class ChatService {
             case 'TEXT':
                 return message.content.text || '';
             case 'ACTIVITY':
-                return `🎯 ${message.content.name || 'Hoạt động'}`;
+                return `${message.content.name || 'Hoạt động'}`;
             default:
                 return 'Tin nhắn không xác định';
         }

@@ -2,7 +2,7 @@ import { useFonts } from 'expo-font';
 import { Tabs } from 'expo-router';
 import { Map, MessageCircle, User } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { Platform, useColorScheme } from 'react-native';
+import { Platform, useColorScheme, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CreateCollectionModal from '../../components/CreateCollectionModal';
 import CreateGroupModal from '../../components/CreateGroupModal';
@@ -11,6 +11,7 @@ import LocationDetailModal from '../../components/LocationDetailModal';
 import FilterVibesModal from '../../components/FilterVibesModal';
 import SaveLocationModal from '../../components/SaveLocationModal';
 import { ModalProvider, useModal } from '../../contexts/ModalContext';
+import Badge from '../../components/Badge';
 
 function TabLayoutContent() {
     const [fontsLoaded] = useFonts({
@@ -171,7 +172,10 @@ function TabLayoutContent() {
                     options={{
                         title: 'Chat',
                         tabBarIcon: ({ color, size, focused }) => (
-                            <GradientIcon name="chatbubble" size={28} focused={focused} />
+                            <View style={{ position: 'relative' }}>
+                                <GradientIcon name="chatbubble" size={28} focused={focused} />
+                                <Badge size="small" />
+                            </View>
                         ),
                     }}
                 />

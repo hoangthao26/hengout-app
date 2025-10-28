@@ -5,25 +5,21 @@ import GradientButton from '../../../components/GradientButton';
 import { validateEmail, validatePassword } from '../validations/authSchema';
 import EmailInput from './EmailInput';
 import ErrorMessage from './ErrorMessage';
-import GoogleButton from './GoogleButton';
+import { LoginWithGoogle } from '../../../components/LoginWithGoogle';
 import LoginPasswordInput from './LoginPasswordInput';
 
 interface EmailLoginFormProps {
     onSubmit: (email: string, password: string) => void;
-    onGoogleSignIn: () => void;
     onForgotPassword: () => void;
     onSignUp: () => void;
     loading?: boolean;
-    googleLoading?: boolean;
 }
 
 const EmailLoginForm: React.FC<EmailLoginFormProps> = ({
     onSubmit,
-    onGoogleSignIn,
     onForgotPassword,
     onSignUp,
     loading = false,
-    googleLoading = false
 }) => {
     const { t } = useTranslation();
     const colorScheme = useColorScheme();
@@ -150,15 +146,12 @@ const EmailLoginForm: React.FC<EmailLoginFormProps> = ({
             </View>
 
             {/* Google Sign In Button */}
-            <GoogleButton
-                title={t('google_signin')}
-                onPress={onGoogleSignIn}
-                loading={googleLoading}
-                disabled={loading}
-            />
+            <View style={{ marginTop: 16, alignItems: 'center' }}>
+                <LoginWithGoogle />
+            </View>
 
             {/* Sign Up Link */}
-            <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 32 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 24 }}>
                 <Text style={{
                     color: isDark ? '#9CA3AF' : '#6B7280',
                     fontSize: 16,
@@ -180,7 +173,7 @@ const EmailLoginForm: React.FC<EmailLoginFormProps> = ({
             </View>
 
             {/* Dev Quick Login Buttons */}
-            {__DEV__ && (
+            {/* {__DEV__ && (
                 <View style={{ marginTop: 24, paddingHorizontal: 20 }}>
 
 
@@ -253,7 +246,7 @@ const EmailLoginForm: React.FC<EmailLoginFormProps> = ({
                         </Text>
                     </TouchableOpacity>
                 </View>
-            )}
+            )} */}
         </View>
     );
 };

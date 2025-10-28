@@ -95,7 +95,7 @@ export const useAuthStore = create<AuthState>()(
                         isLoading: false,
                     });
 
-                    // 🚀 RESET LOGOUT FLAGS: Enable axios interceptor for new session
+                    // RESET LOGOUT FLAGS: Enable axios interceptor for new session
                     const { setLogoutMode, setUserLoggedOut, resetRefreshState } = await import('../config/axios');
                     setLogoutMode(false);
                     setUserLoggedOut(false);
@@ -104,7 +104,7 @@ export const useAuthStore = create<AuthState>()(
                     // Fetch user profile after successful login
                     await get().fetchUserProfile();
 
-                    // 🚀 INITIALIZE SERVICES: Preload data for new user
+                    // INITIALIZE SERVICES: Preload data for new user
                     await get().initializeUserServices();
                 } catch (error: any) {
                     set({
@@ -167,7 +167,7 @@ export const useAuthStore = create<AuthState>()(
                         isLoading: false,
                     });
 
-                    // 🚀 RESET LOGOUT FLAGS: Enable axios interceptor for new session
+                    // RESET LOGOUT FLAGS: Enable axios interceptor for new session
                     const { setLogoutMode, setUserLoggedOut, resetRefreshState } = await import('../config/axios');
                     setLogoutMode(false);
                     setUserLoggedOut(false);
@@ -176,7 +176,7 @@ export const useAuthStore = create<AuthState>()(
                     // Fetch user profile after successful OTP verification
                     await get().fetchUserProfile();
 
-                    // 🚀 INITIALIZE SERVICES: Preload data for new user
+                    // INITIALIZE SERVICES: Preload data for new user
                     await get().initializeUserServices();
                 } catch (error: any) {
                     set({
@@ -239,7 +239,7 @@ export const useAuthStore = create<AuthState>()(
                         isLoading: false,
                     });
 
-                    // 🚀 RESET LOGOUT FLAGS: Enable axios interceptor for new session
+                    // RESET LOGOUT FLAGS: Enable axios interceptor for new session
                     const { setLogoutMode, setUserLoggedOut, resetRefreshState } = await import('../config/axios');
                     setLogoutMode(false);
                     setUserLoggedOut(false);
@@ -248,7 +248,7 @@ export const useAuthStore = create<AuthState>()(
                     // Fetch user profile after successful Google sign in
                     await get().fetchUserProfile();
 
-                    // 🚀 INITIALIZE SERVICES: Preload data for new user
+                    // INITIALIZE SERVICES: Preload data for new user
                     await get().initializeUserServices();
                 } catch (error: any) {
                     set({
@@ -263,20 +263,20 @@ export const useAuthStore = create<AuthState>()(
                 try {
                     set({ isLoading: true, error: null });
 
-                    // 🚀 SET LOGOUT FLAGS: Prevent infinite 401 loops
+                    //  SET LOGOUT FLAGS: Prevent infinite 401 loops
                     const { setLogoutMode, setUserLoggedOut, resetRefreshState } = await import('../config/axios');
                     setLogoutMode(true);
                     setUserLoggedOut(true);
                     resetRefreshState();
 
-                    // 🚀 STOP REFRESH TOKEN MANAGER: Stop monitoring before logout
+                    //  STOP REFRESH TOKEN MANAGER: Stop monitoring before logout
                     refreshTokenManager.stopMonitoring();
 
-                    // 🚀 STOP CHAT SYNC SERVICE: Stop background sync to prevent 401 errors
+                    //  STOP CHAT SYNC SERVICE: Stop background sync to prevent 401 errors
                     const { chatSyncService } = await import('../services/chatSyncService');
                     chatSyncService.stopSync();
 
-                    // 🚀 DISCONNECT WEBSOCKET: Disconnect WebSocket connection on logout
+                    //  DISCONNECT WEBSOCKET: Disconnect WebSocket connection on logout
                     const { useChatStore: useChatStoreForDisconnect } = await import('./chatStore');
                     const chatStoreForDisconnect = useChatStoreForDisconnect.getState();
                     await chatStoreForDisconnect.disconnectWebSocket();
@@ -303,28 +303,28 @@ export const useAuthStore = create<AuthState>()(
                     const preferencesStore = usePreferencesStore.getState();
                     preferencesStore.clearPreferences();
 
-                    // 🚀 CLEAR CHAT DATA: Prevent showing old user's chat data
+                    // CLEAR CHAT DATA: Prevent showing old user's chat data
                     const { useChatStore: useChatStoreForReset } = await import('./chatStore');
                     const chatStoreForReset = useChatStoreForReset.getState();
                     chatStoreForReset.reset();
 
-                    // 🚀 CLEAR FRIEND DATA: Prevent showing old user's friends
+                    //  CLEAR FRIEND DATA: Prevent showing old user's friends
                     const { useFriendStore } = await import('./friendStore');
                     const friendStore = useFriendStore.getState();
                     friendStore.reset();
 
-                    // 🚀 CLEAR COLLECTION DATA: Prevent showing old user's collections
+                    //  CLEAR COLLECTION DATA: Prevent showing old user's collections
                     const { useCollectionStore } = await import('./collectionStore');
                     const collectionStore = useCollectionStore.getState();
                     collectionStore.resetCollections();
                     collectionStore.resetCurrentCollection();
 
-                    // 🚀 CLEAR SEARCH DATA: Prevent showing old user's search history
+                    //  CLEAR SEARCH DATA: Prevent showing old user's search history
                     const { useSearchStore } = await import('./searchStore');
                     const searchStore = useSearchStore.getState();
                     searchStore.clearSearch();
 
-                    // 🚀 CLEAR DATABASE: Clear all local database data (like WhatsApp/Telegram)
+                    //  CLEAR DATABASE: Clear all local database data (like WhatsApp/Telegram)
                     try {
                         const { databaseService } = await import('../services/databaseService');
                         await databaseService.clearAllData();
@@ -334,7 +334,7 @@ export const useAuthStore = create<AuthState>()(
                         // Don't throw - database clear failure shouldn't block logout
                     }
 
-                    // 🚀 RESET APP STORE: Reset initialization state for fresh start
+                    //  RESET APP STORE: Reset initialization state for fresh start
                     const { useAppStore } = await import('./appStore');
                     const appStore = useAppStore.getState();
                     appStore.setDatabaseReady(false);
@@ -363,12 +363,12 @@ export const useAuthStore = create<AuthState>()(
                 }
             },
 
-            // 🚀 OPTIMISTIC LOGOUT: Fast logout for better UX
+            //  OPTIMISTIC LOGOUT: Fast logout for better UX
             fastLogout: async () => {
                 try {
                     // Starting fast logout
 
-                    // 🚀 IMMEDIATE STATE CLEAR: Clear UI state first
+                    //  IMMEDIATE STATE CLEAR: Clear UI state first
                     set({
                         isAuthenticated: false,
                         user: null,
@@ -380,7 +380,7 @@ export const useAuthStore = create<AuthState>()(
                         error: null,
                     });
 
-                    // 🚀 BACKGROUND CLEANUP: Clear data without blocking UI
+                    // BACKGROUND CLEANUP: Clear data without blocking UI
                     setTimeout(async () => {
                         try {
                             // Set logout flags
@@ -394,7 +394,7 @@ export const useAuthStore = create<AuthState>()(
                             const { chatSyncService } = await import('../services/chatSyncService');
                             chatSyncService.stopSync();
 
-                            // 🚀 DISCONNECT WEBSOCKET: Disconnect WebSocket connection on fast logout
+                            // DISCONNECT WEBSOCKET: Disconnect WebSocket connection on fast logout
                             const { useChatStore: useChatStoreForFastDisconnect } = await import('./chatStore');
                             const chatStoreForFastDisconnect = useChatStoreForFastDisconnect.getState();
                             await chatStoreForFastDisconnect.disconnectWebSocket();
@@ -454,7 +454,7 @@ export const useAuthStore = create<AuthState>()(
             refreshTokens: async () => {
                 // Starting token refresh
 
-                // 🚀 DELEGATE TO REFRESH TOKEN MANAGER: With store update
+                //  DELEGATE TO REFRESH TOKEN MANAGER: With store update
                 const success = await refreshTokenManager.performRefresh(true);
 
                 if (success) {
@@ -504,7 +504,7 @@ export const useAuthStore = create<AuthState>()(
             },
 
             initializeAuth: async () => {
-                // ✅ GUARD: Prevent multiple initialization calls
+                //  GUARD: Prevent multiple initialization calls
                 const currentState = get();
                 if (currentState.isLoading) {
                     console.log('⏳ [AuthStore] Auth initialization already in progress, skipping...');
@@ -521,11 +521,11 @@ export const useAuthStore = create<AuthState>()(
                     if (storedTokens && storedTokens.accessToken) {
                         console.log('✅ [AuthStore] Found stored tokens, checking validity...');
 
-                        // 🔥 ENTERPRISE FEATURE: Smart Token Validation with Optimized Timing
+                        // ENTERPRISE FEATURE: Smart Token Validation with Optimized Timing
                         const isTokenExpired = storedTokens.expiresIn <= 0;
                         const timeUntilExpiry = storedTokens.expiresIn;
 
-                        // 🚀 STANDARDIZED TIMING: Consistent 5-minute proactive refresh
+                        // STANDARDIZED TIMING: Consistent 5-minute proactive refresh
                         const CRITICAL_THRESHOLD = 2 * 60 * 1000; // 2 minutes - critical
                         const PROACTIVE_THRESHOLD = 5 * 60 * 1000; // 5 minutes - proactive refresh
 
@@ -592,7 +592,7 @@ export const useAuthStore = create<AuthState>()(
                     }
 
                     set({ isLoading: false });
-                    console.log('🏁 [AuthStore] Auth initialization completed');
+                    console.log('[AuthStore] Auth initialization completed');
                 } catch (error: any) {
                     console.log('💥 [AuthStore] Auth initialization error:', error);
                     set({
@@ -632,7 +632,7 @@ export const useAuthStore = create<AuthState>()(
 
             initializeUserServices: async () => {
                 try {
-                    console.log('🚀 [AuthStore] Initializing services for new user...');
+                    console.log('[AuthStore] Initializing services for new user...');
 
                     // Import initialization service
                     const { initializationService } = await import('../services/initializationService');

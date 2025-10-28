@@ -15,7 +15,11 @@ interface ChatState {
     conversationsLoading: boolean;
     conversationsError: string | null;
 
-    // Enterprise Store-First Messages
+    // Conversation Caching
+    lastConversationLoadTime: number;
+    conversationCacheValid: boolean;
+
+    // Store-First Messages
     conversationMessages: { [conversationId: string]: ChatMessage[] };
     messageSnapshots: { [conversationId: string]: ChatMessage[] }; // Recent messages for instant display
     messagesLoading: { [conversationId: string]: boolean };
@@ -25,7 +29,7 @@ interface ChatState {
 
     // Legacy Messages removed - using conversationMessages instead
 
-    // Enterprise Message Caching & Sync
+    // Message Caching & Sync
     cachedMessages: { [conversationId: string]: ChatMessage[] };
     lastSyncTime: { [conversationId: string]: number };
     preloadedConversations: string[];
@@ -56,7 +60,12 @@ interface ChatActions {
     setConversationsLoading: (loading: boolean) => void;
     setConversationsError: (error: string | null) => void;
 
-    // Enterprise Store-First Messages
+    // Conversation Caching
+    setLastConversationLoadTime: (timestamp: number) => void;
+    setConversationCacheValid: (valid: boolean) => void;
+    mergeConversationsWithWebSocketUpdates: (apiConversations: ChatConversation[]) => ChatConversation[];
+
+    // Store-First Messages
     setConversationMessages: (conversationId: string, messages: ChatMessage[]) => void;
     addConversationMessage: (conversationId: string, message: ChatMessage) => void;
     updateConversationMessage: (conversationId: string, messageId: string, updates: Partial<ChatMessage>) => void;
@@ -69,12 +78,12 @@ interface ChatActions {
     setHasMoreMessages: (conversationId: string, hasMore: boolean) => void;
     setLastMessageTimestamp: (conversationId: string, timestamp: string) => void;
 
-    // Enterprise Message Snapshots (for instant display)
+    // Message Snapshots (for instant display)
     setMessageSnapshot: (conversationId: string, messages: ChatMessage[]) => void;
     getMessageSnapshot: (conversationId: string) => ChatMessage[];
     clearMessageSnapshot: (conversationId: string) => void;
 
-    // Enterprise Message Caching
+    // Message Caching
     getCachedMessages: (conversationId: string) => ChatMessage[];
     updateCachedMessages: (conversationId: string, messages: ChatMessage[]) => void;
     preloadMessages: (conversationId: string, messages: ChatMessage[]) => void;
@@ -136,7 +145,11 @@ const initialState: ChatState = {
     conversationsLoading: false,
     conversationsError: null,
 
-    // Enterprise Store-First Messages
+    // Conversation Caching
+    lastConversationLoadTime: 0,
+    conversationCacheValid: false,
+
+    // Store-First Messages
     conversationMessages: {},
     messageSnapshots: {},
     messagesLoading: {},
@@ -146,7 +159,7 @@ const initialState: ChatState = {
 
     // Legacy Messages removed - using conversationMessages instead
 
-    // Enterprise Message Caching & Sync
+    // Message Caching & Sync
     cachedMessages: {},
     lastSyncTime: {},
     preloadedConversations: [],
@@ -272,8 +285,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             return new Date(bTime).getTime() - new Date(aTime).getTime();
         });
 
+        // ✅ REAL-TIME CONVERSATION LIST UPDATE
+        // Force re-render by creating new array reference
+        console.log('🔄 [ChatStore] Conversation updated, triggering conversation list re-render:', {
+            conversationId,
+            lastMessage: updates.lastMessage?.content?.text || 'Activity',
+            lastMessageTime: updates.lastMessage?.createdAt
+        });
+
         return {
-            conversations: sortedConversations,
+            conversations: [...sortedConversations], // Force new array reference
             currentConversation: state.currentConversation?.id === conversationId
                 ? { ...state.currentConversation, ...updates }
                 : state.currentConversation
@@ -295,6 +316,53 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     setConversationsLoading: (loading) => set({ conversationsLoading: loading }),
 
     setConversationsError: (error) => set({ conversationsError: error }),
+
+    // ==================== ENTERPRISE CONVERSATION CACHING ====================
+
+    setLastConversationLoadTime: (timestamp) => set({ lastConversationLoadTime: timestamp }),
+
+    setConversationCacheValid: (valid) => set({ conversationCacheValid: valid }),
+
+    mergeConversationsWithWebSocketUpdates: (apiConversations) => {
+        const state = get();
+        const storeConversations = state.conversations;
+
+        console.log('🔄 [ChatStore] Merging API conversations with WebSocket updates');
+
+        // Merge API data với WebSocket updates
+        const mergedConversations = apiConversations.map(apiConv => {
+            const storeConv = storeConversations.find(s => s.id === apiConv.id);
+
+            if (storeConv && storeConv.lastMessage && apiConv.lastMessage) {
+                // So sánh timestamp của lastMessage
+                const storeTime = new Date(storeConv.lastMessage.createdAt).getTime();
+                const apiTime = new Date(apiConv.lastMessage.createdAt).getTime();
+
+                if (storeTime > apiTime) {
+                    console.log('✅ [ChatStore] Using WebSocket updated conversation:', {
+                        conversationId: apiConv.id,
+                        storeLastMessage: storeConv.lastMessage.content?.text || 'Activity',
+                        apiLastMessage: apiConv.lastMessage.content?.text || 'Activity',
+                        storeTime: new Date(storeTime).toISOString(),
+                        apiTime: new Date(apiTime).toISOString()
+                    });
+                    return storeConv; // Use WebSocket updated data
+                }
+            }
+
+            return apiConv; // Use API data
+        });
+
+        // Sắp xếp lại theo lastMessage.createdAt
+        const sortedConversations = mergedConversations.sort((a, b) => {
+            const aTime = a.lastMessage?.createdAt || a.createdAt;
+            const bTime = b.lastMessage?.createdAt || b.createdAt;
+            return new Date(bTime).getTime() - new Date(aTime).getTime();
+        });
+
+        console.log('✅ [ChatStore] Merged conversations, preserving WebSocket updates');
+        return sortedConversations;
+    },
 
     // ==================== LEGACY MESSAGES REMOVED ====================
     // Using conversationMessages actions instead
@@ -347,6 +415,26 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         if (messageExists) {
             console.log('⚠️ [ChatStore] Message already exists, skipping:', message.id);
             return state; // Return unchanged state
+        }
+
+        // 🔔 NOTIFICATION: Handle new message notification
+        try {
+            const { notificationManager } = require('../services/notificationManager');
+            const conversation = state.conversations.find(conv => conv.id === conversationId);
+            if (conversation) {
+                console.log('🔔 [ChatStore] Triggering notification for message:', {
+                    messageId: message.id,
+                    conversationId: conversationId,
+                    conversationName: conversation.name,
+                    messageContent: message.content?.text || 'Activity',
+                    currentConversationId: state.currentConversation?.id
+                });
+                notificationManager.handleNewMessage(message, conversation);
+            } else {
+                console.warn('⚠️ [ChatStore] Conversation not found for notification:', conversationId);
+            }
+        } catch (error) {
+            console.error('❌ [ChatStore] Failed to handle notification:', error);
         }
 
         // MEMORY MANAGEMENT: Limit messages in store to reduce memory usage

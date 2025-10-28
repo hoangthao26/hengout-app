@@ -8,7 +8,7 @@ import { appLifecycleManager } from './appLifecycleManager';
 import * as Location from 'expo-location';
 
 /**
- * Enterprise Initialization Service
+ * Initialization Service
  * 
  * Features:
  * - Controlled initialization sequence
@@ -56,7 +56,7 @@ class InitializationService {
         const appStore = useAppStore.getState();
 
         try {
-            console.log('🚀 Starting services...');
+            console.log('Starting services...');
 
             // Reset error state
             appStore.setInitializationError(null);
@@ -101,7 +101,7 @@ class InitializationService {
             appStore.setAppReady(true);
             this.isInitialized = true;
 
-            console.log('🎉 App initialization completed');
+            console.log('App initialization completed');
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown initialization error';
@@ -315,7 +315,7 @@ class InitializationService {
         try {
             // Preloading chat data for instant display
 
-            // 🚀 CHECK AUTH FIRST: Only sync if user is authenticated
+            // CHECK AUTH FIRST: Only sync if user is authenticated
             const { AuthHelper } = await import('./authHelper');
             const isAuthenticated = await AuthHelper.isAuthenticated();
 

@@ -14,7 +14,7 @@ export class FirebaseAuthService {
     private static instance: FirebaseAuthService;
 
     constructor() {
-        console.log('🔥 Firebase Auth Service initialized');
+        console.log('Firebase Auth Service initialized');
     }
 
     /**
@@ -22,7 +22,7 @@ export class FirebaseAuthService {
      */
     async signInWithGoogle(): Promise<{ success: boolean; data?: any; error?: string }> {
         try {
-            console.log('🔥 Starting Firebase Google sign-in...');
+            console.log('Starting Firebase Google sign-in...');
 
             if (Platform.OS === 'web') {
                 // For web, use popup
@@ -30,7 +30,7 @@ export class FirebaseAuthService {
                 const result = await signInWithPopup(auth, googleProvider);
                 const user = result.user;
 
-                console.log('🔥 Firebase sign-in successful:', user.email);
+                console.log('Firebase sign-in successful:', user.email);
 
                 // Get ID token
                 const idToken = await user.getIdToken();
@@ -70,7 +70,7 @@ export class FirebaseAuthService {
             }
 
         } catch (error: any) {
-            console.error('🔥 Firebase sign-in error:', error);
+            console.error('Firebase sign-in error:', error);
             return {
                 success: false,
                 error: error.message || 'Firebase authentication failed'
@@ -85,9 +85,9 @@ export class FirebaseAuthService {
         try {
             const { signOut } = await import('firebase/auth');
             await signOut(auth);
-            console.log('🔥 Firebase sign-out successful');
+            console.log('Firebase sign-out successful');
         } catch (error: any) {
-            console.error('🔥 Firebase sign-out error:', error);
+            console.error('Firebase sign-out error:', error);
             throw new Error(`Firebase sign-out failed: ${error.message}`);
         }
     }
@@ -123,7 +123,7 @@ export class FirebaseAuthService {
                 idToken: idToken
             };
         } catch (error) {
-            console.error('🔥 Failed to get user info:', error);
+            console.error('Failed to get user info:', error);
             return null;
         }
     }

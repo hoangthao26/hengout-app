@@ -406,7 +406,7 @@ class ConversationCleanupManager {
      * Manual cleanup trigger
      */
     async manualCleanup(): Promise<void> {
-        console.log('🔧 [ConversationCleanup] Manual smart cleanup triggered');
+        console.log('[ConversationCleanup] Manual smart cleanup triggered');
         await this.cleanupInactiveConversations(true);
     }
 

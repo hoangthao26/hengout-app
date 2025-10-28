@@ -2,13 +2,12 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, useColorScheme, View } from 'react-native';
 import * as Location from 'expo-location';
-// import AuthBackButton from '../../components/AuthBackButton'; // 🚀 REMOVED: No back button on login screen
+// import AuthBackButton from '../../components/AuthBackButton'; // REMOVED: No back button on login screen
 import GradientText from '../../components/GradientText';
 import { AuthErrorBoundary } from '../../components/errorBoundaries';
 import { useToast } from '../../contexts/ToastContext';
 import EmailLoginForm from '../../modules/auth/components/EmailLoginForm';
 import { AuthHelper, authService } from '../../services';
-import { googleOAuthService } from '../../services/googleOAuthService';
 import NavigationService from '../../services/navigationService';
 import { initializationService } from '../../services/initializationService';
 
@@ -101,62 +100,8 @@ export default function LoginScreen() {
         }
     };
 
-    const handleGoogleSignIn = async () => {
-        setGoogleLoading(true);
-        try {
-            console.log('🔥 Starting Firebase Google Auth...');
-            showInfo('Opening Google Auth...',);
-
-            // Start Google OAuth flow
-            const result = await googleOAuthService.signIn();
-
-            if (result.success && result.data) {
-                console.log('✅ Firebase Google Auth successful:', result.data);
-                showSuccess('Google login successful!',);
-
-                // Check onboarding status from auth response
-                if (result.data.onboardingComplete === false) {
-                    console.log('Onboarding not complete, redirecting to wizard');
-                    NavigationService.goToOnboardingWizard();
-                } else {
-                    console.log('Onboarding complete, navigating to tabs');
-                    // Get current location before navigating
-                    try {
-                        const { status } = await Location.requestForegroundPermissionsAsync();
-                        if (status === 'granted') {
-                            const location = await Location.getCurrentPositionAsync({
-                                accuracy: Location.Accuracy.Balanced,
-                            });
-                            console.log('📍 [Firebase Google Login] GPS location obtained:', {
-                                lat: location.coords.latitude,
-                                lng: location.coords.longitude,
-                                accuracy: location.coords.accuracy
-                            });
-                            NavigationService.secureNavigateToDiscover({
-                                latitude: location.coords.latitude,
-                                longitude: location.coords.longitude,
-                                accuracy: location.coords.accuracy || 0
-                            });
-                        } else {
-                            console.log('📍 [Firebase Google Login] Location permission denied, using fallback');
-                            NavigationService.secureNavigateToDiscover();
-                        }
-                    } catch (error) {
-                        console.log('📍 [Firebase Google Login] GPS error, using fallback:', error);
-                        NavigationService.secureNavigateToDiscover();
-                    }
-                }
-            } else {
-                console.log('❌ Firebase Google Auth failed:', result.error);
-                showError('Đăng nhập Google thất bại', result.error || 'Không thể đăng nhập bằng Google');
-            }
-        } catch (error: any) {
-            console.error('❌ Firebase Google Auth error:', error);
-            showError('Lỗi Google Auth', `Đăng nhập Google thất bại: ${error.message}`);
-        } finally {
-            setGoogleLoading(false);
-        }
-    };
+    // Google login is now handled by LoginWithGoogle component
+    // No need for separate function
 
     const handleForgotPassword = () => {
         // Navigate to forgot password screen
@@ -187,7 +132,7 @@ export default function LoginScreen() {
                     alignSelf: 'center',
                     width: '100%'
                 }}>
-                    {/* 🚀 REMOVED: No back button on login screen */}
+                    {/* REMOVED: No back button on login screen */}
 
                     {/* Logo Section - Reduced spacing */}
                     <View style={{ alignItems: 'center', marginTop: 20, marginBottom: 20 }}>
@@ -208,12 +153,11 @@ export default function LoginScreen() {
                     <View style={{ flex: 1, justifyContent: 'flex-start', paddingTop: 20 }}>
                         <EmailLoginForm
                             onSubmit={handleLogin}
-                            onGoogleSignIn={handleGoogleSignIn}
                             onForgotPassword={handleForgotPassword}
                             onSignUp={handleSignUp}
                             loading={loading}
-                            googleLoading={googleLoading}
                         />
+
                     </View>
                 </View>
             </KeyboardAvoidingView>

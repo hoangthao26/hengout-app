@@ -69,7 +69,7 @@ export const useChat = () => {
                 showError(response.message || 'Không thể tải danh sách cuộc trò chuyện');
             }
         } catch (error: any) {
-            // 🚀 DEFENSIVE: Don't show error if user logged out
+            // DEFENSIVE: Don't show error if user logged out
             if (error.message?.includes('User logged out')) {
                 console.log('ℹ️ [useChat] User logged out, skipping conversation load');
                 return;

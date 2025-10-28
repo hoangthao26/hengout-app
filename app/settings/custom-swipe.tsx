@@ -372,17 +372,17 @@ const CustomSwipeScreen: React.FC = () => {
         try {
             setLoading(true);
             const response = await activityService.getActivitySuggestions(activityId!);
-            console.log('📱 [CustomSwipe] Activity suggestions loaded:', response.data);
+            console.log('[CustomSwipe] Activity suggestions loaded:', response.data);
 
             // Store all suggestions
             setAllSuggestions(response.data);
 
             // Filter only suggestions that user hasn't voted yet
             const unvotedSuggestions = response.data.filter((suggestion: ActivitySuggestion) => !suggestion.hasUserVoted);
-            console.log('📱 [CustomSwipe] Unvoted suggestions:', unvotedSuggestions.length, 'out of', response.data.length);
+            console.log('[CustomSwipe] Unvoted suggestions:', unvotedSuggestions.length, 'out of', response.data.length);
 
             if (unvotedSuggestions[0]?.location?.imageUrls) {
-                console.log('📱 [CustomSwipe] First unvoted image URL:', unvotedSuggestions[0].location.imageUrls[0]);
+                console.log('[CustomSwipe] First unvoted image URL:', unvotedSuggestions[0].location.imageUrls[0]);
             }
 
             setCards(unvotedSuggestions);
@@ -546,7 +546,7 @@ const CustomSwipeScreen: React.FC = () => {
                 ) : currentIndex >= cards.length ? (
                     <View style={styles.completedContainer}>
                         <View style={styles.completedIconContainer}>
-                            <Text style={styles.completedIcon}>🎉</Text>
+                            <Text style={styles.completedIcon}>✓</Text>
                         </View>
                         <Text style={[styles.completedTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
                             Đã hoàn thành bình chọn!
@@ -593,7 +593,7 @@ const CustomSwipeScreen: React.FC = () => {
                                     strokeWidth={3}
                                 />
                             </TouchableOpacity>
-                            <Text style={styles.bottomOverlayText}>NOPE</Text>
+                            <Text style={styles.bottomOverlayText}>KHÔNG</Text>
                         </Animated.View>
 
                         <Animated.View style={[styles.bottomOverlay, styles.likeOverlay]}>
@@ -641,7 +641,7 @@ const CustomSwipeScreen: React.FC = () => {
                                     />
                                 </MaskedView>
                             </TouchableOpacity>
-                            <Text style={styles.bottomOverlayText}>LIKE</Text>
+                            <Text style={styles.bottomOverlayText}>THÍCH</Text>
                         </Animated.View>
                     </View>
                 )}

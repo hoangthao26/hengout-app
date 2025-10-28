@@ -3,6 +3,7 @@ import { StyleSheet, View, Alert, TextInput, TouchableOpacity, useColorScheme, A
 import { useLocalSearchParams } from 'expo-router';
 import { Search, X, MapPinHouse, Filter } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
 import { MapErrorBoundary } from '../../components/errorBoundaries';
 import { useFilterRecommendations } from '../../hooks/useFilterRecommendations';
 import MapView from '../../components/MapView';
@@ -103,7 +104,7 @@ export default function DiscoverScreen() {
         // Close LocationCard when clicking on map
         setIsDetailSheetVisible(false);
         setSelectedLocationForDetail(null);
-        // Enterprise: Remove debug logs in production
+        // Remove debug logs in production
     }, []);
 
     // Handle MapPin selection
@@ -339,7 +340,7 @@ export default function DiscoverScreen() {
         );
     }, []);
 
-    // Enterprise: Error handling for location errors
+    // Error handling for location errors
     useEffect(() => {
         if (error) {
             Alert.alert(
@@ -370,9 +371,9 @@ export default function DiscoverScreen() {
         }
     }, [error, requestLocationPermission, getCurrentLocation, watchLocation]);
 
-    // Enterprise: Remove duplicate initializeLocation function
+    // Remove duplicate initializeLocation function
 
-    // Enterprise: Initialize location on mount - use splash data if available
+    // Initialize location on mount - use splash data if available
     useEffect(() => {
         let isMounted = true;
 
@@ -382,7 +383,7 @@ export default function DiscoverScreen() {
             try {
                 // Check if we have location data from splash screen
                 if (lat && lng) {
-                    console.log('📍 Using location from splash screen');
+                    console.log('📍 [Discover] Using location from splash screen');
 
                     setInitialLocation({
                         lat: parseFloat(lat),
@@ -398,44 +399,78 @@ export default function DiscoverScreen() {
                     return;
                 }
 
-                // Fallback: Request permission and get current location
-                const hasPermission = await requestLocationPermission();
+                // Try to get better location using smart location service
+                console.log('📍 [Discover] Getting location with smart service...');
+                const { smartLocationService } = await import('../../services/smartLocationService');
 
-                if (hasPermission && isMounted) {
-                    // Get current location
-                    const currentLocation = await getCurrentLocation();
+                const smartLocation = await smartLocationService.getCurrentLocation({
+                    accuracy: Location.Accuracy.High,
+                    timeout: 10000,
+                    retries: 3,
+                    useCache: true
+                });
 
-                    if (currentLocation && isMounted) {
-                        setInitialLocation({
-                            lat: currentLocation.latitude,
-                            lng: currentLocation.longitude
-                        });
+                if (smartLocation && isMounted) {
+                    console.log('📍 [Discover] Smart location obtained:', {
+                        lat: smartLocation.latitude,
+                        lng: smartLocation.longitude,
+                        accuracy: smartLocation.accuracy,
+                        source: smartLocation.source
+                    });
 
-                        // Start watching location for real-time updates
-                        await watchLocation();
+                    setInitialLocation({
+                        lat: smartLocation.latitude,
+                        lng: smartLocation.longitude
+                    });
+
+                    // Start watching location for real-time updates
+                    await watchLocation();
+                    setIsInitialized(true);
+
+                    // Load random recommendations
+                    await loadRandomRecommendations(smartLocation.latitude, smartLocation.longitude);
+                } else {
+                    // Fallback: Use existing useLocation hook
+                    console.log('📍 [Discover] Smart location failed, trying fallback...');
+                    const hasPermission = await requestLocationPermission();
+
+                    if (hasPermission && isMounted) {
+                        const currentLocation = await getCurrentLocation();
+
+                        if (currentLocation && isMounted) {
+                            setInitialLocation({
+                                lat: currentLocation.latitude,
+                                lng: currentLocation.longitude
+                            });
+
+                            await watchLocation();
+                            setIsInitialized(true);
+                            await loadRandomRecommendations(currentLocation.latitude, currentLocation.longitude);
+                        } else {
+                            // No location available - show location picker
+                            console.log('📍 [Discover] No location available, showing location picker');
+                            setIsInitialized(true);
+                            // TODO: Show location picker component
+                        }
+                    } else {
+                        // No permission - show location picker
+                        console.log('📍 [Discover] No location permission, showing location picker');
                         setIsInitialized(true);
-
-                        // Load random recommendations
-                        await loadRandomRecommendations(currentLocation.latitude, currentLocation.longitude);
+                        // TODO: Show location picker component
                     }
                 }
             } catch (error) {
+                console.log('📍 [Discover] Location initialization error:', error);
                 if (isMounted) {
-                    Alert.alert(
-                        'Location Initialization Failed',
-                        'Unable to get your current location. Please check your location settings.',
-                        [
-                            { text: 'Retry', onPress: () => initLocation() },
-                            { text: 'Continue', style: 'cancel' }
-                        ]
-                    );
+                    setIsInitialized(true);
+                    // TODO: Show location picker component
                 }
             }
         };
 
         initLocation();
 
-        // Enterprise: Cleanup on unmount
+        // Cleanup on unmount
         return () => {
             isMounted = false;
             stopWatching();

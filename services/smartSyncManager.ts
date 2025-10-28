@@ -2,7 +2,7 @@ import { chatSyncService } from './chatSyncService';
 import { useChatStore } from '../store/chatStore';
 import { useAuthStore } from '../store/authStore';
 
-// 🚀 SMART SYNC MANAGER - Intelligent background sync
+// SMART SYNC MANAGER - Intelligent background sync
 class SmartSyncManager {
     private syncQueue = new Set<string>();
     private syncInProgress = false;
