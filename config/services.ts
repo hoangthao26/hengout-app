@@ -15,6 +15,9 @@ export const SERVICES_CONFIG = {
             FORGOT_PASSWORD_SEND_OTP: '/password/user/forgot',
             FORGOT_PASSWORD_VERIFY_OTP: '/password/forgot/confirm-otp',
             FORGOT_PASSWORD_RESET: '/password/forgot/reset',
+            CHANGE_PASSWORD: '/password/change',
+            PASSWORD_STATUS: '/password/status',
+            PASSWORD_SET: '/password/set',
             REFRESH_TOKEN: '/session/refresh',
             LOGOUT: '/session/logout',
         }
@@ -100,6 +103,9 @@ export const SERVICES_CONFIG = {
             GET_GROUP_MEMBERS: '/chat/conversations/:conversationId/members',
             ADD_MEMBER: '/chat/conversations/:conversationId/members/:memberId',
             REMOVE_MEMBER: '/chat/conversations/:conversationId/members/:memberId',
+            // Leave / Disband
+            LEAVE_CONVERSATION: '/chat/conversations/:conversationId/leave',
+            DISBAND_CONVERSATION: '/chat/conversations/:conversationId',
             // Activity endpoints
             GET_ACTIVITY_BY_ID: '/activities/:activityId',
             GET_CONVERSATION_ACTIVITIES: '/activities/conversation/:conversationId',
@@ -131,12 +137,13 @@ export const SERVICES_CONFIG = {
 
     // Subscription Service
     SUBSCRIPTION_SERVICE: {
-        BASE_URL: process.env.EXPO_PUBLIC_SUBSCRIPTION_SERVICE_URL || 'https://api.hengout.app/subscription-service/api/v1',
+        BASE_URL: process.env.EXPO_PUBLIC_SUBSCRIPTION_SERVICE_URL || 'https://api.hengout.app/sub-service/api/v1',
         ENDPOINTS: {
             // Plans
             GET_PLANS: '/subscriptions/plans',
             GET_ACTIVE_SUBSCRIPTION: '/subscriptions/active',
             ACTIVATE_SUBSCRIPTION: '/subscriptions/activate',
+            INIT_DEFAULT_SUBSCRIPTION: '/subscriptions/init',
 
             // User Limits
             GET_FOLDER_LIMITS: '/users/limits/folder',
@@ -151,7 +158,6 @@ export const SERVICES_CONFIG = {
 
             // Group Management
             GET_GROUP_STATUS: '/groups/:groupId/status',
-            INIT_GROUP: '/groups/init',
             APPLY_GROUP_BOOST: '/group-boosts/apply',
         }
     },

@@ -9,7 +9,7 @@ import { AppError, ErrorCategory, ErrorSeverity, createAppError, getUserFriendly
 interface FeatureErrorBoundaryProps {
     children: ReactNode;
     feature: string;
-    fallback?: ReactNode;
+    fallback?: ReactNode | ((retry: () => void, canRetry: boolean) => ReactNode);
     onError?: (error: AppError) => void;
     enableRecovery?: boolean;
     maxRetries?: number;
@@ -79,12 +79,18 @@ export class FeatureErrorBoundary extends Component<FeatureErrorBoundaryProps, F
 
     render() {
         if (this.state.hasError) {
-            if (this.props.fallback) {
-                return this.props.fallback;
-            }
-
             const { feature, enableRecovery = true, maxRetries = 2 } = this.props;
             const { error, retryCount } = this.state;
+            const canRetry = enableRecovery && retryCount < maxRetries;
+
+            if (this.props.fallback) {
+                // Check if fallback is a function (receives retry handler)
+                if (typeof this.props.fallback === 'function') {
+                    return this.props.fallback(this.handleRetry, canRetry);
+                }
+                // Otherwise, it's a static ReactNode
+                return this.props.fallback;
+            }
 
             if (!error) {
                 return (
@@ -96,7 +102,6 @@ export class FeatureErrorBoundary extends Component<FeatureErrorBoundaryProps, F
             }
 
             const userMessage = getUserFriendlyMessage(error);
-            const canRetry = enableRecovery && retryCount < maxRetries;
 
             return (
                 <View style={styles.container}>

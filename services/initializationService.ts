@@ -126,6 +126,14 @@ class InitializationService {
             const { locationService } = await import('./locationService');
             // Fire-and-forget; idempotent on server
             locationService.initCurrentVibes().catch(() => { });
+            // Prefetch active subscription/limits for quota UI
+            try {
+                const { useSubscriptionStore } = await import('../store/subscriptionStore');
+                const { activeSubscription, fetchActiveSubscription } = useSubscriptionStore.getState();
+                if (!activeSubscription) {
+                    fetchActiveSubscription().catch(() => { });
+                }
+            } catch { }
         } catch (err) {
             // Non-critical
             // initOnAppStart skipped/failed
@@ -139,13 +147,31 @@ class InitializationService {
         if (this.hasInitAfterLogin) return;
         this.hasInitAfterLogin = true;
         try {
-            // Initialize location services
+            // Initialize location services ONLY if user already has profile/onboarding complete
+            try {
+                const { OnboardingService } = await import('./onboardingService');
+                const isOnboardingComplete = await OnboardingService.isOnboardingComplete();
+                const { useProfileStore } = await import('../store/profileStore');
+                const existingProfile = useProfileStore.getState().profile;
+                if (isOnboardingComplete && existingProfile) {
             const { locationService } = await import('./locationService');
             locationService.initCurrentVibes().catch(() => { });
+                } else {
+                    console.log('[Initialization] Skip initCurrentVibes until onboarding/profile complete');
+                }
+            } catch { }
 
             // ✅ Reinitialize WebSocket after login
             await this.reinitializeWebSocket();
             // WebSocket reinitialized after login
+
+            // Prefetch subscription immediately after login
+            try {
+                const { useSubscriptionStore } = await import('../store/subscriptionStore');
+                console.log('[Initialization] Prefetch active subscription (after login)...');
+                await useSubscriptionStore.getState().fetchActiveSubscription();
+                console.log('[Initialization] Prefetch after login done');
+            } catch { }
         } catch (err) {
             // initAfterLogin skipped/failed
         }
@@ -280,8 +306,12 @@ class InitializationService {
             await chatWebSocketManager.connect();
             // WebSocket connected
 
-            // Subscribe to all conversations
+            // Ensure conversations are available for a fresh session
             const { chatSyncService } = await import('./chatSyncService');
+            try {
+                // Sync from server first so a new login has data to subscribe
+                await chatSyncService.syncConversations();
+            } catch { }
             const conversations = await chatSyncService.getConversations();
 
             if (conversations.length > 0) {

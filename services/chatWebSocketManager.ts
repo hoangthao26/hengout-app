@@ -9,6 +9,7 @@ import NetInfo from '@react-native-community/netinfo';
 class ChatWebSocketManager {
     private connection: WebSocketConnection | null = null;
     private isConnecting = false;
+    private isShutdown = false; // Prevent auto-reconnect during explicit shutdown (logout)
     private subscribedConversations = new Set<string>();
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 5;
@@ -33,6 +34,9 @@ class ChatWebSocketManager {
     private circuitBreakerState: 'CLOSED' | 'OPEN' | 'HALF_OPEN' = 'CLOSED';
 
     async connect(): Promise<void> {
+        // Re-enable connections if previously shutdown
+        this.isShutdown = false;
+
         if (this.connection || this.isConnecting) {
             return;
         }
@@ -49,10 +53,17 @@ class ChatWebSocketManager {
             return;
         }
 
+        if (this.isShutdown) {
+            return;
+        }
         this.isConnecting = true;
 
         try {
             // Connecting to WebSocket
+            if (this.isShutdown) {
+                this.isConnecting = false;
+                return;
+            }
             this.connection = await createWebSocketConnection('wss://api.hengout.app/social-service/ws/native');
             await this.connection.ready;
 
@@ -97,13 +108,18 @@ class ChatWebSocketManager {
             // Circuit breaker: Record failure
             this.onCircuitBreakerFailure();
 
-            this.handleReconnect();
+            if (!this.isShutdown) {
+                this.handleReconnect();
+            }
         }
     }
 
     async disconnect(): Promise<void> {
         if (this.connection) {
             console.log('🔌 [ChatWebSocket] Disconnecting WebSocket...');
+
+            // Mark shutdown to stop auto-reconnect
+            this.isShutdown = true;
 
             // Stop connection monitoring
             this.stopConnectionMonitoring();
@@ -714,8 +730,10 @@ class ChatWebSocketManager {
         // Clear connection
         this.connection = null;
 
-        // Attempt reconnect
-        this.handleReconnect();
+        // Attempt reconnect unless explicitly shutdown (logout)
+        if (!this.isShutdown) {
+            this.handleReconnect();
+        }
     }
 
     /**

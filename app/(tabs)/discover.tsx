@@ -481,6 +481,17 @@ export default function DiscoverScreen() {
         };
     }, [lat, lng, accuracy]); // ✅ Dependencies include splash location data
 
+    // Center map on GPS location when initialLocation is set and mapController is ready
+    useEffect(() => {
+        if (initialLocation && mapController && isInitialized) {
+            // Use setTimeout to ensure map is fully rendered
+            const timeoutId = setTimeout(() => {
+                mapController.centerMapOnLocation(initialLocation.lat, initialLocation.lng, 0.01);
+            }, 300);
+            return () => clearTimeout(timeoutId);
+        }
+    }, [initialLocation, mapController, isInitialized]);
+
     // Handle auto-open location card from collection detail
     useEffect(() => {
         if (locationId && latitude && longitude && autoOpenCard === 'true') {

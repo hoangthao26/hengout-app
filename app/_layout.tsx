@@ -4,7 +4,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, Linking } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import ToastContainer from '../components/ToastContainer';
@@ -16,6 +16,7 @@ import '../global.css';
 import '../localizations/i18n';
 import { AuthHelper } from '../services/authHelper';
 import { globalErrorHandler, networkErrorHandler } from '../services/globalErrorHandler';
+import { paymentFlowManager } from '../services/paymentFlowManager';
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
@@ -28,6 +29,36 @@ export default function RootLayout() {
     React.useEffect(() => {
         WebBrowser.maybeCompleteAuthSession();
         // Note: Authentication initialization is now handled in app/index.tsx (SplashScreen)
+    }, []);
+
+    // Handle deep linking for payment redirects (PaymentScreen handles payment deep links)
+    React.useEffect(() => {
+        const handleDeepLink = async (url: string) => {
+            console.log('🔗 [DeepLink] Received URL:', url);
+
+            // Payment deep links are handled by dedicated pages:
+            // - hengout://payment-success -> payment-success.tsx
+            // - hengout://payment-cancel -> payment-cancel.tsx
+            // - hengout://payment-callback -> payment-callback.tsx
+            // No need to handle them here as they have their own routes
+            console.log('🔗 [DeepLink] Deep link received, letting router handle it');
+        };
+
+        // Handle initial URL if app was opened via deep link
+        Linking.getInitialURL().then(async (url) => {
+            if (url) {
+                await handleDeepLink(url);
+            }
+        });
+
+        // Handle URL changes while app is running
+        const subscription = Linking.addEventListener('url', async ({ url }) => {
+            await handleDeepLink(url);
+        });
+
+        return () => {
+            subscription?.remove();
+        };
     }, []);
 
     // Global error handler for authentication issues
@@ -190,6 +221,9 @@ export default function RootLayout() {
                             <Stack.Screen name="settings/gesture-test" />
                             <Stack.Screen name="settings/simple-gesture-test" />
                             <Stack.Screen name="settings/ultra-simple-test" />
+                            <Stack.Screen name="payment-success" options={{ gestureEnabled: false }} />
+                            <Stack.Screen name="payment-cancel" options={{ gestureEnabled: false }} />
+                            <Stack.Screen name="payment-callback" options={{ gestureEnabled: false }} />
                         </Stack>
                         <ToastContainer />
                     </GestureHandlerRootView>

@@ -13,6 +13,7 @@ import NavigationService from '../../services/navigationService';
 import { OnboardingService } from '../../services/onboardingService';
 import { useProfileStore } from '../../store';
 import { InitializeProfileRequest } from '../../types/profile';
+import { useAuthStore } from '../../store/authStore';
 
 // Gradient Term Component
 interface GradientTermProps {
@@ -85,6 +86,7 @@ export default function OnboardingWizardScreen() {
 
     // Zustand store
     const { initializeProfile } = useProfileStore();
+    const { fastLogout } = useAuthStore();
 
     const [currentStep, setCurrentStep] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -144,6 +146,30 @@ export default function OnboardingWizardScreen() {
         }
     };
 
+    // TEMP: Logout for testing - can be commented out later
+    const handleTestLogout = async () => {
+        try {
+            // Navigate to login immediately for better UX
+            NavigationService.logoutToLogin();
+            showSuccess('Đã đăng xuất (test)');
+
+            // Background logout to clear data without blocking UI
+            setTimeout(async () => {
+                try {
+                    const { setLogoutMode, setUserLoggedOut } = await import('../../config/axios');
+                    setLogoutMode(true);
+                    setUserLoggedOut(true);
+                    await fastLogout();
+                } catch (e) {
+                    console.error('Background test logout failed:', e);
+                }
+            }, 100);
+        } catch (e: any) {
+            console.error('Test logout failed:', e);
+            showError('Đăng xuất thất bại');
+        }
+    };
+
     const handleComplete = async () => {
         setLoading(true);
         try {
@@ -164,7 +190,34 @@ export default function OnboardingWizardScreen() {
             await OnboardingService.setOnboardingStatus(true);
 
             showSuccess('Thiết lập hồ sơ hoàn tất!',);
+
+            // Initialize current vibes after onboarding is complete
+            try {
+                const { locationService } = await import('../../services/locationService');
+                await locationService.initCurrentVibes();
+            } catch { }
+
+            // Prefer real GPS for Discover navigation
+            try {
+                const { smartLocationService } = await import('../../services/smartLocationService');
+                const location = await smartLocationService.getCurrentLocation({
+                    accuracy: 3,
+                    timeout: 10000,
+                    retries: 2,
+                    useCache: true
+                });
+                if (location) {
+                    NavigationService.secureNavigateToDiscover({
+                        latitude: location.latitude,
+                        longitude: location.longitude,
+                        accuracy: location.accuracy || 0
+                    });
+                } else {
+                    NavigationService.secureNavigateToDiscover();
+                }
+            } catch {
             NavigationService.secureNavigateToDiscover();
+            }
         } catch (error: any) {
             console.error('❌ Onboarding failed:', error);
             showError(error.message || 'Không thể hoàn tất thiết lập hồ sơ',);
@@ -337,6 +390,13 @@ export default function OnboardingWizardScreen() {
                     {/* Back Button - Only show if not first step */}
                     {!isFirstStep && <AuthBackButton onPress={handleBack} />}
 
+                    {/* TEMP Test Logout Button - comment out after testing */}
+                    <View style={styles.logoutContainer}>
+                        <TouchableOpacity onPress={handleTestLogout} style={styles.logoutButton}>
+                            <Text style={[styles.logoutText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>Đăng xuất (test)</Text>
+                        </TouchableOpacity>
+                    </View>
+
                     {/* Header */}
                     <View style={styles.header}>
                         <GradientText
@@ -405,6 +465,20 @@ const styles = StyleSheet.create({
         maxWidth: 500,
         alignSelf: 'center',
         width: '100%',
+    },
+    logoutContainer: {
+        position: 'absolute',
+        top: 20,
+        right: 24,
+    },
+    logoutButton: {
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 8,
+    },
+    logoutText: {
+        fontSize: 12,
+        fontWeight: '500',
     },
     header: {
         alignItems: 'center',

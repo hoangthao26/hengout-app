@@ -23,8 +23,10 @@ import {
     PaymentCancelResponse,
     GroupBoostRequest,
     GroupBoostResponse,
-    GroupInitRequest,
-    GroupInitResponse
+    PayOSPaymentResponse,
+    PaymentStatusResponse,
+    CurrentUsage,
+    UsageLimits
 } from '../types/subscription';
 
 // ============================================================================
@@ -43,10 +45,32 @@ class SubscriptionService {
     async getPlans(): Promise<PlansResponse> {
         try {
             const endpoint = buildEndpointUrl('SUBSCRIPTION_SERVICE', 'GET_PLANS');
-            const response = await axiosInstance.get<PlansResponse>(endpoint);
-            return response.data;
+            console.log('[SubscriptionService] GET_PLANS →', endpoint);
+            const response = await axiosInstance.get<Plan[]>(endpoint);
+            console.log('[SubscriptionService] GET_PLANS status:', (response as any)?.status, 'data type:', Array.isArray(response.data) ? 'array' : typeof response.data);
+
+            // Normalize backend response to match PlansResponse type
+            const payload = response.data;
+            if (Array.isArray(payload)) {
+                return {
+                    status: 'success',
+                    data: payload,
+                    message: 'Lấy danh sách gói thành công',
+                    errorCode: 0
+                } as PlansResponse;
+            }
+
+            // Fallback if response has different structure
+            return {
+                status: 'success',
+                data: [],
+                message: 'Không có gói nào khả dụng',
+                errorCode: 0
+            } as PlansResponse;
         } catch (error: any) {
-            console.error('Failed to get subscription plans:', error);
+            const status = error?.response?.status;
+            const data = error?.response?.data;
+            console.error('[SubscriptionService] GET_PLANS failed. HTTP:', status, 'Response:', data);
             throw error;
         }
     }
@@ -58,10 +82,28 @@ class SubscriptionService {
     async getActiveSubscription(): Promise<SubscriptionResponse> {
         try {
             const endpoint = buildEndpointUrl('SUBSCRIPTION_SERVICE', 'GET_ACTIVE_SUBSCRIPTION');
-            const response = await axiosInstance.get<SubscriptionResponse>(endpoint);
-            return response.data;
+            const response = await axiosInstance.get<Subscription>(endpoint);
+
+            // Normalize backend response to match SubscriptionResponse type
+            const payload = response.data;
+            if (payload && typeof payload === 'object') {
+                return {
+                    status: 'success',
+                    data: payload,
+                    message: 'Lấy thông tin gói đăng ký thành công',
+                    errorCode: 0
+                } as SubscriptionResponse;
+            }
+
+            // Fallback if no subscription found
+            return {
+                status: 'error',
+                message: 'Không tìm thấy gói đăng ký đang hoạt động',
+                data: {} as Subscription,
+                errorCode: 404
+            } as SubscriptionResponse;
         } catch (error: any) {
-            console.error('Failed to get active subscription:', error);
+            console.error('Không thể lấy thông tin gói đăng ký:', error);
             throw error;
         }
     }
@@ -78,7 +120,7 @@ class SubscriptionService {
             });
             return response.data;
         } catch (error: any) {
-            console.error('Failed to activate subscription:', error);
+            console.error('Không thể kích hoạt gói đăng ký:', error);
             throw error;
         }
     }
@@ -95,7 +137,7 @@ class SubscriptionService {
             const response = await axiosInstance.get<UserLimitsResponse>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to get folder limits:', error);
+            console.error('Không thể lấy giới hạn thư mục:', error);
             throw error;
         }
     }
@@ -110,7 +152,7 @@ class SubscriptionService {
             const response = await axiosInstance.get<FriendLimitResponse>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to get friend limits:', error);
+            console.error('Không thể lấy giới hạn bạn bè:', error);
             throw error;
         }
     }
@@ -125,7 +167,7 @@ class SubscriptionService {
             const response = await axiosInstance.get<GroupLimitResponse>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to get group limits:', error);
+            console.error('Không thể lấy giới hạn nhóm:', error);
             throw error;
         }
     }
@@ -144,7 +186,7 @@ class SubscriptionService {
             });
             return response.data;
         } catch (error: any) {
-            console.error('Failed to check payment:', error);
+            console.error('Không thể kiểm tra thanh toán:', error);
             throw error;
         }
     }
@@ -161,7 +203,50 @@ class SubscriptionService {
             });
             return response.data;
         } catch (error: any) {
-            console.error('Failed to create payment:', error);
+            console.error('Không thể tạo thanh toán:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Create payment with PayOS integration
+     * POST /api/v1/payments/create?planId={planId}
+     */
+    async createPaymentWithPayOS(planId: number): Promise<PayOSPaymentResponse> {
+        try {
+            const endpoint = buildEndpointUrl('SUBSCRIPTION_SERVICE', 'CREATE_PAYMENT');
+
+            // Add return URL for PayOS to redirect back to app
+            // These URLs must match the server configuration
+            const returnUrl = 'hengout://payment-success';
+            const cancelUrl = 'hengout://payment-cancel';
+
+            const response = await axiosInstance.post<PayOSPaymentResponse>(endpoint, {
+                returnUrl,
+                cancelUrl
+            }, {
+                params: { planId }
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error('Không thể tạo thanh toán PayOS:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Check payment status with detailed response
+     * GET /api/v1/payments/check?orderCode={orderCode}
+     */
+    async checkPaymentStatusDetailed(orderCode: number): Promise<PaymentStatusResponse> {
+        try {
+            const endpoint = buildEndpointUrl('SUBSCRIPTION_SERVICE', 'CHECK_PAYMENT');
+            const response = await axiosInstance.get<PaymentStatusResponse>(endpoint, {
+                params: { orderCode }
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error('Không thể kiểm tra trạng thái thanh toán:', error);
             throw error;
         }
     }
@@ -177,7 +262,7 @@ class SubscriptionService {
             const response = await axiosInstance.post<PaymentWebhookResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to confirm webhook:', error);
+            console.error('Không thể xác nhận webhook:', error);
             throw error;
         }
     }
@@ -194,7 +279,7 @@ class SubscriptionService {
             });
             return response.data;
         } catch (error: any) {
-            console.error('Failed to cancel payment:', error);
+            console.error('Không thể hủy thanh toán:', error);
             throw error;
         }
     }
@@ -204,32 +289,16 @@ class SubscriptionService {
     /**
      * Get group status by group ID
      * GET /api/v1/groups/{groupId}/status
+     * Returns: { maxMember: number, groupPlanningTracking: boolean } or BaseApiResponse<GroupStatus>
      */
-    async getGroupStatus(groupId: string): Promise<GroupStatusResponse> {
+    async getGroupStatus(groupId: string): Promise<GroupStatusResponse | GroupStatus> {
         try {
             const endpoint = buildEndpointUrl('SUBSCRIPTION_SERVICE', 'GET_GROUP_STATUS')
                 .replace(':groupId', groupId);
-            const response = await axiosInstance.get<GroupStatusResponse>(endpoint);
+            const response = await axiosInstance.get<GroupStatusResponse | GroupStatus>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to get group status for ${groupId}:`, error);
-            throw error;
-        }
-    }
-
-    /**
-     * Initialize group with conversation ID
-     * POST /api/v1/groups/init?conversationId={conversationId}
-     */
-    async initGroup(conversationId: string): Promise<GroupInitResponse> {
-        try {
-            const endpoint = buildEndpointUrl('SUBSCRIPTION_SERVICE', 'INIT_GROUP');
-            const response = await axiosInstance.post<GroupInitResponse>(endpoint, {}, {
-                params: { conversationId }
-            });
-            return response.data;
-        } catch (error: any) {
-            console.error('Failed to initialize group:', error);
+            console.error(`❌ [SubscriptionService] Failed to get group status for ${groupId}:`, error?.message || error);
             throw error;
         }
     }
@@ -238,19 +307,18 @@ class SubscriptionService {
      * Apply group boost
      * POST /api/v1/group-boosts/apply?monthsToBoost={monthsToBoost}
      * Headers: X-Group-ID: {groupId}
+     * Returns: BaseApiResponse<GroupBoostData> or direct GroupBoostData
      */
-    async applyGroupBoost(groupId: string, monthsToBoost: number): Promise<GroupBoostResponse> {
+    async applyGroupBoost(groupId: string, monthsToBoost: number): Promise<GroupBoostResponse | any> {
         try {
             const endpoint = buildEndpointUrl('SUBSCRIPTION_SERVICE', 'APPLY_GROUP_BOOST');
             const response = await axiosInstance.post<GroupBoostResponse>(endpoint, {}, {
                 params: { monthsToBoost },
-                headers: {
-                    'X-Group-ID': groupId
-                }
+                headers: { 'X-Group-ID': groupId }
             });
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to apply group boost for ${groupId}:`, error);
+            console.error(`❌ [SubscriptionService] Failed to apply group boost for ${groupId}:`, error?.response?.data?.message || error?.message || error);
             throw error;
         }
     }
@@ -278,7 +346,7 @@ class SubscriptionService {
                 group: groupLimits.data
             };
         } catch (error: any) {
-            console.error('Failed to get all user limits:', error);
+            console.error('Không thể lấy tất cả giới hạn người dùng:', error);
             throw error;
         }
     }
@@ -291,7 +359,7 @@ class SubscriptionService {
             const response = await this.getActiveSubscription();
             return response.status === 'success' && !!response.data;
         } catch (error: any) {
-            console.log('No active subscription found:', error.message);
+            console.log('Không tìm thấy gói đăng ký đang hoạt động:', error.message);
             return false;
         }
     }
@@ -307,7 +375,7 @@ class SubscriptionService {
             }
             return null;
         } catch (error: any) {
-            console.error('Failed to get plan by ID:', error);
+            console.error('Không thể lấy gói theo ID:', error);
             return null;
         }
     }
@@ -359,6 +427,29 @@ class SubscriptionService {
             (!requirements.friendTracking || plan.friendTracking === requirements.friendTracking) &&
             (!requirements.maxMember || plan.maxMember >= requirements.maxMember)
         );
+    }
+
+    /**
+     * Initialize default subscription (basic) once
+     * POST /api/v1/subscriptions/init
+     * Returns boolean true when initialized or already exists
+     */
+    async initDefaultSubscription(): Promise<boolean> {
+        try {
+            const endpoint = buildEndpointUrl('SUBSCRIPTION_SERVICE', 'INIT_DEFAULT_SUBSCRIPTION');
+            const response = await axiosInstance.post<boolean>(endpoint);
+            // Some backends may return { status, data } – normalize to boolean
+            const payload: any = response.data;
+            if (typeof payload === 'boolean') return payload;
+            if (payload && typeof payload === 'object') {
+                if (typeof payload.data === 'boolean') return payload.data;
+                if (payload.status === 'success') return true;
+            }
+            return true; // assume success if 200
+        } catch (error: any) {
+            console.error('Không thể khởi tạo gói mặc định:', error);
+            throw error;
+        }
     }
 }
 

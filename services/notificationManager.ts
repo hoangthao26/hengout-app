@@ -28,10 +28,6 @@ class NotificationManager {
 
     // Set current conversation (to avoid showing notifications for current conversation)
     setCurrentConversation(conversationId: string | null) {
-        console.log('🔔 [NotificationManager] setCurrentConversation called:', {
-            oldConversationId: this.currentConversationId,
-            newConversationId: conversationId
-        });
         this.currentConversationId = conversationId;
     }
 
@@ -247,18 +243,14 @@ class NotificationManager {
 
     // Mark conversation as read
     markConversationAsRead(conversationId: string) {
-        console.log('🔔 [NotificationManager] Marking conversation as read:', conversationId);
         const notificationStore = useNotificationStore.getState();
         notificationStore.resetUnreadCount(conversationId);
         notificationStore.removeActiveNotification(conversationId);
 
         // Hide toast for this conversation using conversation ID as toast ID
         if (this.toastContext) {
-            console.log('🔔 [NotificationManager] Hiding toast for conversation:', conversationId);
             this.toastContext.hideToast(conversationId);
         }
-
-        console.log('✅ [NotificationManager] Conversation marked as read:', conversationId);
     }
 
     // Mark all conversations as read

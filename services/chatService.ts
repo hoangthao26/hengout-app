@@ -59,10 +59,22 @@ class ChatService {
     async createGroupConversation(data: CreateGroupRequest): Promise<ChatResponse<ChatConversation>> {
         try {
             const endpoint = buildEndpointUrl('SOCIAL_SERVICE', 'CREATE_GROUP');
+            // Debug request log (sanitize large arrays if needed)
+            console.log('[ChatService] CREATE_GROUP endpoint:', endpoint);
+            console.log('[ChatService] CREATE_GROUP payload:', {
+                name: data?.name,
+                avatarUrl: data?.avatarUrl,
+                memberIdsCount: Array.isArray(data?.memberIds) ? data.memberIds.length : 0,
+                sampleMemberId: Array.isArray(data?.memberIds) && data.memberIds.length > 0 ? data.memberIds[0] : undefined,
+            });
+
             const response = await axiosInstance.post<ChatResponse<ChatConversation>>(endpoint, data);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to create group conversation:', error);
+            const status = error?.response?.status;
+            const message = error?.response?.data?.message || error?.message;
+            const serverData = error?.response?.data;
+            console.error('[ChatService] Failed to create group conversation:', { status, message, serverData });
             throw error;
         }
     }
@@ -182,6 +194,38 @@ class ChatService {
             return response.data;
         } catch (error: any) {
             console.error(`Failed to remove member ${memberId} from conversation ${conversationId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Leave a group conversation (non-owner)
+     * DELETE /api/v1/chat/conversations/{conversationId}/leave
+     */
+    async leaveConversation(conversationId: string): Promise<ChatResponse<string>> {
+        try {
+            const endpoint = buildEndpointUrl('SOCIAL_SERVICE', 'LEAVE_CONVERSATION')
+                .replace(':conversationId', conversationId);
+            const response = await axiosInstance.delete<ChatResponse<string>>(endpoint);
+            return response.data;
+        } catch (error: any) {
+            console.error(`Failed to leave conversation ${conversationId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Disband a group conversation (owner only)
+     * DELETE /api/v1/chat/conversations/{conversationId}
+     */
+    async disbandConversation(conversationId: string): Promise<ChatResponse<string>> {
+        try {
+            const endpoint = buildEndpointUrl('SOCIAL_SERVICE', 'DISBAND_CONVERSATION')
+                .replace(':conversationId', conversationId);
+            const response = await axiosInstance.delete<ChatResponse<string>>(endpoint);
+            return response.data;
+        } catch (error: any) {
+            console.error(`Failed to disband conversation ${conversationId}:`, error);
             throw error;
         }
     }

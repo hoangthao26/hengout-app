@@ -112,15 +112,53 @@ export interface GroupBoostResponse extends BaseApiResponse<{
     updatedAt: string;
 }> { }
 
-// Group Init Types
-export interface GroupInitRequest {
-    conversationId: string;
+// PayOS Integration Types
+export interface PayOSPaymentResponse {
+    status: 'success' | 'error';
+    data: {
+        bin: string;
+        accountNumber: string;
+        accountName: string;
+        amount: number;
+        description: string;
+        orderCode: number;
+        currency: string;
+        paymentLinkId: string;
+        status: 'PENDING' | 'SUCCESS' | 'FAILED';
+        checkoutUrl: string;
+        qrCode: string;
+    };
+    message: string;
 }
 
-export interface GroupInitResponse extends BaseApiResponse<{
-    id: string;
-    maxMember: number;
-    groupPlanningTracking: boolean;
+export interface PayOSWebhookData {
+    orderCode: number;
+    status: 'SUCCESS' | 'FAILED';
+    amount: number;
+    description: string;
+    paymentLinkId: string;
     createdAt: string;
-    updatedAt: string;
-}> { }
+}
+
+export interface PaymentStatusResponse {
+    status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+    orderCode: number;
+    amount: number;
+    description: string;
+}
+
+// Current Usage Types
+export interface CurrentUsage {
+    folders: number;
+    friends: number;
+    groups: number;
+    groupMembers: number;
+}
+
+export interface UsageLimits {
+    maxExtraFolder: number;
+    maxFolderItem: number;
+    maxFriend: number;
+    maxAttendGroup: number;
+    maxMember: number;
+}

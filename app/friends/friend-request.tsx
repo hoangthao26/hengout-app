@@ -21,20 +21,28 @@ import { useFriendActions } from '../../hooks/useFriendActions';
 import NavigationService from '../../services/navigationService';
 import { socialService } from '../../services/socialService';
 import { userSearchService } from '../../services/userSearchService';
-import { useFriendStore, usePendingRequests } from '../../store/friendStore';
+import { useFriendStore, usePendingRequests, useFriends } from '../../store/friendStore';
+import useLimits from '../../hooks/useLimits';
+import { SubscriptionModal, PaymentScreen } from '../../components/subscription';
+import { paymentFlowManager } from '../../services/paymentFlowManager';
+import { Plan } from '../../types/subscription';
 import { useChatStore } from '../../store/chatStore';
 import { chatService } from '../../services/chatService';
 import { FriendRequest, SearchUser } from '../../types/social';
+import { showLimitReachedThenUpgrade } from '../../services/limitsService';
 
 
 export default function FriendRequestScreen() {
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
-    const { success: showSuccess, error: showError, info: showInfo, warning: showWarning } = useToast();
+    const { success: showSuccess, error: showError, info: showInfo, warning: showWarning, showToast } = useToast() as any;
 
     // Global state from FriendStore
     const pendingRequests = usePendingRequests();
     const { setPendingRequests, setLoadingPending } = useFriendStore();
+    const friends = useFriends();
+    const currentFriendsCount = friends.length;
+    const friendsLimit = useLimits('friends', currentFriendsCount, () => setShowSubscriptionModal(true));
 
     // Chat store for refreshing conversations
     const { setConversations } = useChatStore();
@@ -46,6 +54,34 @@ export default function FriendRequestScreen() {
     const [searchLoading, setSearchLoading] = useState(false);
     const [processingRequest, setProcessingRequest] = useState<string | null>(null);
     const [showBottomSheet, setShowBottomSheet] = useState(false);
+    const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+    const [showPaymentScreen, setShowPaymentScreen] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+
+    // Sync with global payment flow like ProfileScreen
+    useEffect(() => {
+        const unsubscribe = paymentFlowManager.subscribe(() => {
+            const current = paymentFlowManager.getCurrentPayment();
+            if (current) {
+                setSelectedPlan(current.plan);
+                setShowPaymentScreen(true);
+            } else {
+                setShowPaymentScreen(false);
+                setSelectedPlan(null);
+            }
+        });
+        return unsubscribe;
+    }, []);
+
+    const handlePlanSelect = useCallback((plan: Plan) => {
+        setShowSubscriptionModal(false);
+        paymentFlowManager.startPayment(plan).catch(() => { /* noop */ });
+    }, []);
+
+    const handlePaymentBack = useCallback(() => {
+        setShowPaymentScreen(false);
+        setSelectedPlan(null);
+    }, []);
 
     // Use custom hook for friend actions
     const {
@@ -56,7 +92,7 @@ export default function FriendRequestScreen() {
         handleAcceptRequestFromSearch,
         handleRejectRequestFromSearch,
         handleBlockUser,
-    } = useFriendActions(searchResults, setSearchResults);
+    } = useFriendActions(searchResults, setSearchResults, currentFriendsCount, () => setShowSubscriptionModal(true));
 
     // Function to refresh conversations after friend request acceptance
     const refreshConversations = useCallback(async () => {
@@ -142,6 +178,10 @@ export default function FriendRequestScreen() {
     };
 
     const handleAcceptRequest = async (requestId: string) => {
+        if (friendsLimit.isAtLimit) {
+            showLimitReachedThenUpgrade({ error: showError, showToast }, friendsLimit.label, 4200, () => setShowSubscriptionModal(true));
+            return;
+        }
         try {
             setProcessingRequest(requestId);
             console.log('🔗 [Friend Request] Accept URL:', `PUT /api/social/friend-requests/${requestId}?status=ACCEPTED`);
@@ -324,6 +364,21 @@ export default function FriendRequestScreen() {
                     onSentRequests={() => NavigationService.goToSentRequests()}
                     onFriendsList={() => NavigationService.goToFriendsList()}
                 />
+
+                {/* Subscription Modal */}
+                <SubscriptionModal
+                    isVisible={showSubscriptionModal}
+                    onClose={() => setShowSubscriptionModal(false)}
+                    onPlanSelect={handlePlanSelect}
+                />
+
+                {showPaymentScreen && selectedPlan && (
+                    <PaymentScreen
+                        plan={selectedPlan}
+                        onBack={handlePaymentBack}
+                        onSuccess={handlePaymentBack}
+                    />
+                )}
             </View>
         </FeatureErrorBoundary>
     );

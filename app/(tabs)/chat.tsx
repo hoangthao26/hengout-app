@@ -63,11 +63,14 @@ export default function ChatScreen() {
     const [searchLoading, setSearchLoading] = useState(false);
 
     // ✅ Subscribe to store changes for real-time updates
+    // This ensures new conversations appear immediately without pull-to-refresh
     useEffect(() => {
-        if (conversations.length > 0) {
+        if (searchQuery.trim()) {
+            filterConversations(searchQuery);
+        } else {
             setFilteredConversations(conversations);
         }
-    }, [conversations]);
+    }, [conversations, searchQuery, filterConversations]);
 
     // Preloading Strategy: Load conversations + recent messages
     const loadConversations = useCallback(async () => {
@@ -205,14 +208,8 @@ export default function ChatScreen() {
     //     }, [loadConversations])
     // );
 
-    // Update filtered conversations when store conversations change
-    useEffect(() => {
-        if (searchQuery.trim()) {
-            filterConversations(searchQuery);
-        } else {
-            setFilteredConversations(conversations);
-        }
-    }, [conversations, searchQuery, filterConversations]);
+    // ✅ Note: This is now handled in the useEffect above (line 66)
+    // Removed duplicate useEffect to avoid conflicts
 
     // Render conversation item
     const renderConversationItem = ({ item }: { item: ChatConversation }) => {

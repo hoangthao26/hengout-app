@@ -284,7 +284,14 @@ class DatabaseService {
      * Get all conversations from local database
      */
     async getConversations(): Promise<ChatConversation[]> {
-        if (!this.db) throw new Error('Database not initialized');
+        // Ensure database is initialized
+        if (!this.isInitialized || !this.db) {
+            await this.initialize();
+        }
+
+        if (!this.db) {
+            throw new Error('Database not initialized');
+        }
 
         // SẮP XẾP THEO lastMessage.createdAt (DESC - từ mới đến cũ)
         const result = await this.db.getAllAsync(`
@@ -341,6 +348,22 @@ class DatabaseService {
         `, [messageId]);
 
         return result ? this.mapMessageFromDB(result) : null;
+    }
+
+    /**
+     * Delete conversation from local database
+     */
+    async deleteConversation(conversationId: string): Promise<void> {
+        if (!this.db) throw new Error('Database not initialized');
+
+        console.log(`🗑️ [DatabaseService] Deleting conversation ${conversationId} from database`);
+
+        // Delete in order: messages, members, then conversation (foreign key constraints)
+        await this.db.runAsync(`DELETE FROM messages WHERE conversation_id = ?`, [conversationId]);
+        await this.db.runAsync(`DELETE FROM members WHERE conversation_id = ?`, [conversationId]);
+        await this.db.runAsync(`DELETE FROM conversations WHERE id = ?`, [conversationId]);
+
+        console.log(`✅ [DatabaseService] Conversation ${conversationId} deleted successfully`);
     }
 
     /**
@@ -560,17 +583,26 @@ class DatabaseService {
      * Clear all data (for testing or logout)
      */
     async clearAllData(): Promise<void> {
-        if (!this.db) throw new Error('Database not initialized');
+        // If database not initialized, nothing to clear
+        if (!this.isInitialized || !this.db) {
+            console.log('⚠️ [DatabaseService] Database not initialized, skipping clear');
+            return;
+        }
 
         console.log('🧹 [DatabaseService] Clearing all user data...');
 
-        await this.db.execAsync(`
-            DELETE FROM messages;
-            DELETE FROM members;
-            DELETE FROM conversations;
-        `);
+        try {
+            await this.db.execAsync(`
+                DELETE FROM messages;
+                DELETE FROM members;
+                DELETE FROM conversations;
+            `);
 
-        console.log('✅ [DatabaseService] All user data cleared successfully');
+            console.log('✅ [DatabaseService] All user data cleared successfully');
+        } catch (error) {
+            console.error('❌ [DatabaseService] Failed to clear data:', error);
+            // Don't throw - allow logout to proceed even if clear fails
+        }
     }
 
     /**

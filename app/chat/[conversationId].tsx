@@ -170,16 +170,33 @@ export default function ChatConversationScreen() {
     // Load conversation details
     const loadConversation = useCallback(async () => {
         if (!conversationId) return;
+
+        // Check if conversation still exists in store (might have been removed after disband/leave)
+        const conversationExists = conversations.find(c => c.id === conversationId);
+        if (!conversationExists) {
+            console.log(`[Chat] Conversation ${conversationId} no longer exists in store, skipping load`);
+            // Navigate back if conversation was removed
+            router.replace('/(tabs)/chat');
+            return;
+        }
+
         try {
             const response = await chatService.getConversation(conversationId);
             if (response.status === 'success') {
                 setCurrentConversation(response.data);
             }
         } catch (err: any) {
+            // If 403 or 404, conversation was likely deleted/disbanded
+            if (err?.response?.status === 403 || err?.response?.status === 404) {
+                console.log(`[Chat] Conversation ${conversationId} not accessible (403/404), likely disbanded`);
+                // Navigate back if we're on a deleted conversation
+                router.replace('/(tabs)/chat');
+                return;
+            }
             console.error('Failed to load conversation:', err);
             error('Không thể tải thông tin cuộc trò chuyện');
         }
-    }, [conversationId, error, setCurrentConversation]);
+    }, [conversationId, error, setCurrentConversation, conversations, router]);
 
     // Store-First Message Loading
     const loadMessages = useCallback(
@@ -440,19 +457,10 @@ export default function ChatConversationScreen() {
             const conversation = conversations.find(c => c.id === conversationId);
             if (conversation) {
                 setCurrentConversation(conversation);
-                console.log('🔔 [Chat] Set current conversation for notification tracking:', conversationId);
             }
 
             loadConversation();
             loadMessages(0);
-
-            // 🔔 NOTIFICATION: Mark conversation as read when opened
-            try {
-                notificationManager.markConversationAsRead(conversationId);
-                console.log('✅ [Chat] Marked conversation as read:', conversationId);
-            } catch (error) {
-                console.error('❌ [Chat] Failed to mark conversation as read:', error);
-            }
         }
     }, [conversationId]); // Only depend on conversationId
 
@@ -460,15 +468,12 @@ export default function ChatConversationScreen() {
     useFocusEffect(
         React.useCallback(() => {
             if (conversationId) {
-                console.log('🔔 [Chat] Focus effect - marking conversation as read:', conversationId);
                 try {
                     notificationManager.markConversationAsRead(conversationId);
                 } catch (error) {
-                    console.error('❌ [Chat] Failed to mark conversation as read in focus effect:', error);
+                    // Silent fail
                 }
             }
-
-            // No cleanup needed - only run on focus
         }, [conversationId])
     );
 
@@ -506,7 +511,6 @@ export default function ChatConversationScreen() {
 
         // Set toast function directly
         chatWebSocketManager.setToastFunction(toastFunction);
-        console.log('🔔 [Chat] Toast function set for WebSocket manager');
     }, [success, info, warning, error]);
 
     // Load conversation if not in store - only when conversation changes
@@ -550,21 +554,9 @@ export default function ChatConversationScreen() {
         }
     }, [conversationId, conversationMessages[conversationId]]); // Only depend on specific conversation messages
 
-    // Simple approach: Mark as read when component unmounts
+    // Clear current conversation when component unmounts
     useEffect(() => {
         return () => {
-            // Mark conversation as read when component unmounts (any way of leaving)
-            if (conversationId) {
-                console.log('🔔 [Chat] Component unmount - marking conversation as read:', conversationId);
-                try {
-                    notificationManager.markConversationAsRead(conversationId);
-                } catch (error) {
-                    console.error('❌ [Chat] Failed to mark conversation as read on unmount:', error);
-                }
-            }
-
-            // Clear current conversation when leaving
-            console.log('🔔 [Chat] Clearing current conversation on unmount');
             setCurrentConversation(null);
         };
     }, [conversationId, setCurrentConversation]);

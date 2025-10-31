@@ -3,6 +3,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { TouchableOpacity, View, Text, ActivityIndicator, Image } from 'react-native';
 import { useEffect, useState } from 'react';
 import { authService } from '../services/authService';
+import { useToast } from '../contexts/ToastContext';
 import { AuthHelper } from '../services/authHelper';
 import NavigationService from '../services/navigationService';
 import * as Location from 'expo-location';
@@ -11,10 +12,14 @@ import * as Location from 'expo-location';
 const webClientId = '481945533208-i48ed7onp65ks43qkekg72ion2lr5tgb.apps.googleusercontent.com';
 const iosClientId = '481945533208-35u68ikm7dn5gv99me66b612i5uek4ms.apps.googleusercontent.com';
 
+// Debug flag to control verbose OAuth logging
+const DEBUG_OAUTH = __DEV__ && process.env.EXPO_PUBLIC_DEBUG_OAUTH === '1';
+
 WebBrowser.maybeCompleteAuthSession();
 
 const LoginWithGoogle = () => {
     const [loading, setLoading] = useState(false);
+    const { success: showSuccess } = useToast();
 
     const config = {
         webClientId: webClientId,
@@ -22,13 +27,15 @@ const LoginWithGoogle = () => {
         scopes: ['openid', 'profile', 'email'],
     };
 
-    // CONFIG
-    console.log('🔍 [Google OAuth] Config:', JSON.stringify(config, null, 2));
+    // CONFIG (log only when debugging)
+    if (DEBUG_OAUTH) {
+        console.log('🔍 [Google OAuth] Config:', JSON.stringify(config, null, 2));
+    }
 
     const [request, response, promptAsync] = Google.useAuthRequest(config);
 
-    //  REQUEST
-    if (request) {
+    // REQUEST (log only when debugging)
+    if (DEBUG_OAUTH && request) {
         console.log('🔍 [Google OAuth] Request object:', JSON.stringify(request, null, 2));
     }
 
@@ -38,26 +45,32 @@ const LoginWithGoogle = () => {
             const accessToken = authentication?.accessToken;
             const idToken = authentication?.idToken;
 
-            // DETAILED LOGGING - Full response object
-            console.log('🔍 [Google OAuth] Full Response Object:', JSON.stringify(response, null, 2));
-            console.log('🔍 [Google OAuth] Authentication Object:', JSON.stringify(authentication, null, 2));
+            // DETAILED LOGGING - Full response object (debug only)
+            if (DEBUG_OAUTH) {
+                console.log('🔍 [Google OAuth] Full Response Object:', JSON.stringify(response, null, 2));
+                console.log('🔍 [Google OAuth] Authentication Object:', JSON.stringify(authentication, null, 2));
+            }
 
-            // TOKEN LOGGING
-            console.log('🔑 Google Access Token:', accessToken);
-            console.log('🔑 Google ID Token:', idToken);
+            // TOKEN LOGGING (debug only)
+            if (DEBUG_OAUTH) {
+                console.log('🔑 Google Access Token:', accessToken);
+                console.log('🔑 Google ID Token:', idToken);
+            }
 
             // 🔍 TOKEN DETAILS
             if (idToken) {
                 try {
                     // Decode JWT payload (without verification)
                     const payload = JSON.parse(atob(idToken.split('.')[1]));
-                    console.log('🔍 [Google OAuth] ID Token Payload:', JSON.stringify(payload, null, 2));
-                    console.log('🔍 [Google OAuth] ID Token Audience (aud):', payload.aud);
-                    console.log('🔍 [Google OAuth] ID Token Authorized Party (azp):', payload.azp);
-                    console.log('🔍 [Google OAuth] ID Token Issuer (iss):', payload.iss);
-                    console.log('🔍 [Google OAuth] ID Token Subject (sub):', payload.sub);
-                    console.log('🔍 [Google OAuth] ID Token Email:', payload.email);
-                    console.log('🔍 [Google OAuth] ID Token Name:', payload.name);
+                    if (DEBUG_OAUTH) {
+                        console.log('🔍 [Google OAuth] ID Token Payload:', JSON.stringify(payload, null, 2));
+                        console.log('🔍 [Google OAuth] ID Token Audience (aud):', payload.aud);
+                        console.log('🔍 [Google OAuth] ID Token Authorized Party (azp):', payload.azp);
+                        console.log('🔍 [Google OAuth] ID Token Issuer (iss):', payload.iss);
+                        console.log('🔍 [Google OAuth] ID Token Subject (sub):', payload.sub);
+                        console.log('🔍 [Google OAuth] ID Token Email:', payload.email);
+                        console.log('🔍 [Google OAuth] ID Token Name:', payload.name);
+                    }
                 } catch (error) {
                     console.error('❌ [Google OAuth] Failed to decode ID token:', error);
                 }
@@ -66,13 +79,17 @@ const LoginWithGoogle = () => {
             if (idToken) {
                 setLoading(true);
                 try {
-                    console.log('🔄 Authenticating with backend...');
+                    if (DEBUG_OAUTH) {
+                        console.log('🔄 Authenticating with backend...');
+                    }
 
                     // Call backend API with ID token
                     const result = await authService.googleOAuthLogin(idToken);
 
                     if (result.status === 'success' && result.data) {
-                        console.log('✅ Backend authentication successful:', result.data);
+                        if (DEBUG_OAUTH) {
+                            console.log('✅ Backend authentication successful:', result.data);
+                        }
 
                         // Save tokens to secure storage
                         await AuthHelper.saveTokens({
@@ -85,14 +102,40 @@ const LoginWithGoogle = () => {
                             onboardingComplete: result.data.onboardingComplete,
                         });
 
-                        console.log('✅ Google login successful!');
+                        if (DEBUG_OAUTH) {
+                            console.log('✅ Google login successful!');
+                        }
+
+                        showSuccess('Đăng nhập Google thành công');
+
+                        // For Google users: ensure password is set BEFORE any navigation/init
+                        try {
+                            const pwdStatus = await authService.getPasswordStatus();
+                            const hasPassword = !!pwdStatus?.data?.hasPassword;
+                            const hasOauthAccounts = !!pwdStatus?.data?.hasOauthAccounts;
+                            if (hasOauthAccounts && !hasPassword) {
+                                NavigationService.replace('/auth/set-password');
+                                setLoading(false);
+                                return;
+                            }
+                        } catch { /* ignore and continue */ }
+
+                        // Ensure websocket reconnects only after password-gate
+                        try {
+                            const { initializationService } = await import('../services/initializationService');
+                            await initializationService.initAfterLogin();
+                        } catch { }
 
                         // Check onboarding status
                         if (result.data.onboardingComplete === false) {
-                            console.log('Onboarding not complete, redirecting to wizard');
+                            if (DEBUG_OAUTH) {
+                                console.log('Onboarding not complete, redirecting to wizard');
+                            }
                             NavigationService.goToOnboardingWizard();
                         } else {
-                            console.log('Onboarding complete, navigating to tabs');
+                            if (DEBUG_OAUTH) {
+                                console.log('Onboarding complete, navigating to tabs');
+                            }
 
                             // Get current location with smart retry
                             try {
@@ -106,12 +149,14 @@ const LoginWithGoogle = () => {
                                 });
 
                                 if (location) {
-                                    console.log('📍 [Google Login] Smart location obtained:', {
-                                        lat: location.latitude,
-                                        lng: location.longitude,
-                                        accuracy: location.accuracy,
-                                        source: location.source
-                                    });
+                                    if (DEBUG_OAUTH) {
+                                        console.log('📍 [Google Login] Smart location obtained:', {
+                                            lat: location.latitude,
+                                            lng: location.longitude,
+                                            accuracy: location.accuracy,
+                                            source: location.source
+                                        });
+                                    }
 
                                     NavigationService.secureNavigateToDiscover({
                                         latitude: location.latitude,
@@ -119,11 +164,15 @@ const LoginWithGoogle = () => {
                                         accuracy: location.accuracy || 0
                                     });
                                 } else {
-                                    console.log('📍 [Google Login] No location available, navigating to discover for user choice');
+                                    if (DEBUG_OAUTH) {
+                                        console.log('📍 [Google Login] No location available, navigating to discover for user choice');
+                                    }
                                     NavigationService.secureNavigateToDiscover();
                                 }
                             } catch (error) {
-                                console.log('📍 [Google Login] Location error:', error);
+                                if (DEBUG_OAUTH) {
+                                    console.log('📍 [Google Login] Location error:', error);
+                                }
                                 NavigationService.secureNavigateToDiscover();
                             }
                         }
@@ -140,12 +189,18 @@ const LoginWithGoogle = () => {
             }
         } else if (response?.type === 'error') {
             console.error('❌ [Google OAuth] Login failed:', response.error);
-            console.error('❌ [Google OAuth] Full error response:', JSON.stringify(response, null, 2));
+            if (DEBUG_OAUTH) {
+                console.error('❌ [Google OAuth] Full error response:', JSON.stringify(response, null, 2));
+            }
         } else if (response?.type === 'cancel') {
-            console.log('ℹ️ [Google OAuth] User cancelled login');
+            if (DEBUG_OAUTH) {
+                console.log('ℹ️ [Google OAuth] User cancelled login');
+            }
         } else {
-            console.log('ℹ️ [Google OAuth] Unknown response type:', response?.type);
-            console.log('ℹ️ [Google OAuth] Full response:', JSON.stringify(response, null, 2));
+            if (DEBUG_OAUTH) {
+                console.log('ℹ️ [Google OAuth] Unknown response type:', response?.type);
+                console.log('ℹ️ [Google OAuth] Full response:', JSON.stringify(response, null, 2));
+            }
         }
     };
 

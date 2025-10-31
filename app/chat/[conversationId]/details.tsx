@@ -1,17 +1,20 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
+import NavigationService from '../../../services/navigationService';
 import {
     Bell,
     Calendar,
     ChevronRight,
+    Sparkles,
     Link,
+    LogOut,
     MoreHorizontal,
     Search,
     Shield,
+    Trash2,
     Type,
     UserPlus,
     Users
 } from 'lucide-react-native';
-import NavigationService from '../../../services/navigationService';
 import React, { useEffect, useState } from 'react';
 import { ChatErrorBoundary } from '../../../components/errorBoundaries';
 import {
@@ -22,22 +25,30 @@ import {
     Text,
     TouchableOpacity,
     useColorScheme,
-    View
+    View,
+    Alert
 } from 'react-native';
 import AddMemberModal from '../../../components/AddMemberModal';
 import CreateGroupModal from '../../../components/CreateGroupModal';
 import EditGroupModal from '../../../components/EditGroupModal';
+import BoostGroupModal from '../../../components/BoostGroupModal';
 import Header from '../../../components/Header';
 import { chatService } from '../../../services/chatService';
+import { useToast } from '../../../contexts/ToastContext';
 import { useChatStore } from '../../../store/chatStore';
 import { useChatSync } from '../../../hooks/useChatSync';
+import { useChat } from '../../../hooks/useChat';
+import subscriptionService from '../../../services/subscriptionService';
+import { useSubscriptionStore } from '../../../store/subscriptionStore';
+import useLimits from '../../../hooks/useLimits';
 import { ChatConversation } from '../../../types/chat';
 
 export default function ConversationDetailsScreen() {
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
-    const router = useRouter();
     const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
+    const { error: showError, success: showSuccess } = useToast();
+    const subscriptionStore = useSubscriptionStore();
 
     const {
         conversations,
@@ -45,11 +56,17 @@ export default function ConversationDetailsScreen() {
         setCurrentConversation
     } = useChatStore();
 
+    const { fetchGroupStatus, groupStatus } = useSubscriptionStore();
+
+    const { loadConversations } = useChat();
+
     // SQLite Chat Sync
     const {
         isInitialized: chatSyncInitialized,
         getMembers: getMembersFromDB,
-        syncMembers
+        syncMembers,
+        syncConversations: syncConversationsToDB,
+        deleteConversation: deleteConversationFromDB
     } = useChatSync();
 
     const [loading, setLoading] = useState(true);
@@ -59,6 +76,7 @@ export default function ConversationDetailsScreen() {
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
     const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
     const [showEditGroupModal, setShowEditGroupModal] = useState(false);
+    const [showBoostGroupModal, setShowBoostGroupModal] = useState(false);
 
     useEffect(() => {
         loadConversation();
@@ -70,11 +88,20 @@ export default function ConversationDetailsScreen() {
         try {
             setLoading(true);
 
-            // Load from SQLite first (instant) if available
+            // Check if conversation still exists in store (might have been removed)
+            const conversationExists = conversations.find(c => c.id === conversationId);
+            if (!conversationExists && !currentConversation) {
+                // Conversation was removed (e.g., after disband), don't try to load
+                console.log(`[Details] Conversation ${conversationId} no longer exists, skipping load`);
+                return;
+            }
+
+            // Load conversation data
+            let conversation = conversations.find(c => c.id === conversationId) || currentConversation;
+
             if (chatSyncInitialized) {
                 // Conversation data is already available from store
                 // Just sync members in background for GROUP conversations only
-                const conversation = conversations.find(c => c.id === conversationId) || currentConversation;
                 if (conversation?.type === 'GROUP') {
                     try {
                         await syncMembers(conversationId);
@@ -87,9 +114,34 @@ export default function ConversationDetailsScreen() {
                 const response = await chatService.getConversation(conversationId);
                 if (response.status === 'success') {
                     setCurrentConversation(response.data);
+                    conversation = response.data; // Update conversation with fetched data
                 }
             }
-        } catch (error) {
+
+            // Fetch group status for GROUP conversations (independent of SQLite state)
+            // Only fetch if not already in store (cache check)
+            // Check conversation type again after potentially loading it
+            const finalConversation = conversation || conversations.find(c => c.id === conversationId) || currentConversation;
+            if (finalConversation?.type === 'GROUP') {
+                // Check if we already have groupStatus in store for this conversation
+                const existingStatus = groupStatus[conversationId];
+                if (!existingStatus) {
+                    // Only fetch if not in store yet (cache optimization)
+                    try {
+                        await fetchGroupStatus(conversationId);
+                    } catch (statusError) {
+                        console.error('Failed to fetch group status:', statusError);
+                    }
+                }
+            }
+        } catch (error: any) {
+            // If 403 or 404, conversation was likely deleted/disbanded
+            if (error?.response?.status === 403 || error?.response?.status === 404) {
+                console.log(`[Details] Conversation ${conversationId} not accessible (403/404), likely disbanded`);
+                // Navigate back if we're on a deleted conversation
+                router.replace('/(tabs)/chat');
+                return;
+            }
             console.error('Failed to load conversation:', error);
         } finally {
             setLoading(false);
@@ -149,6 +201,21 @@ export default function ConversationDetailsScreen() {
         NavigationService.goToConversationActivities(conversationId);
     };
 
+    const handleBoostGroup = () => {
+        if (!conversation || conversation.type !== 'GROUP') return;
+        setShowBoostGroupModal(true);
+    };
+
+    const handleCloseBoostGroupModal = () => {
+        setShowBoostGroupModal(false);
+    };
+
+    const handleBoostSuccess = async () => {
+        // Reload conversation data after boost
+        await loadConversation();
+        setShowBoostGroupModal(false);
+    };
+
     const handleCloseCreateGroupModal = () => {
         setShowCreateGroupModal(false);
     };
@@ -192,6 +259,121 @@ export default function ConversationDetailsScreen() {
     const handlePrivacy = () => {
         // TODO: Implement privacy
         console.log('Privacy');
+    };
+
+    const handleLeaveGroup = () => {
+        if (!conversation) return;
+        if (conversation.userRole === 'OWNER') {
+            showError('Bạn là chủ phòng');
+            return;
+        }
+        Alert.alert(
+            'Rời khỏi nhóm',
+            `Bạn có chắc muốn rời nhóm "${conversation.name}"?`,
+            [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Rời nhóm',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const res = await chatService.leaveConversation(conversation.id);
+                            if (res.status === 'success') {
+                                showSuccess(res.message || 'Đã rời nhóm');
+                                // Clear current conversation first to prevent loading attempts
+                                setCurrentConversation(null);
+                                // Remove from local store immediately for responsive UI
+                                useChatStore.getState().removeConversation(conversation.id);
+                                // Sync with backend to update conversation list in store
+                                await loadConversations();
+                                // WebSocket: Unsubscribe from this conversation
+                                try {
+                                    const { chatWebSocketManager } = await import('../../../services/chatWebSocketManager');
+                                    chatWebSocketManager.unsubscribeFromConversation(conversation.id);
+                                    console.log('[Details] Unsubscribed WebSocket from disbanded conversation');
+                                } catch (wsErr) {
+                                    console.error('[Details] Failed to unsubscribe WebSocket:', wsErr);
+                                }
+
+                                // Delete from database immediately
+                                if (chatSyncInitialized) {
+                                    try {
+                                        await deleteConversationFromDB(conversation.id);
+                                        // Also sync to ensure consistency
+                                        await syncConversationsToDB();
+                                    } catch (dbError) {
+                                        console.error('Failed to delete conversation from database:', dbError);
+                                        // Don't block user, just log error
+                                    }
+                                }
+                                // Navigate back to chat list using replace to remove current screen from stack
+                                router.replace('/(tabs)/chat');
+                            } else {
+                                showError(res.message || 'Không thể rời nhóm');
+                            }
+                        } catch (e: any) {
+                            showError(e?.response?.data?.message || e?.message || 'Không thể rời nhóm');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleDisbandGroup = () => {
+        if (!conversation) return;
+        if (conversation.userRole !== 'OWNER') return;
+        Alert.alert(
+            'Giải tán nhóm',
+            `Giải tán nhóm "${conversation.name}"? Tất cả dữ liệu nhóm sẽ bị xóa.`,
+            [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Giải tán',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const res = await chatService.disbandConversation(conversation.id);
+                            if (res.status === 'success') {
+                                showSuccess(res.message || 'Đã giải tán nhóm');
+                                // Clear current conversation first to prevent loading attempts
+                                setCurrentConversation(null);
+                                // Remove from local store immediately for responsive UI
+                                useChatStore.getState().removeConversation(conversation.id);
+                                // Sync with backend to update conversation list in store
+                                await loadConversations();
+                                // WebSocket: Unsubscribe from this conversation
+                                try {
+                                    const { chatWebSocketManager } = await import('../../../services/chatWebSocketManager');
+                                    chatWebSocketManager.unsubscribeFromConversation(conversation.id);
+                                    console.log('✅ [Details] Unsubscribed WebSocket from left conversation');
+                                } catch (wsErr) {
+                                    console.error('⚠️ [Details] Failed to unsubscribe WebSocket:', wsErr);
+                                }
+
+                                // Delete from database immediately
+                                if (chatSyncInitialized) {
+                                    try {
+                                        await deleteConversationFromDB(conversation.id);
+                                        // Also sync to ensure consistency
+                                        await syncConversationsToDB();
+                                    } catch (dbError) {
+                                        console.error('Failed to delete conversation from database:', dbError);
+                                        // Don't block user, just log error
+                                    }
+                                }
+                                // Navigate back to chat list using replace to remove current screen from stack
+                                router.replace('/(tabs)/chat');
+                            } else {
+                                showError(res.message || 'Không thể giải tán nhóm');
+                            }
+                        } catch (e: any) {
+                            showError(e?.response?.data?.message || e?.message || 'Không thể giải tán nhóm');
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     if (loading) {
@@ -352,6 +534,19 @@ export default function ConversationDetailsScreen() {
                             </TouchableOpacity>
                         )}
 
+                        {isGroup && (
+                            <TouchableOpacity style={styles.optionItem} onPress={handleBoostGroup}>
+                                <View style={styles.optionLeft}>
+                                    <Sparkles size={28} color={isDark ? '#FFFFFF' : '#000000'} />
+                                    <View style={styles.optionTextContainer}>
+                                        <Text style={[styles.optionText, { color: isDark ? '#FFFFFF' : '#000000' }]}>Boost nhóm</Text>
+                                        <Text style={[styles.optionSubtext, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>Tăng giới hạn nhóm</Text>
+                                    </View>
+                                </View>
+                                <ChevronRight size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                            </TouchableOpacity>
+                        )}
+
                         {/* Tạm thời ẩn các options này */}
                         {false && (
                             <>
@@ -412,6 +607,41 @@ export default function ConversationDetailsScreen() {
                                 </TouchableOpacity>
                             </>
                         )}
+
+                        {/* Rời khỏi nhóm / Giải tán nhóm - Đặt ở cuối danh sách */}
+                        {isGroup && (
+                            <TouchableOpacity style={styles.optionItem} onPress={handleLeaveGroup}>
+                                <View style={styles.optionLeft}>
+                                    <LogOut size={28} color="#EF4444" />
+                                    <View style={styles.optionTextContainer}>
+                                        <Text style={[styles.optionText, { color: '#EF4444' }]}>
+                                            Rời khỏi nhóm
+                                        </Text>
+                                        <Text style={[styles.optionSubtext, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                            Bạn sẽ không nhận tin nhắn từ nhóm này
+                                        </Text>
+                                    </View>
+                                </View>
+                                <ChevronRight size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                            </TouchableOpacity>
+                        )}
+
+                        {isGroup && conversation.userRole === 'OWNER' && (
+                            <TouchableOpacity style={styles.optionItem} onPress={handleDisbandGroup}>
+                                <View style={styles.optionLeft}>
+                                    <Trash2 size={28} color="#B91C1C" />
+                                    <View style={styles.optionTextContainer}>
+                                        <Text style={[styles.optionText, { color: '#B91C1C', fontWeight: '700' }]}>
+                                            Giải tán nhóm
+                                        </Text>
+                                        <Text style={[styles.optionSubtext, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                            Chỉ chủ phòng có thể thực hiện
+                                        </Text>
+                                    </View>
+                                </View>
+                                <ChevronRight size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </ScrollView>
 
@@ -442,6 +672,17 @@ export default function ConversationDetailsScreen() {
                         conversationId={conversation.id}
                         currentName={conversation.name}
                         currentAvatar={conversation.avatarUrl}
+                    />
+                )}
+
+                {/* Boost Group Modal */}
+                {conversation && (
+                    <BoostGroupModal
+                        isVisible={showBoostGroupModal}
+                        onClose={handleCloseBoostGroupModal}
+                        onSuccess={handleBoostSuccess}
+                        conversationId={conversation.id}
+                        conversationName={conversation.name}
                     />
                 )}
             </View>

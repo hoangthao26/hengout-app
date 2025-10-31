@@ -18,6 +18,7 @@ import SimpleAvatar from '../../components/SimpleAvatar';
 import { FeatureErrorBoundary } from '../../components/FeatureErrorBoundary';
 import { useToast } from '../../contexts/ToastContext';
 import { useFriendActions } from '../../hooks/useFriendActions';
+import useLimits from '../../hooks/useLimits';
 import NavigationService from '../../services/navigationService';
 import { socialService } from '../../services/socialService';
 import { userSearchService } from '../../services/userSearchService';
@@ -38,6 +39,10 @@ export default function FriendsListScreen() {
     const [searchLoading, setSearchLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
+    // Limits: current friends vs plan limit (display only)
+    const currentFriendsCount = friends.length;
+    const { label: friendsLabel } = useLimits('friends', currentFriendsCount, () => NavigationService.navigate('/settings/my-subscription'));
     // Use custom hook for friend actions
     const {
         processingUser,
@@ -252,10 +257,18 @@ export default function FriendsListScreen() {
     return (
         <FeatureErrorBoundary feature="Friends">
             <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-                {/* Header */}
+                {/* Header with right-side counter */}
                 <Header
                     title="Bạn bè của bạn"
                     onBackPress={() => NavigationService.goBack()}
+                    rightContent={(
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Users size={14} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                            <Text style={{ marginLeft: 6, color: isDark ? '#9CA3AF' : '#6B7280', fontSize: 12, fontWeight: '600' }}>
+                                {friendsLabel}
+                            </Text>
+                        </View>
+                    )}
                 />
 
                 {/* Search Bar */}

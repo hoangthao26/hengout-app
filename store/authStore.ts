@@ -106,6 +106,12 @@ export const useAuthStore = create<AuthState>()(
 
                     // INITIALIZE SERVICES: Preload data for new user
                     await get().initializeUserServices();
+
+                    // Ensure WebSocket and post-login tasks run like cold start
+                    try {
+                        const { initializationService } = await import('../services/initializationService');
+                        await initializationService.initAfterLogin();
+                    } catch (e) { }
                 } catch (error: any) {
                     set({
                         error: error.message || 'Login failed',
@@ -178,6 +184,12 @@ export const useAuthStore = create<AuthState>()(
 
                     // INITIALIZE SERVICES: Preload data for new user
                     await get().initializeUserServices();
+
+                    // Ensure WebSocket and post-login tasks run like cold start
+                    try {
+                        const { initializationService } = await import('../services/initializationService');
+                        await initializationService.initAfterLogin();
+                    } catch (e) { }
                 } catch (error: any) {
                     set({
                         error: error.message || 'OTP verification failed',
@@ -250,6 +262,12 @@ export const useAuthStore = create<AuthState>()(
 
                     // INITIALIZE SERVICES: Preload data for new user
                     await get().initializeUserServices();
+
+                    // Ensure WebSocket and post-login tasks run like cold start
+                    try {
+                        const { initializationService } = await import('../services/initializationService');
+                        await initializationService.initAfterLogin();
+                    } catch (e) { }
                 } catch (error: any) {
                     set({
                         error: error.message || 'Google sign in failed',
@@ -297,6 +315,17 @@ export const useAuthStore = create<AuthState>()(
                     const { useProfileStore } = await import('./profileStore');
                     const profileStore = useProfileStore.getState();
                     profileStore.clearProfile();
+
+                    // Clear SubscriptionStore (plans, activeSubscription, payment state)
+                    const { useSubscriptionStore } = await import('./subscriptionStore');
+                    const subscriptionStore = useSubscriptionStore.getState();
+                    subscriptionStore.clearSubscriptionData();
+
+                    // Clear any in-flight payment flow
+                    try {
+                        const { paymentFlowManager } = await import('../services/paymentFlowManager');
+                        paymentFlowManager.clearAllPaymentData?.();
+                    } catch { }
 
                     // Clear PreferencesStore
                     const { usePreferencesStore } = await import('./preferencesStore');
@@ -413,6 +442,7 @@ export const useAuthStore = create<AuthState>()(
                             const { useAppStore } = await import('./appStore');
 
                             useProfileStore.getState().clearProfile();
+                            try { (await import('./subscriptionStore')).useSubscriptionStore.getState().clearSubscriptionData(); } catch { }
                             usePreferencesStore.getState().clearPreferences();
                             useChatStoreForFastReset.getState().reset();
                             useFriendStore.getState().reset();
@@ -641,6 +671,16 @@ export const useAuthStore = create<AuthState>()(
                     await initializationService.initialize();
 
                     console.log('✅ [AuthStore] User services initialized successfully');
+
+                    // Ensure subscription state is in sync for the newly logged-in user
+                    try {
+                        const { useSubscriptionStore } = await import('./subscriptionStore');
+                        const subStore = useSubscriptionStore.getState();
+                        await subStore.fetchActiveSubscription();
+                        await subStore.fetchAllLimits();
+                    } catch (e) {
+                        console.log('⚠️ [AuthStore] Failed to prefetch subscription after init:', e);
+                    }
                 } catch (error: any) {
                     console.error('❌ [AuthStore] Failed to initialize user services:', error);
                     // Don't throw error here to avoid breaking auth flow

@@ -17,15 +17,13 @@ const NotificationInitializer: React.FC<NotificationInitializerProps> = ({ child
         // Initialize notification manager with toast context and router
         try {
             notificationManager.initialize(toastContext, router);
-            console.log('🔔 [NotificationInitializer] Notification manager initialized with toast context and router');
         } catch (error) {
-            console.error('❌ [NotificationInitializer] Failed to initialize notification manager:', error);
+            // Silent fail
         }
     }, [toastContext, router]);
 
     // Update current conversation ID in notification manager when it changes
     useEffect(() => {
-        console.log('🔔 [NotificationInitializer] Current conversation ID changed:', currentConversationId);
         notificationManager.setCurrentConversation(currentConversationId || null);
     }, [currentConversationId]);
 

@@ -7,6 +7,7 @@ class AppLifecycleManager {
     private appState: AppStateStatus = 'active';
     private backgroundTime: number = 0;
     private isInitialized = false;
+    private appStateSubscription: any = null; // Store AppState subscription
 
     // Configuration
     private readonly BACKGROUND_CLEANUP_THRESHOLD = 30 * 60 * 1000; // 30 minutes
@@ -29,8 +30,8 @@ class AppLifecycleManager {
 
         console.log('[AppLifecycle] Initializing app lifecycle manager');
 
-        // Listen to app state changes
-        AppState.addEventListener('change', this.handleAppStateChange);
+        // Listen to app state changes (returns subscription object)
+        this.appStateSubscription = AppState.addEventListener('change', this.handleAppStateChange);
 
         this.isInitialized = true;
         console.log('✅ [AppLifecycle] App lifecycle manager initialized');
@@ -204,31 +205,21 @@ class AppLifecycleManager {
             }
             console.log('✅ [AppLifecycle] User authenticated, proceeding...');
 
-            // 2. Wait for WebSocket auto-reconnect (không manual connect)
+            // 2. Ensure WebSocket is connected (trigger reconnect if needed)
             const { chatWebSocketManager } = await import('./chatWebSocketManager');
-            console.log('⏳ [AppLifecycle] Waiting for WebSocket auto-reconnect...');
+            const isConnected = chatWebSocketManager.isConnected();
 
-            // Wait for auto-reconnect to complete (max 10 seconds)
-            let waitAttempts = 0;
-            const maxWaitAttempts = 20; // 20 * 500ms = 10 seconds
-
-            while (waitAttempts < maxWaitAttempts) {
-                const isConnected = chatWebSocketManager.isConnected();
-                if (isConnected) {
-                    console.log('✅ [AppLifecycle] WebSocket auto-reconnected');
-                    break;
+            if (!isConnected) {
+                console.log('🔌 [AppLifecycle] WebSocket disconnected, triggering reconnect...');
+                try {
+                    await chatWebSocketManager.connect();
+                    console.log('✅ [AppLifecycle] WebSocket connected successfully');
+                } catch (connectError) {
+                    console.error('❌ [AppLifecycle] Failed to connect WebSocket:', connectError);
+                    // Continue anyway - WebSocket will auto-reconnect later
                 }
-
-                // Only log every 4 attempts to reduce noise
-                if (waitAttempts % 4 === 0) {
-                    console.log(`⏳ [AppLifecycle] Waiting for auto-reconnect... (${waitAttempts + 1}/${maxWaitAttempts})`);
-                }
-                await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
-                waitAttempts++;
-            }
-
-            if (waitAttempts >= maxWaitAttempts) {
-                console.warn('⚠️ [AppLifecycle] WebSocket auto-reconnect timeout');
+            } else {
+                console.log('✅ [AppLifecycle] WebSocket already connected');
             }
 
             // 3. Sync conversations from server (giống preloadChatData)
@@ -243,11 +234,25 @@ class AppLifecycleManager {
             console.log(`📋 [AppLifecycle] Found ${conversations.length} conversations`);
 
             if (conversations.length > 0) {
-                // 5. WebSocket auto-reconnect đã subscribe rồi, không cần làm gì thêm
-                console.log('🔌 [AppLifecycle] WebSocket auto-reconnect đã subscribe to all conversations');
+                // 5. Ensure WebSocket is subscribed to ALL current conversations (including new ones)
                 const conversationIds = conversations.map(conversation => conversation.id);
+                console.log(`🔌 [AppLifecycle] Ensuring WebSocket subscription for ${conversationIds.length} conversations...`);
                 console.log(`🔌 [AppLifecycle] Conversation IDs: ${conversationIds.join(', ')}`);
-                console.log('✅ [AppLifecycle] No additional subscription needed');
+
+                // Get currently subscribed conversations
+                const subscribedIds = chatWebSocketManager.getSubscribedConversations();
+                const subscribedSet = new Set(subscribedIds);
+
+                // Find conversations that need subscription (new or not yet subscribed)
+                const conversationsToSubscribe = conversationIds.filter(id => !subscribedSet.has(id));
+
+                if (conversationsToSubscribe.length > 0) {
+                    console.log(`🔌 [AppLifecycle] Found ${conversationsToSubscribe.length} new conversations to subscribe`);
+                    await chatWebSocketManager.subscribeToAllConversations(conversationsToSubscribe);
+                    console.log('✅ [AppLifecycle] Subscribed to new conversations');
+                } else {
+                    console.log('✅ [AppLifecycle] All conversations already subscribed');
+                }
 
                 // 6. Update store with fresh data
                 console.log('💾 [AppLifecycle] Updating store with fresh data...');
@@ -344,8 +349,11 @@ class AppLifecycleManager {
         this.isDisconnecting = false;
         this.isReconnecting = false;
 
-        // Remove app state listener
-        AppState.addEventListener('change', this.handleAppStateChange);
+        // Remove app state listener (using subscription object)
+        if (this.appStateSubscription) {
+            this.appStateSubscription.remove();
+            this.appStateSubscription = null;
+        }
 
         // Reset state
         this.isInitialized = false;

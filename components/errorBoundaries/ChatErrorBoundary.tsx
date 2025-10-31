@@ -22,16 +22,18 @@ export const ChatErrorBoundary: React.FC<ChatErrorBoundaryProps> = ({ children, 
         onError?.(error);
     };
 
-    const chatFallback = (
+    const chatFallback = (retry: () => void, canRetry: boolean) => (
         <View style={styles.container}>
             <Text style={styles.icon}>💬</Text>
             <Text style={styles.title}>Chat Error</Text>
             <Text style={styles.message}>
                 Something went wrong with the chat. Your messages are safe and will be restored when you try again.
             </Text>
-            <TouchableOpacity style={styles.button}>
-                <Text style={styles.buttonText}>Reload Chat</Text>
-            </TouchableOpacity>
+            {canRetry && (
+                <TouchableOpacity style={styles.button} onPress={retry}>
+                    <Text style={styles.buttonText}>Reload Chat</Text>
+                </TouchableOpacity>
+            )}
         </View>
     );
 

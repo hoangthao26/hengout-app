@@ -1,4 +1,5 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     Globe,
     List,
@@ -26,16 +27,28 @@ import NavigationService from '../../services/navigationService';
 import { OnboardingService } from '../../services/onboardingService';
 import { useProfileStore } from '../../store';
 import { useCollectionStore } from '../../store/collectionStore';
+import { useSubscriptionStore } from '../../store/subscriptionStore';
 import { LocationFolder } from '../../types/locationFolder';
+import { SubscriptionStatusCard, SubscriptionModal, PaymentScreen } from '../../components/subscription';
+import { paymentFlowManager } from '../../services/paymentFlowManager';
 
 export default function ProfileScreen() {
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
-    const { success: showSuccess, error: showError, info: showInfo, warning: showWarning } = useToast();
+    const { success: showSuccess, error: showError, info: showInfo, warning: showWarning, showToast } = useToast() as any;
     const router = useRouter();
+    const params = useLocalSearchParams<{ openSubscription?: string }>();
 
     // Zustand stores
     const { profile, isLoading, fetchProfile, refreshProfile } = useProfileStore();
+    // Ensure subscription data stays fresh when screen focuses
+    const { fetchActiveSubscription: refetchActiveSubscription } = useSubscriptionStore();
+    useFocusEffect(
+        React.useCallback(() => {
+            refetchActiveSubscription().catch(() => { });
+            return undefined;
+        }, [refetchActiveSubscription])
+    );
     const {
         collections,
         loading: collectionsLoading,
@@ -46,13 +59,56 @@ export default function ProfileScreen() {
         removeCollection,
         setCurrentCollection
     } = useCollectionStore();
+    const {
+        activeSubscription,
+        fetchActiveSubscription,
+        fetchPlans,
+        plans,
+        plansLoading
+    } = useSubscriptionStore();
 
     // Local state
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [isProfileInitialized, setIsProfileInitialized] = useState(false);
+
+    // Subscription state
+    const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+    const [showPaymentScreen, setShowPaymentScreen] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState<any>(null);
     const [collectionsRefreshing, setCollectionsRefreshing] = useState(false);
     const { openCreateModal, openDeleteModal, setOnCreateSuccess, setOnDeleteSuccess } = useModal();
+
+    // Listen for payment flow changes
+    useEffect(() => {
+        const unsubscribe = paymentFlowManager.subscribe(() => {
+            console.log('[ProfileScreen] Payment flow state changed');
+            const currentPayment = paymentFlowManager.getCurrentPayment();
+            console.log('[ProfileScreen] Current payment:', currentPayment);
+            if (currentPayment) {
+                console.log('[ProfileScreen] Setting selectedPlan and showing PaymentScreen');
+                setSelectedPlan(currentPayment.plan);
+                setShowPaymentScreen(true);
+            } else {
+                console.log('[ProfileScreen] Clearing selectedPlan and hiding PaymentScreen');
+                setShowPaymentScreen(false);
+                setSelectedPlan(null);
+            }
+        });
+
+        return unsubscribe;
+    }, []);
+
+    // Open subscription modal if navigation parameter is provided
+    useEffect(() => {
+        if (params?.openSubscription === 'true') {
+            setShowSubscriptionModal(true);
+            try {
+                router.replace('/(tabs)/profile' as any);
+            } catch { }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [params?.openSubscription]);
 
     // Sticky header animation with Reanimated
     const scrollY = useSharedValue(0);
@@ -74,6 +130,14 @@ export default function ProfileScreen() {
         loadProfile();
         loadCollections();
     }, []);
+
+    // Load subscription data when component mounts
+    useEffect(() => {
+        if (isProfileInitialized) {
+            fetchActiveSubscription();
+            fetchPlans();
+        }
+    }, [isProfileInitialized, fetchActiveSubscription, fetchPlans]);
 
     // Load collections
     const loadCollections = useCallback(async () => {
@@ -186,7 +250,7 @@ export default function ProfileScreen() {
 
             if (onboardingComplete) {
                 // User has completed onboarding, load profile using Zustand
-                console.log('📱 [Profile] No cached profile, fetching from server...');
+                console.log('[Profile] No cached profile, fetching from server...');
                 await refreshProfile();
                 setIsProfileInitialized(true);
             } else {
@@ -203,15 +267,15 @@ export default function ProfileScreen() {
     const handleRefresh = async () => {
         setRefreshing(true);
         try {
-            // 🚀 SMART REFRESH: Only refresh if needed
+            // SMART REFRESH: Only refresh if needed
             const currentProfile = profile;
             const refreshPromises = [];
 
             if (!currentProfile) {
-                console.log('📱 [Profile] No profile data, refreshing...');
+                console.log('[Profile] No profile data, refreshing...');
                 refreshPromises.push(refreshProfile());
             } else {
-                console.log('📱 [Profile] Profile exists, only refreshing collections');
+                console.log('[Profile] Profile exists, only refreshing collections');
             }
 
             // Always refresh collections as they change more frequently
@@ -244,6 +308,130 @@ export default function ProfileScreen() {
         } finally {
             setIsLoggingOut(false);
         }
+    };
+
+    // Subscription handlers
+    const handleUpgradePress = () => {
+        setShowSubscriptionModal(true);
+    };
+
+    // --- Subscription reminders (upgrade/expiry) ---
+    const getDaysLeft = (endDate?: string | null) => {
+        if (!endDate) return null;
+        const end = new Date(endDate).getTime();
+        if (Number.isNaN(end)) return null;
+        const now = Date.now();
+        const diffMs = end - now;
+        return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    };
+
+    const daysLeft = getDaysLeft(activeSubscription?.endDate || null);
+    const isPremium = activeSubscription?.plan?.id === 2;
+
+    // Show lightweight reminder toasts (7 ngày và 1 ngày trước hạn) khi dữ liệu đổi hoặc khi vào màn
+    const [lastReminderDaysLeft, setLastReminderDaysLeft] = useState<number | null>(null);
+    useEffect(() => {
+        if (!isPremium || typeof daysLeft !== 'number') return;
+        if (daysLeft < 0) return; // đã hết hạn
+        // Chỉ nhắc một lần cho cùng mốc daysLeft trong phiên
+        if (lastReminderDaysLeft === daysLeft) return;
+
+        if (daysLeft === 7) {
+            showInfo('Gói Premium còn 7 ngày sẽ hết hạn. Bạn có thể gia hạn ngay.');
+            setLastReminderDaysLeft(7);
+        } else if (daysLeft === 1) {
+            showWarning('Gói Premium còn 1 ngày sẽ hết hạn. Gia hạn ngay để không gián đoạn.');
+            setLastReminderDaysLeft(1);
+        }
+    }, [isPremium, daysLeft, lastReminderDaysLeft, showInfo, showWarning]);
+
+    // Basic upgrade prompt (once per day)
+    const hasPromptedThisFocus = React.useRef(false);
+    useFocusEffect(
+        useCallback(() => {
+            // Reset flag when screen comes into focus
+            hasPromptedThisFocus.current = false;
+
+            const maybePromptBasicUpgrade = async () => {
+                try {
+                    if (isPremium) return;
+
+                    // Prevent duplicate prompts in the same focus session
+                    if (hasPromptedThisFocus.current) return;
+
+                    const STORAGE_KEY = 'basic_upgrade_prompt_last_date';
+                    const today = new Date();
+                    const yyyy = today.getFullYear();
+                    const mm = String(today.getMonth() + 1).padStart(2, '0');
+                    const dd = String(today.getDate()).padStart(2, '0');
+                    const todayKey = `${yyyy}-${mm}-${dd}`;
+                    const last = await AsyncStorage.getItem(STORAGE_KEY);
+                    if (last === todayKey) return; // already prompted today
+
+                    // Set flag and save to storage BEFORE showing toast to prevent race condition
+                    hasPromptedThisFocus.current = true;
+                    await AsyncStorage.setItem(STORAGE_KEY, todayKey);
+
+                    // Show a dedicated toast with CTA to open subscription modal
+                    const id = showToast({
+                        type: 'upgrade',
+                        title: 'Nâng cấp để mở khóa đầy đủ tính năng',
+                        message: 'Tăng giới hạn collections, bạn bè và nhóm.',
+                        duration: 5000,
+                        position: 'top',
+                        onPress: handleUpgradePress,
+                    });
+                    // Silence unused var warning if any
+                    if (id) { /* no-op */ }
+                } catch (e) {
+                    // Reset flag on error so it can retry
+                    hasPromptedThisFocus.current = false;
+                    // best-effort prompt, ignore storage errors
+                }
+            };
+
+            maybePromptBasicUpgrade();
+
+            // Cleanup: reset flag when screen loses focus (optional, but good practice)
+            return () => {
+                // No cleanup needed for this case
+            };
+        }, [isPremium, handleUpgradePress, showToast])
+    );
+
+    const handlePlanSelect = async (plan: any) => {
+        console.log('[ProfileScreen] Plan selected:', plan);
+        setShowSubscriptionModal(false);
+
+        try {
+            console.log('[ProfileScreen] Starting payment flow...');
+            // Start payment flow
+            const paymentData = await paymentFlowManager.startPayment(plan);
+            console.log('[ProfileScreen] Payment flow started:', paymentData);
+            // PaymentScreen will be shown automatically via paymentFlowManager subscription
+        } catch (error: any) {
+            console.error('❌ [ProfileScreen] Failed to start payment:', error);
+            showError('Failed to start payment. Please try again.');
+        }
+    };
+
+    const handlePaymentSuccess = () => {
+        console.log('[ProfileScreen] Payment success, closing PaymentScreen');
+        setShowPaymentScreen(false);
+        setSelectedPlan(null);
+        showSuccess('Subscription activated successfully!');
+        // Refresh subscription data
+        fetchActiveSubscription();
+    };
+
+    const handlePaymentBack = () => {
+        console.log('[ProfileScreen] Payment back, closing PaymentScreen');
+        setShowPaymentScreen(false);
+        setSelectedPlan(null);
+    };
+
+    const handleSubscriptionModalClose = () => {
+        setShowSubscriptionModal(false);
     };
 
 
@@ -348,6 +536,29 @@ export default function ProfileScreen() {
                         />
                     }
                 >
+                    {/* Subscription Status Card */}
+                    <SubscriptionStatusCard
+                        subscription={activeSubscription}
+                        onUpgrade={handleUpgradePress}
+                    />
+
+                    {/* Test button to trigger upgrade toast (hidden)
+                <TouchableOpacity
+                    onPress={() => showToast({
+                        type: 'upgrade',
+                        title: 'Nâng cấp để mở khóa đầy đủ tính năng',
+                        message: 'Tăng giới hạn collections, bạn bè và nhóm.',
+                        duration: 5000,
+                        position: 'top',
+                        onPress: handleUpgradePress,
+                    })}
+                    style={{ alignSelf: 'center', marginTop: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: isDark ? '#374151' : '#E5E7EB' }}
+                >
+                    <Text style={{ color: isDark ? '#E5E7EB' : '#111827' }}>Test Upgrade Toast</Text>
+                </TouchableOpacity>
+                */}
+
+
                     {/* Profile Info Section - Avatar Left, Name/Bio Below, Edit Icon Right */}
                     <View style={styles.profileInfoSection}>
                         {/* Avatar */}
@@ -408,19 +619,18 @@ export default function ProfileScreen() {
                                 <View style={styles.collectionsHeaderActions}>
                                     <TouchableOpacity
                                         style={styles.headerActionButton}
-                                        onPress={handleCreateCollection}
+                                        onPress={handleOpenDeleteModal}
                                     >
-                                        <PlusCircle
+                                        <List
                                             size={28}
                                             color={isDark ? '#FFFFFF' : '#000000'}
                                         />
                                     </TouchableOpacity>
                                     <TouchableOpacity
                                         style={styles.headerActionButton}
-                                        onPress={handleOpenDeleteModal}
-
+                                        onPress={handleCreateCollection}
                                     >
-                                        <List
+                                        <PlusCircle
                                             size={28}
                                             color={isDark ? '#FFFFFF' : '#000000'}
                                         />
@@ -500,6 +710,22 @@ export default function ProfileScreen() {
                 </Animated.ScrollView>
 
             </View>
+
+            {/* Subscription Modal */}
+            <SubscriptionModal
+                isVisible={showSubscriptionModal}
+                onClose={handleSubscriptionModalClose}
+                onPlanSelect={handlePlanSelect}
+            />
+
+            {/* Payment Screen */}
+            {showPaymentScreen && selectedPlan && (
+                <PaymentScreen
+                    plan={selectedPlan}
+                    onBack={handlePaymentBack}
+                    onSuccess={handlePaymentSuccess}
+                />
+            )}
         </ProfileErrorBoundary>
     );
 }
@@ -694,5 +920,6 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 20,
     },
+
 
 });

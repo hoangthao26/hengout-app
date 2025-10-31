@@ -128,6 +128,15 @@ export const useChatSync = () => {
         return await chatSyncService.syncMembers(conversationId);
     }, [isInitialized]);
 
+    // Sync conversations from server to database
+    const syncConversations = useCallback(async (): Promise<void> => {
+        if (!isInitialized) {
+            console.log('⚠️ [useChatSync] Services not ready, skipping conversation sync');
+            return;
+        }
+        await chatSyncService.syncConversations();
+    }, [isInitialized]);
+
     // Update conversation
     const updateConversation = useCallback(async (
         conversationId: string,
@@ -138,6 +147,17 @@ export const useChatSync = () => {
             return;
         }
         await chatSyncService.updateConversation(conversationId, updates);
+    }, [isInitialized]);
+
+    // Delete conversation (when leaving/disbanding)
+    const deleteConversation = useCallback(async (
+        conversationId: string
+    ): Promise<void> => {
+        if (!isInitialized) {
+            console.log('⚠️ [useChatSync] Services not ready, skipping conversation deletion');
+            return;
+        }
+        await chatSyncService.deleteConversation(conversationId);
     }, [isInitialized]);
 
     // Clear all data
@@ -182,7 +202,9 @@ export const useChatSync = () => {
         syncMessages,
         getMembers,
         syncMembers,
+        syncConversations,
         updateConversation,
+        deleteConversation,
         clearAllData,
         resetDatabase
     };

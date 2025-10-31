@@ -5,13 +5,19 @@ import { useFriendStore } from '../store/friendStore';
 import { useChatStore } from '../store/chatStore';
 import { chatService } from '../services/chatService';
 import { SearchUser } from '../types/social';
+import useLimits from '../hooks/useLimits';
+import NavigationService from '../services/navigationService';
+import { showLimitReachedThenUpgrade } from '../services/limitsService';
 
 export const useFriendActions = (
     searchResults: SearchUser[],
-    setSearchResults: React.Dispatch<React.SetStateAction<SearchUser[]>>
+    setSearchResults: React.Dispatch<React.SetStateAction<SearchUser[]>>,
+    currentFriendsCount?: number,
+    onUpgradeOpenModal?: () => void,
 ) => {
     const [processingUser, setProcessingUser] = useState<string | null>(null);
-    const { success: showSuccess, error: showError } = useToast();
+    const toastCtx = useToast();
+    const { success: showSuccess, error: showError } = toastCtx;
 
     // Get global friend actions
     const {
@@ -48,7 +54,17 @@ export const useFriendActions = (
         }
     }, [setConversations]);
 
+    // Compute friend limit status (optional if caller provides currentFriendsCount)
+    const friendsLimit = useLimits('friends', currentFriendsCount || 0, () => NavigationService.navigate('/settings/my-subscription'));
+
+    const promptUpgrade = () => showLimitReachedThenUpgrade(toastCtx, friendsLimit?.label || '', 4200, onUpgradeOpenModal);
+
     const handleSendFriendRequest = useCallback(async (userId: string) => {
+        // Guard: if at limit, only show toast and stop
+        if (friendsLimit && friendsLimit.isAtLimit) {
+            promptUpgrade();
+            return;
+        }
         // Store original state for rollback
         let originalUser: SearchUser | undefined;
 
@@ -117,7 +133,7 @@ export const useFriendActions = (
         } finally {
             setProcessingUser(null);
         }
-    }, [setSearchResults, showSuccess, showError]);
+    }, [setSearchResults, showSuccess, showError, friendsLimit]);
 
     const handleCancelRequest = useCallback(async (userId: string) => {
         // Store original state for rollback
@@ -206,6 +222,10 @@ export const useFriendActions = (
     }, [setSearchResults, showSuccess, showError]);
 
     const handleAcceptRequestFromSearch = useCallback(async (userId: string) => {
+        if (friendsLimit && friendsLimit.isAtLimit) {
+            promptUpgrade();
+            return;
+        }
         let originalUser: SearchUser | undefined;
         let friendRequestId: string | undefined;
 
@@ -254,7 +274,7 @@ export const useFriendActions = (
         } finally {
             setProcessingUser(null);
         }
-    }, [setSearchResults, showSuccess, showError]);
+    }, [setSearchResults, showSuccess, showError, friendsLimit]);
 
     const handleRejectRequestFromSearch = useCallback(async (userId: string) => {
         let originalUser: SearchUser | undefined;

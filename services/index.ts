@@ -28,6 +28,9 @@ export { default as chatService } from './chatService';
 
 // Subscription Services
 export { default as subscriptionService } from './subscriptionService';
+export { default as paymentService } from './paymentService';
+export { default as paymentFlowManager } from './paymentFlowManager';
+export { default as upgradePromptManager } from './upgradePromptManager';
 
 // Utility Services
 export { default as CloudinaryService } from './cloudinaryService';

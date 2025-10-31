@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { CheckCircle, AlertCircle, XCircle, Info, X, LucideIcon } from 'lucide-react-native';
+import { CheckCircle, AlertCircle, XCircle, Info, X, Crown } from 'lucide-react-native';
 import { Toast as ToastType } from '../types/toast';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -144,6 +144,17 @@ const SimpleToast: React.FC<SimpleToastProps> = ({ toast, onHide, onPress, onAct
                 glassGradient: isDark
                     ? ['rgba(37, 99, 235, 0.1)', 'rgba(0, 180, 219, 0.05)', 'rgba(0, 128, 255, 0.1)']
                     : ['rgba(37, 99, 235, 0.2)', 'rgba(59, 130, 246, 0.15)', 'rgba(29, 78, 216, 0.2)'],
+            },
+            upgrade: {
+                icon: Crown,
+                iconColor: isDark ? '#FFFFFF' : '#FFFFFF',
+                iconBackgroundColor: '#F59E0B',
+                gradientColors: ['#FAA307', '#F48C06', '#DC2F02'],
+                backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : 'rgba(245, 158, 11, 0.18)',
+                borderColor: isDark ? 'rgba(245, 158, 11, 0.35)' : 'rgba(245, 158, 11, 0.4)',
+                glassGradient: isDark
+                    ? ['rgba(245, 158, 11, 0.1)', 'rgba(220, 47, 2, 0.05)', 'rgba(250, 163, 7, 0.1)']
+                    : ['rgba(250, 163, 7, 0.18)', 'rgba(244, 140, 6, 0.12)', 'rgba(220, 47, 2, 0.18)'],
             },
             loading: {
                 icon: Info,

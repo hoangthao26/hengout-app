@@ -22,6 +22,7 @@ import { ChatErrorBoundary } from '../../../components/errorBoundaries';
 import { useToast } from '../../../contexts/ToastContext';
 import { chatService } from '../../../services/chatService';
 import { ChatMember } from '../../../types/chat';
+import { useSubscriptionStore } from '../../../store/subscriptionStore';
 
 // Member Item Component with Animation
 const MemberItem: React.FC<{
@@ -167,6 +168,9 @@ const GroupMembersScreen: React.FC = () => {
     const [currentUserRole, setCurrentUserRole] = useState<string>('');
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
     const [conversationName, setConversationName] = useState('');
+    
+    // Get maxMember from store (fetched in details screen)
+    const groupStatus = useSubscriptionStore(state => state.groupStatus[conversationId || '']);
 
     // Load group members and conversation info
     const loadMembers = useCallback(async () => {
@@ -364,7 +368,15 @@ const GroupMembersScreen: React.FC = () => {
 
                 {/* Header */}
                 <Header
-                    title={`Thành viên (${members.length} người)`}
+                    title={(() => {
+                        const maxMember = groupStatus?.maxMember;
+                        if (maxMember !== undefined && maxMember >= 0) {
+                            return `Thành viên (${members.length}/${maxMember})`;
+                        } else if (maxMember !== undefined && maxMember < 0) {
+                            return `Thành viên (${members.length}/∞)`;
+                        }
+                        return `Thành viên (${members.length} người)`;
+                    })()}
                     showBackButton={true}
                     onBackPress={() => router.back()}
                     rightIcon={{

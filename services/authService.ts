@@ -1,4 +1,5 @@
 import { publicAxios } from '../config/publicAxios';
+import axiosInstance from '../config/axios';
 import { buildEndpointUrl, SERVICES_CONFIG } from '../config/services';
 import {
     AuthResponse,
@@ -29,6 +30,53 @@ class AuthService {
             return response.data;
         } catch (error: any) {
             console.warn('Failed to login user:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Change password for logged-in user
+     * POST /api/v1/password/change
+     */
+    async changePassword(currentPassword: string, newPassword: string, confirmPassword: string): Promise<AuthResponse> {
+        try {
+            const endpoint = buildEndpointUrl('AUTH_SERVICE', 'CHANGE_PASSWORD');
+            const request = { currentPassword, newPassword, confirmPassword };
+            const response = await axiosInstance.post<AuthResponse>(endpoint, request);
+            return response.data;
+        } catch (error: any) {
+            console.warn('Failed to change password:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Check password status and OAuth linkage
+     * GET /api/v1/password/status
+     */
+    async getPasswordStatus(): Promise<any> {
+        try {
+            const endpoint = buildEndpointUrl('AUTH_SERVICE', 'PASSWORD_STATUS');
+            const response = await axiosInstance.get(endpoint);
+            return response.data;
+        } catch (error: any) {
+            console.warn('Failed to get password status:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Set password for OAuth users (first time)
+     * POST /api/v1/password/set
+     */
+    async setPassword(password: string, confirmPassword: string): Promise<any> {
+        try {
+            const endpoint = buildEndpointUrl('AUTH_SERVICE', 'PASSWORD_SET');
+            const request = { password, confirmPassword };
+            const response = await axiosInstance.post(endpoint, request);
+            return response.data;
+        } catch (error: any) {
+            console.warn('Failed to set password:', error);
             throw error;
         }
     }

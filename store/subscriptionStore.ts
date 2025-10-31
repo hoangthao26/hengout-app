@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { subscriptionService } from '../services/subscriptionService';
-import { Plan, Subscription, UserLimits, FriendLimit, GroupLimit, GroupStatus } from '../types/subscription';
+import { paymentService } from '../services/paymentService';
+import { Plan, Subscription, UserLimits, FriendLimit, GroupLimit, GroupStatus, GroupStatusResponse, CurrentUsage, UsageLimits } from '../types/subscription';
 
 interface SubscriptionState {
     // Plans
@@ -25,6 +26,23 @@ interface SubscriptionState {
     groupStatusLoading: { [groupId: string]: boolean };
     groupStatusError: { [groupId: string]: string | null };
 
+    // Payment State
+    currentPayment: {
+        orderCode: number;
+        checkoutUrl: string;
+        qrCode: string;
+        amount: number;
+        currency: string;
+        description: string;
+    } | null;
+    paymentLoading: boolean;
+    paymentError: string | null;
+    paymentPolling: boolean;
+
+    // Usage Tracking
+    currentUsage: CurrentUsage;
+    usageLimits: UsageLimits | null;
+
     // Actions
     fetchPlans: () => Promise<void>;
     fetchActiveSubscription: () => Promise<void>;
@@ -34,9 +52,21 @@ interface SubscriptionState {
     fetchFriendLimits: () => Promise<void>;
     fetchGroupLimits: () => Promise<void>;
     fetchGroupStatus: (groupId: string) => Promise<void>;
-    initGroup: (conversationId: string) => Promise<boolean>;
     applyGroupBoost: (groupId: string, monthsToBoost: number) => Promise<boolean>;
-    
+
+    // Payment Actions
+    startPayment: (planId: number) => Promise<boolean>;
+    openPaymentCheckout: () => Promise<void>;
+    pollPaymentStatus: () => Promise<'SUCCESS' | 'FAILED' | 'TIMEOUT'>;
+    completePayment: (planId: number) => Promise<boolean>;
+    cancelPayment: () => Promise<void>;
+    clearPaymentData: () => void;
+
+    // Usage Actions
+    updateUsage: (usage: Partial<CurrentUsage>) => void;
+    fetchUsageLimits: () => Promise<void>;
+    checkUpgradeNeeded: (feature: keyof CurrentUsage) => boolean;
+
     // Utility actions
     getPlanById: (planId: number) => Plan | null;
     hasActiveSubscription: () => boolean;
@@ -64,6 +94,21 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     groupStatusLoading: {},
     groupStatusError: {},
 
+    // Payment State
+    currentPayment: null,
+    paymentLoading: false,
+    paymentError: null,
+    paymentPolling: false,
+
+    // Usage Tracking
+    currentUsage: {
+        folders: 0,
+        friends: 0,
+        groups: 0,
+        groupMembers: 0,
+    },
+    usageLimits: null,
+
     // Actions
     fetchPlans: async () => {
         set({ plansLoading: true, plansError: null });
@@ -82,13 +127,27 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     fetchActiveSubscription: async () => {
         set({ subscriptionLoading: true, subscriptionError: null });
         try {
+            console.log('[SubscriptionStore] Fetching active subscription...');
             const response = await subscriptionService.getActiveSubscription();
             if (response.status === 'success') {
+                console.log('[SubscriptionStore] Active subscription fetched:', {
+                    planId: response.data?.plan?.id,
+                    planCode: response.data?.plan?.code,
+                    limits: {
+                        maxExtraFolder: response.data?.plan?.maxExtraFolder,
+                        maxFolderItem: response.data?.plan?.maxFolderItem,
+                        maxFriend: (response.data?.plan as any)?.maxFriend,
+                        maxAttendGroup: (response.data?.plan as any)?.maxAttendGroup,
+                        maxMember: (response.data?.plan as any)?.maxMember,
+                    }
+                });
                 set({ activeSubscription: response.data, subscriptionLoading: false });
             } else {
+                console.warn('[SubscriptionStore] No active subscription:', response.message);
                 set({ subscriptionError: response.message || 'No active subscription', subscriptionLoading: false });
             }
         } catch (error: any) {
+            console.error('[SubscriptionStore] Failed to fetch subscription:', error);
             set({ subscriptionError: error.message || 'Failed to fetch subscription', subscriptionLoading: false });
         }
     },
@@ -166,35 +225,37 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
 
         try {
             const response = await subscriptionService.getGroupStatus(groupId);
-            if (response.status === 'success') {
-                set(state => ({
-                    groupStatus: { ...state.groupStatus, [groupId]: response.data },
-                    groupStatusLoading: { ...state.groupStatusLoading, [groupId]: false }
-                }));
+
+            // Handle both formats: BaseApiResponse wrapper or direct data
+            let groupStatusData: any;
+            if ((response as any).status !== undefined) {
+                // Has BaseApiResponse wrapper
+                const wrappedResponse = response as GroupStatusResponse;
+                if (wrappedResponse.status === 'success') {
+                    groupStatusData = wrappedResponse.data;
+                } else {
+                    set(state => ({
+                        groupStatusError: { ...state.groupStatusError, [groupId]: wrappedResponse.message || 'Failed to fetch group status' },
+                        groupStatusLoading: { ...state.groupStatusLoading, [groupId]: false }
+                    }));
+                    return;
+                }
             } else {
-                set(state => ({
-                    groupStatusError: { ...state.groupStatusError, [groupId]: response.message || 'Failed to fetch group status' },
-                    groupStatusLoading: { ...state.groupStatusLoading, [groupId]: false }
-                }));
+                // Direct data response (no wrapper) - API returns { maxMember, groupPlanningTracking } directly
+                groupStatusData = response as GroupStatus;
             }
+
+            // Save group status to store
+            set(state => ({
+                groupStatus: { ...state.groupStatus, [groupId]: groupStatusData },
+                groupStatusLoading: { ...state.groupStatusLoading, [groupId]: false }
+            }));
         } catch (error: any) {
+            console.error(`❌ [SubscriptionStore] Failed to fetch group status for ${groupId}:`, error?.message || error);
             set(state => ({
                 groupStatusError: { ...state.groupStatusError, [groupId]: error.message || 'Failed to fetch group status' },
                 groupStatusLoading: { ...state.groupStatusLoading, [groupId]: false }
             }));
-        }
-    },
-
-    initGroup: async (conversationId: string) => {
-        try {
-            const response = await subscriptionService.initGroup(conversationId);
-            if (response.status === 'success') {
-                return true;
-            }
-            return false;
-        } catch (error: any) {
-            console.error('Failed to initialize group:', error);
-            return false;
         }
     },
 
@@ -245,7 +306,163 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
             limitsError: null,
             groupStatus: {},
             groupStatusLoading: {},
-            groupStatusError: {}
+            groupStatusError: {},
+            currentPayment: null,
+            paymentError: null,
+            paymentPolling: false,
+            currentUsage: {
+                folders: 0,
+                friends: 0,
+                groups: 0,
+                groupMembers: 0,
+            },
+            usageLimits: null,
         });
-    }
+    },
+
+    // Payment Actions
+    startPayment: async (planId: number) => {
+        set({ paymentLoading: true, paymentError: null });
+        try {
+            const paymentData = await paymentService.startPayment(planId);
+            set({
+                currentPayment: paymentData,
+                paymentLoading: false
+            });
+            return true;
+        } catch (error: any) {
+            console.error('Failed to start payment:', error);
+            set({
+                paymentError: error.message || 'Failed to start payment',
+                paymentLoading: false
+            });
+            return false;
+        }
+    },
+
+    openPaymentCheckout: async () => {
+        const { currentPayment } = get();
+        if (!currentPayment) {
+            throw new Error('No payment data available');
+        }
+
+        try {
+            await paymentService.openPayOSCheckout(currentPayment.checkoutUrl);
+            set({ paymentPolling: true });
+        } catch (error: any) {
+            console.error('Failed to open payment checkout:', error);
+            set({ paymentError: error.message || 'Failed to open payment' });
+            throw error;
+        }
+    },
+
+    pollPaymentStatus: async () => {
+        const { currentPayment } = get();
+        if (!currentPayment) {
+            throw new Error('No payment data available');
+        }
+
+        try {
+            const status = await paymentService.pollPaymentStatus(currentPayment.orderCode);
+            set({ paymentPolling: false });
+            return status;
+        } catch (error: any) {
+            console.error('Failed to poll payment status:', error);
+            set({
+                paymentPolling: false,
+                paymentError: error.message || 'Payment verification failed'
+            });
+            throw error;
+        }
+    },
+
+    completePayment: async (planId: number) => {
+        try {
+            await paymentService.completePayment(planId);
+            set({ currentPayment: null, paymentError: null });
+
+            // Refresh subscription data
+            await get().fetchActiveSubscription();
+            await get().fetchAllLimits();
+
+            return true;
+        } catch (error: any) {
+            console.error('Failed to complete payment:', error);
+            set({ paymentError: error.message || 'Failed to complete payment' });
+            return false;
+        }
+    },
+
+    cancelPayment: async () => {
+        const { currentPayment } = get();
+        if (!currentPayment) return;
+
+        try {
+            await paymentService.cancelPayment(currentPayment.orderCode);
+            set({
+                currentPayment: null,
+                paymentError: null,
+                paymentPolling: false
+            });
+        } catch (error: any) {
+            console.error('Failed to cancel payment:', error);
+            set({ paymentError: error.message || 'Failed to cancel payment' });
+        }
+    },
+
+    clearPaymentData: () => {
+        set({
+            currentPayment: null,
+            paymentError: null,
+            paymentPolling: false,
+        });
+    },
+
+    // Usage Actions
+    updateUsage: (usage: Partial<CurrentUsage>) => {
+        set((state) => ({
+            currentUsage: { ...state.currentUsage, ...usage }
+        }));
+    },
+
+    fetchUsageLimits: async () => {
+        try {
+            const [folderLimits, friendLimits, groupLimits] = await Promise.all([
+                subscriptionService.getFolderLimits(),
+                subscriptionService.getFriendLimits(),
+                subscriptionService.getGroupLimits()
+            ]);
+
+            if (folderLimits.status === 'success' &&
+                friendLimits.status === 'success' &&
+                groupLimits.status === 'success') {
+
+                set({
+                    usageLimits: {
+                        maxExtraFolder: folderLimits.data.maxExtraFolder,
+                        maxFolderItem: folderLimits.data.maxFolderItem,
+                        maxFriend: friendLimits.data.maxFriend,
+                        maxAttendGroup: groupLimits.data.maxAttendGroup,
+                        maxMember: 0, // This would come from group status
+                    }
+                });
+            }
+        } catch (error: any) {
+            console.error('Failed to fetch usage limits:', error);
+        }
+    },
+
+    checkUpgradeNeeded: (feature: keyof CurrentUsage) => {
+        const { currentUsage, usageLimits } = get();
+        if (!usageLimits) return false;
+
+        const current = currentUsage[feature];
+        const limit = usageLimits[`max${feature.charAt(0).toUpperCase() + feature.slice(1)}` as keyof UsageLimits];
+
+        if (typeof limit === 'number') {
+            return current >= limit * 0.8; // Show upgrade prompt at 80% usage
+        }
+
+        return false;
+    },
 }));

@@ -22,16 +22,18 @@ export const ProfileErrorBoundary: React.FC<ProfileErrorBoundaryProps> = ({ chil
         onError?.(error);
     };
 
-    const profileFallback = (
+    const profileFallback = (retry: () => void, canRetry: boolean) => (
         <View style={styles.container}>
             <Text style={styles.icon}>👤</Text>
             <Text style={styles.title}>Profile Error</Text>
             <Text style={styles.message}>
                 Something went wrong loading your profile. Your data is safe and will be restored when you try again.
             </Text>
-            <TouchableOpacity style={styles.button}>
-                <Text style={styles.buttonText}>Reload Profile</Text>
-            </TouchableOpacity>
+            {canRetry && (
+                <TouchableOpacity style={styles.button} onPress={retry}>
+                    <Text style={styles.buttonText}>Reload Profile</Text>
+                </TouchableOpacity>
+            )}
         </View>
     );
 

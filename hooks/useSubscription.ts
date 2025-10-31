@@ -1,6 +1,8 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSubscriptionStore } from '../store/subscriptionStore';
 import { subscriptionService } from '../services/subscriptionService';
+import { paymentFlowManager } from '../services/paymentFlowManager';
+import { upgradePromptManager, UpgradePromptData } from '../services/upgradePromptManager';
 
 /**
  * Hook for subscription management
@@ -32,20 +34,42 @@ export const useSubscription = () => {
         fetchFriendLimits,
         fetchGroupLimits,
         fetchGroupStatus,
-        initGroup,
         applyGroupBoost,
         getPlanById,
         hasActiveSubscription,
         isPlanSuitable,
-        clearSubscriptionData
+        clearSubscriptionData,
+
+        // Payment Actions
+        startPayment,
+        openPaymentCheckout,
+        pollPaymentStatus,
+        completePayment,
+        cancelPayment,
+        clearPaymentData,
+
+        // Usage Actions
+        updateUsage,
+        fetchUsageLimits,
+        checkUpgradeNeeded
     } = useSubscriptionStore();
+
+    // Upgrade prompts state
+    const [upgradePrompts, setUpgradePrompts] = useState<UpgradePromptData[]>([]);
 
     // Auto-fetch plans and active subscription on mount
     useEffect(() => {
         fetchPlans();
         fetchActiveSubscription();
         fetchAllLimits();
-    }, [fetchPlans, fetchActiveSubscription, fetchAllLimits]);
+        fetchUsageLimits();
+    }, [fetchPlans, fetchActiveSubscription, fetchAllLimits, fetchUsageLimits]);
+
+    // Subscribe to upgrade prompts
+    useEffect(() => {
+        const unsubscribe = upgradePromptManager.subscribe(setUpgradePrompts);
+        return unsubscribe;
+    }, []);
 
     // Payment methods
     const checkPayment = useCallback(async (orderCode: number) => {
@@ -75,7 +99,7 @@ export const useSubscription = () => {
         }
     }, []);
 
-    const cancelPayment = useCallback(async (orderCode: number) => {
+    const cancelPaymentByOrderCode = useCallback(async (orderCode: number) => {
         try {
             return await subscriptionService.cancelPayment(orderCode);
         } catch (error: any) {
@@ -166,12 +190,11 @@ export const useSubscription = () => {
         fetchFriendLimits,
         fetchGroupLimits,
         fetchGroupStatus,
-        initGroup,
         applyGroupBoost,
         checkPayment,
         createPayment,
         confirmWebhook,
-        cancelPayment,
+        cancelPaymentByOrderCode,
 
         // Utility methods
         getPlanById,
@@ -188,6 +211,26 @@ export const useSubscription = () => {
         getGroupStatusError,
         refreshGroupStatus,
         refreshAllData,
-        clearSubscriptionData
+        clearSubscriptionData,
+
+        // Payment Flow Methods
+        startPayment,
+        openPaymentCheckout,
+        pollPaymentStatus,
+        completePayment,
+        clearPaymentData,
+
+        // Usage Methods
+        updateUsage,
+        fetchUsageLimits,
+        checkUpgradeNeeded,
+
+        // Upgrade Prompts
+        upgradePrompts,
+        dismissUpgradePrompt: (promptId: string) => upgradePromptManager.dismissPrompt(promptId),
+        dismissFeaturePrompts: (feature: string) => upgradePromptManager.dismissFeaturePrompts(feature),
+        clearAllPrompts: () => upgradePromptManager.clearAllPrompts(),
+        checkAllFeatures: () => upgradePromptManager.checkAllFeatures(),
+        updateUsageAndCheck: (usage: any) => upgradePromptManager.updateUsageAndCheck(usage)
     };
 };

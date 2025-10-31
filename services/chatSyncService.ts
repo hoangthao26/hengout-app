@@ -83,6 +83,9 @@ class ChatSyncService {
      */
     async syncConversations(): Promise<void> {
         try {
+            // Ensure database is initialized before sync
+            await databaseService.initialize();
+
             // Syncing conversations
 
             // PROACTIVE: Check auth first
@@ -121,9 +124,21 @@ class ChatSyncService {
             }
 
             if (response.status === 'success') {
-                // Save to local database
+                // Get current conversations from database to compare
+                const currentConversations = await databaseService.getConversations();
+                const serverConversationIds = new Set(response.data.map(c => c.id));
+
+                // Save/update conversations from server
                 for (const conversation of response.data) {
                     await databaseService.saveConversation(conversation);
+                }
+
+                // Delete conversations that are no longer in server response (user left/disbanded)
+                for (const currentConv of currentConversations) {
+                    if (!serverConversationIds.has(currentConv.id)) {
+                        console.log(`🗑️ [ChatSyncService] Removing conversation ${currentConv.id} (no longer accessible)`);
+                        await databaseService.deleteConversation(currentConv.id);
+                    }
                 }
 
                 // Synced conversations
@@ -366,6 +381,14 @@ class ChatSyncService {
     async updateConversation(conversationId: string, updates: Partial<ChatConversation>): Promise<void> {
         await databaseService.initialize();
         await databaseService.updateConversation(conversationId, updates);
+    }
+
+    /**
+     * Delete conversation from local DB (when user leaves/disbands)
+     */
+    async deleteConversation(conversationId: string): Promise<void> {
+        await databaseService.initialize();
+        await databaseService.deleteConversation(conversationId);
     }
 
     /**

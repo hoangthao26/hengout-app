@@ -1,4 +1,4 @@
-export type ToastType = 'success' | 'error' | 'warning' | 'info' | 'loading' | 'message';
+export type ToastType = 'success' | 'error' | 'warning' | 'info' | 'loading' | 'message' | 'upgrade';
 
 export type ToastPosition = 'top' | 'bottom';
 

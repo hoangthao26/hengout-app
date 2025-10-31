@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
-import { ChevronRight, LogOut, Settings, TestTube, Bell } from 'lucide-react-native';
+import { ChevronRight, LogOut, Settings, TestTube, Bell, Crown, Shield, SlidersHorizontal } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import Header from '../../components/Header';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuthStore } from '../../store/authStore';
 import NavigationService from '../../services/navigationService';
+// removed one-time init default subscription
 
 export default function SettingsScreen() {
     const colorScheme = useColorScheme();
@@ -81,13 +82,47 @@ export default function SettingsScreen() {
 
             {/* Settings Content */}
             <View style={styles.content}>
+                {/* Change Password Option */}
+                <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={() => NavigationService.navigate('/auth/change-password')}
+                >
+                    <View style={styles.settingLeft}>
+                        <Shield
+                            size={24}
+                            color={isDark ? '#FFFFFF' : '#000000'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>Đổi mật khẩu</Text>
+                    </View>
+                    <ChevronRight size={20} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                </TouchableOpacity>
+                {/* My Subscription Option */}
+                <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={() => router.push('/settings/my-subscription')}
+                >
+                    <View style={styles.settingLeft}>
+                        <Crown
+                            size={24}
+                            color={isDark ? '#FAA307' : '#FAA307'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            Gói đăng ký của tôi
+                        </Text>
+                    </View>
+                    <ChevronRight
+                        size={20}
+                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                    />
+                </TouchableOpacity>
+
                 {/* Preferences Option */}
                 <TouchableOpacity
                     style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
                     onPress={() => NavigationService.goToPreferences()}
                 >
                     <View style={styles.settingLeft}>
-                        <Settings
+                        <SlidersHorizontal
                             size={24}
                             color={isDark ? '#FFFFFF' : '#000000'}
                         />
@@ -245,9 +280,9 @@ export default function SettingsScreen() {
                     <View style={styles.settingLeft}>
                         <LogOut
                             size={24}
-                            color={isDark ? '#FFFFFF' : '#000000'}
+                            color="#EF4444"
                         />
-                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                        <Text style={[styles.settingText, { color: '#EF4444' }]}>
                             Đăng xuất
                         </Text>
                     </View>

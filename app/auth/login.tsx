@@ -157,7 +157,6 @@ export default function LoginScreen() {
                             onSignUp={handleSignUp}
                             loading={loading}
                         />
-
                     </View>
                 </View>
             </KeyboardAvoidingView>

@@ -22,16 +22,18 @@ export const MapErrorBoundary: React.FC<MapErrorBoundaryProps> = ({ children, on
         onError?.(error);
     };
 
-    const mapFallback = (
+    const mapFallback = (retry: () => void, canRetry: boolean) => (
         <View style={styles.container}>
             <Text style={styles.icon}>🗺️</Text>
             <Text style={styles.title}>Map Error</Text>
             <Text style={styles.message}>
                 Something went wrong with the map. Please check your location permissions and try again.
             </Text>
-            <TouchableOpacity style={styles.button}>
-                <Text style={styles.buttonText}>Reload Map</Text>
-            </TouchableOpacity>
+            {canRetry && (
+                <TouchableOpacity style={styles.button} onPress={retry}>
+                    <Text style={styles.buttonText}>Reload Map</Text>
+                </TouchableOpacity>
+            )}
         </View>
     );
 
