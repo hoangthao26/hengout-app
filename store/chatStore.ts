@@ -192,7 +192,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             : conversations;
 
         if (conversations.length > MAX_CONVERSATIONS_IN_MEMORY) {
-            console.log(`🧹 [Memory] Limited conversations in memory: ${conversations.length} → ${limitedConversations.length}`);
+            console.log(`[Memory] Limited conversations in memory: ${conversations.length} → ${limitedConversations.length}`);
         }
 
         // SẮP XẾP conversations theo lastMessage.createdAt (DESC), nếu null thì dùng createdAt
@@ -210,7 +210,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
         // MEMORY MANAGEMENT: Auto cleanup if too many conversations
         if (newConversations.length > MAX_CONVERSATIONS_IN_MEMORY) {
-            console.log(`🧹 [Memory] Auto cleanup triggered: ${newConversations.length} conversations`);
+            console.log(`[Memory] Auto cleanup triggered: ${newConversations.length} conversations`);
             const limitedConversations = newConversations.slice(0, MAX_CONVERSATIONS_IN_MEMORY);
             const removedConversations = newConversations.slice(MAX_CONVERSATIONS_IN_MEMORY);
 
@@ -255,11 +255,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             };
         }
 
-        // 🧹 CLEANUP: Trigger cleanup if too many conversations
+        // CLEANUP: Trigger cleanup if too many conversations
         if (newConversations.length > MAX_CONVERSATIONS_IN_MEMORY * 1.5) {
-            console.log('🧹 [ChatStore] Too many conversations, triggering cleanup');
+            console.log('[ChatStore] Too many conversations, triggering cleanup');
             conversationCleanupManager.cleanupInactiveConversations().catch(error => {
-                console.error('❌ [ChatStore] Cleanup failed:', error);
+                console.error('[ChatStore] Cleanup failed:', error);
             });
         }
 
@@ -285,9 +285,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             return new Date(bTime).getTime() - new Date(aTime).getTime();
         });
 
-        // ✅ REAL-TIME CONVERSATION LIST UPDATE
+        // REAL-TIME CONVERSATION LIST UPDATE
         // Force re-render by creating new array reference
-        console.log('🔄 [ChatStore] Conversation updated, triggering conversation list re-render:', {
+        console.log('[ChatStore] Conversation updated, triggering conversation list re-render:', {
             conversationId,
             lastMessage: updates.lastMessage?.content?.text || 'Activity',
             lastMessageTime: updates.lastMessage?.createdAt
@@ -327,7 +327,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         const state = get();
         const storeConversations = state.conversations;
 
-        console.log('🔄 [ChatStore] Merging API conversations with WebSocket updates');
+        console.log('[ChatStore] Merging API conversations with WebSocket updates');
 
         // Merge API data với WebSocket updates
         const mergedConversations = apiConversations.map(apiConv => {
@@ -339,7 +339,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
                 const apiTime = new Date(apiConv.lastMessage.createdAt).getTime();
 
                 if (storeTime > apiTime) {
-                    console.log('✅ [ChatStore] Using WebSocket updated conversation:', {
+                    console.log('[ChatStore] Using WebSocket updated conversation:', {
                         conversationId: apiConv.id,
                         storeLastMessage: storeConv.lastMessage.content?.text || 'Activity',
                         apiLastMessage: apiConv.lastMessage.content?.text || 'Activity',
@@ -360,7 +360,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             return new Date(bTime).getTime() - new Date(aTime).getTime();
         });
 
-        console.log('✅ [ChatStore] Merged conversations, preserving WebSocket updates');
+        console.log('[ChatStore] Merged conversations, preserving WebSocket updates');
         return sortedConversations;
     },
 
@@ -391,7 +391,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             : messages;
 
         if (messages.length > MAX_MESSAGES_IN_STORE) {
-            console.log(`✅ [ChatStore] Limited messages for conversation ${conversationId}: ${messages.length} → ${limitedMessages.length}`);
+            console.log(`[ChatStore] Limited messages for conversation ${conversationId}: ${messages.length} → ${limitedMessages.length}`);
         }
 
         return {
@@ -413,16 +413,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         const messageExists = existingMessages.some(msg => msg.id === message.id);
 
         if (messageExists) {
-            console.log('⚠️ [ChatStore] Message already exists, skipping:', message.id);
+            console.log('[ChatStore] Message already exists, skipping:', message.id);
             return state; // Return unchanged state
         }
 
-        // 🔔 NOTIFICATION: Handle new message notification
+        // NOTIFICATION: Handle new message notification
         try {
             const { notificationManager } = require('../services/notificationManager');
             const conversation = state.conversations.find(conv => conv.id === conversationId);
             if (conversation) {
-                console.log('🔔 [ChatStore] Triggering notification for message:', {
+                console.log('[ChatStore] Triggering notification for message:', {
                     messageId: message.id,
                     conversationId: conversationId,
                     conversationName: conversation.name,
@@ -431,10 +431,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
                 });
                 notificationManager.handleNewMessage(message, conversation);
             } else {
-                console.warn('⚠️ [ChatStore] Conversation not found for notification:', conversationId);
+                console.warn('[ChatStore] Conversation not found for notification:', conversationId);
             }
         } catch (error) {
-            console.error('❌ [ChatStore] Failed to handle notification:', error);
+            console.error('[ChatStore] Failed to handle notification:', error);
         }
 
         // MEMORY MANAGEMENT: Limit messages in store to reduce memory usage
@@ -444,7 +444,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             : newMessages;
 
         if (newMessages.length > MAX_MESSAGES_PER_CONVERSATION) {
-            console.log(`🧹 [Memory] Limited messages for conversation ${conversationId}: ${newMessages.length} → ${limitedMessages.length}`);
+            console.log(`[Memory] Limited messages for conversation ${conversationId}: ${newMessages.length} → ${limitedMessages.length}`);
         }
 
         return {
@@ -466,7 +466,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         if (updates.id && updates.id !== messageId) {
             const newIdExists = existingMessages.some(msg => msg.id === updates.id);
             if (newIdExists) {
-                console.log('⚠️ [ChatStore] Message with new ID already exists, removing old message:', messageId);
+                console.log('[ChatStore] Message with new ID already exists, removing old message:', messageId);
                 // Remove old message instead of updating
                 return {
                     conversationMessages: {
@@ -790,7 +790,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         });
 
         if (inactiveConversations.length > 0) {
-            console.log(`🧹 [Memory] Cleaning up ${inactiveConversations.length} inactive conversations`);
+            console.log(`[Memory] Cleaning up ${inactiveConversations.length} inactive conversations`);
 
             // Remove inactive conversations from memory
             const newConversationMessages = { ...state.conversationMessages };
@@ -835,7 +835,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             return state;
         }
 
-        console.log(`🧹 [Memory] Cleaning up old messages for conversation ${conversationId}: ${messages.length} → ${MAX_MESSAGES_PER_CONVERSATION}`);
+        console.log(`[Memory] Cleaning up old messages for conversation ${conversationId}: ${messages.length} → ${MAX_MESSAGES_PER_CONVERSATION}`);
 
         // Keep only the latest messages
         const limitedMessages = messages.slice(0, MAX_MESSAGES_PER_CONVERSATION);
@@ -853,7 +853,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             return state;
         }
 
-        console.log(`🧹 [Memory] Limiting conversations in memory: ${state.conversations.length} → ${MAX_CONVERSATIONS_IN_MEMORY}`);
+        console.log(`[Memory] Limiting conversations in memory: ${state.conversations.length} → ${MAX_CONVERSATIONS_IN_MEMORY}`);
 
         // Keep only the most recent conversations
         const limitedConversations = state.conversations.slice(0, MAX_CONVERSATIONS_IN_MEMORY);

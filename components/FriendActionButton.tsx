@@ -72,10 +72,10 @@ const FriendActionButton: React.FC<FriendActionButtonProps> = ({
                 break;
             case "REQUEST_SENT":
                 // Mình đã gửi lời mời
-                console.log('🔍 REQUEST_SENT - friendRequestId:', friendRequestId);
+                console.log('[FriendActionButton] REQUEST_SENT - friendRequestId:', friendRequestId);
                 if (friendRequestId) {
                     // Có friendRequestId → có thể hủy
-                    console.log('✅ Showing cancel button');
+                    console.log('[FriendActionButton] Showing cancel button');
                     actions.push({
                         id: 'cancel',
                         title: 'Hủy lời mời',
@@ -84,7 +84,7 @@ const FriendActionButton: React.FC<FriendActionButtonProps> = ({
                     });
                 } else {
                     // Chưa có friendRequestId → đang gửi
-                    console.log('⏳ Showing sending state');
+                    console.log('[FriendActionButton] Showing sending state');
                     actions.push({
                         id: 'sending',
                         title: 'Đang gửi lời mời...',

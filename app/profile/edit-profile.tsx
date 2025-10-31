@@ -43,29 +43,29 @@ export default function EditProfileScreen() {
 
     const pickImageFromGallery = async () => {
         try {
-            console.log('📸 Starting gallery picker...');
+            console.log('[EditProfile] Starting gallery picker...');
 
             // Check current permission status first
             const { status: currentStatus } = await ImagePicker.getMediaLibraryPermissionsAsync();
-            console.log('📸 Current permission status:', currentStatus);
+            console.log('[EditProfile] Current permission status:', currentStatus);
 
             let finalStatus = currentStatus;
 
             // Request permission if not already granted
             if (currentStatus !== 'granted') {
-                console.log('📸 Requesting gallery permissions...');
+                console.log('[EditProfile] Requesting gallery permissions...');
                 const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
                 finalStatus = status;
-                console.log('📸 Permission request result:', status);
+                console.log('[EditProfile] Permission request result:', status);
             }
 
             if (finalStatus !== 'granted') {
-                console.log('❌ Permission denied');
+                console.log('[EditProfile] Permission denied');
                 showError('Quyền truy cập bị từ chối', 'Vui lòng cấp quyền truy cập thư viện ảnh trong Cài đặt.');
                 return;
             }
 
-            console.log('📸 Opening image library...');
+            console.log('[EditProfile] Opening image library...');
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ['images'],
                 quality: 1.0, // Maximum quality for better crop results
@@ -78,51 +78,51 @@ export default function EditProfileScreen() {
                 presentationStyle: ImagePicker.UIImagePickerPresentationStyle.AUTOMATIC,
             });
 
-            console.log('📸 Full result:', JSON.stringify(result, null, 2));
+            console.log('[EditProfile] Full result:', JSON.stringify(result, null, 2));
 
             if (!result.canceled && result.assets && result.assets.length > 0) {
                 const asset = result.assets[0];
-                console.log('📸 Image selected:', asset.uri);
-                console.log('📸 Image dimensions:', `${asset.width}x${asset.height}`);
-                console.log('📸 Image type:', asset.type);
+                console.log('[EditProfile] Image selected:', asset.uri);
+                console.log('[EditProfile] Image dimensions:', `${asset.width}x${asset.height}`);
+                console.log('[EditProfile] Image type:', asset.type);
                 // Close modal and upload directly
                 setShowAvatarModal(false);
                 await uploadImage(asset.uri);
             } else {
-                console.log('📸 Image picker canceled or no assets');
+                console.log('[EditProfile] Image picker canceled or no assets');
             }
         } catch (error: any) {
-            console.error('❌ Error picking image:', error);
-            console.error('❌ Error stack:', error.stack);
+            console.error('[EditProfile] Error picking image:', error);
+            console.error('[EditProfile] Error stack:', error.stack);
             showError('Lỗi chọn ảnh', `Không thể chọn ảnh: ${error.message}`);
         }
     };
 
     const takePhoto = async () => {
         try {
-            console.log('📷 Starting camera...');
+            console.log('[EditProfile] Starting camera...');
 
             // Check current permission status first
             const { status: currentStatus } = await ImagePicker.getCameraPermissionsAsync();
-            console.log('📷 Current permission status:', currentStatus);
+            console.log('[EditProfile] Current permission status:', currentStatus);
 
             let finalStatus = currentStatus;
 
             // Request permission if not already granted
             if (currentStatus !== 'granted') {
-                console.log('📷 Requesting camera permissions...');
+                console.log('[EditProfile] Requesting camera permissions...');
                 const { status } = await ImagePicker.requestCameraPermissionsAsync();
                 finalStatus = status;
-                console.log('📷 Permission request result:', status);
+                console.log('[EditProfile] Permission request result:', status);
             }
 
             if (finalStatus !== 'granted') {
-                console.log('❌ Permission denied');
+                console.log('[EditProfile] Permission denied');
                 showError('Quyền truy cập bị từ chối', 'Vui lòng cấp quyền truy cập camera trong Cài đặt.');
                 return;
             }
 
-            console.log('📷 Opening camera...');
+            console.log('[EditProfile] Opening camera...');
             const result = await ImagePicker.launchCameraAsync({
                 mediaTypes: ['images'],
                 quality: 1.0, // Maximum quality for better crop results
@@ -133,22 +133,22 @@ export default function EditProfileScreen() {
                 presentationStyle: ImagePicker.UIImagePickerPresentationStyle.AUTOMATIC,
             });
 
-            console.log('📷 Full result:', JSON.stringify(result, null, 2));
+            console.log('[EditProfile] Full result:', JSON.stringify(result, null, 2));
 
             if (!result.canceled && result.assets && result.assets.length > 0) {
                 const asset = result.assets[0];
-                console.log('📷 Photo taken:', asset.uri);
-                console.log('📷 Photo dimensions:', `${asset.width}x${asset.height}`);
-                console.log('📷 Photo type:', asset.type);
+                console.log('[EditProfile] Photo taken:', asset.uri);
+                console.log('[EditProfile] Photo dimensions:', `${asset.width}x${asset.height}`);
+                console.log('[EditProfile] Photo type:', asset.type);
                 // Close modal and upload directly
                 setShowAvatarModal(false);
                 await uploadImage(asset.uri);
             } else {
-                console.log('📷 Camera canceled or no assets');
+                console.log('[EditProfile] Camera canceled or no assets');
             }
         } catch (error: any) {
-            console.error('❌ Error taking photo:', error);
-            console.error('❌ Error stack:', error.stack);
+            console.error('[EditProfile] Error taking photo:', error);
+            console.error('[EditProfile] Error stack:', error.stack);
             showError('Lỗi chụp ảnh', `Không thể chụp ảnh: ${error.message}`);
         }
     };
@@ -211,7 +211,7 @@ export default function EditProfileScreen() {
             console.log('Final dimensions:', `${processedImage.width}x${processedImage.height}`);
             return processedImage.uri;
         } catch (error) {
-            console.error('❌ Error ensuring square image:', error);
+            console.error('[EditProfile] Error ensuring square image:', error);
             // Return original if manipulation fails
             return imageUri;
         }
@@ -219,21 +219,21 @@ export default function EditProfileScreen() {
 
     const uploadImage = async (imageUri: string) => {
         try {
-            console.log('☁️ Starting image upload for:', imageUri);
+            console.log('[EditProfile] Starting image upload for:', imageUri);
             setUploadingAvatar(true);
 
             // Ensure image is square before upload
             const squareImageUri = await ensureSquareImage(imageUri);
-            console.log('☁️ Using square image for upload:', squareImageUri);
+            console.log('[EditProfile] Using square image for upload:', squareImageUri);
 
             // Use Zustand store instead of direct API calls
             await uploadAvatar(squareImageUri);
 
-            console.log('✅ Profile update successful');
+            console.log('[EditProfile] Profile update successful');
             showSuccess('Thành công', 'Đã cập nhật ảnh đại diện!');
         } catch (error: any) {
-            console.error('❌ Failed to upload avatar:', error);
-            console.error('❌ Error details:', error.message);
+            console.error('[EditProfile] Failed to upload avatar:', error);
+            console.error('[EditProfile] Error details:', error.message);
             showError('Lỗi cập nhật ảnh đại diện', `Không thể cập nhật ảnh đại diện: ${error.message}`);
         } finally {
             setUploadingAvatar(false);
@@ -266,9 +266,9 @@ export default function EditProfileScreen() {
                     }
                     break;
             }
-            console.log('✅ Action completed:', action);
+            console.log('[EditProfile] Action completed:', action);
         } catch (error) {
-            console.error('❌ Error in action handler:', error);
+            console.error('[EditProfile] Error in action handler:', error);
             showError('Lỗi', 'Đã xảy ra lỗi. Vui lòng thử lại.');
             // Close modal on error
             setShowAvatarModal(false);

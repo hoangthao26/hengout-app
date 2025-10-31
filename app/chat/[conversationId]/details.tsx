@@ -346,9 +346,9 @@ export default function ConversationDetailsScreen() {
                                 try {
                                     const { chatWebSocketManager } = await import('../../../services/chatWebSocketManager');
                                     chatWebSocketManager.unsubscribeFromConversation(conversation.id);
-                                    console.log('✅ [Details] Unsubscribed WebSocket from left conversation');
+                                    console.log('[Details] Unsubscribed WebSocket from left conversation');
                                 } catch (wsErr) {
-                                    console.error('⚠️ [Details] Failed to unsubscribe WebSocket:', wsErr);
+                                    console.error('[Details] Failed to unsubscribe WebSocket:', wsErr);
                                 }
 
                                 // Delete from database immediately

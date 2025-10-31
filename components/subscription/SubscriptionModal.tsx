@@ -198,7 +198,7 @@ export default function SubscriptionModal({ isVisible, onClose, onPlanSelect }: 
                             end={{ x: 1, y: 0 }}
                             style={styles.popularBadgeGradient}
                         >
-                            <Text style={styles.popularText}>✨ Phổ biến nhất</Text>
+                            <Text style={styles.popularText}>Phổ biến nhất</Text>
                         </LinearGradient>
                     </View>
                 </Animated.View>
@@ -324,7 +324,7 @@ export default function SubscriptionModal({ isVisible, onClose, onPlanSelect }: 
                             {plans.map(renderPlan)}
                         </ScrollView>
                         <View style={styles.modalFooter}>
-                            <Text style={[styles.renewalText, isDark && styles.renewalTextDark]}>💡 Mua cùng gói sẽ cộng dồn thời gian</Text>
+                            <Text style={[styles.renewalText, isDark && styles.renewalTextDark]}>Mua cùng gói sẽ cộng dồn thời gian</Text>
                         </View>
                     </View>
                 )}

@@ -45,7 +45,7 @@ export class RefreshTokenManager {
     async startMonitoring(): Promise<void> {
         // Prevent multiple monitoring starts
         if (this.refreshTimer !== null) {
-            console.log('⏳ [RefreshTokenManager] Monitoring already active, skipping start...');
+            console.log('[RefreshTokenManager] Monitoring already active, skipping start...');
             return;
         }
 
@@ -55,14 +55,14 @@ export class RefreshTokenManager {
             // Check if user is authenticated
             const isAuthenticated = await AuthHelper.isAuthenticated();
             if (!isAuthenticated) {
-                console.log('⚠️ [RefreshTokenManager] User not authenticated, skipping monitoring');
+                console.log('[RefreshTokenManager] User not authenticated, skipping monitoring');
                 return;
             }
 
             // Get current tokens
             const tokens = await AuthHelper.getTokens();
             if (!tokens) {
-                console.log('⚠️ [RefreshTokenManager] No tokens found, skipping monitoring');
+                console.log('[RefreshTokenManager] No tokens found, skipping monitoring');
                 return;
             }
 
@@ -71,15 +71,15 @@ export class RefreshTokenManager {
 
             if (timeUntilRefresh <= 0) {
                 // Token needs immediate refresh
-                console.log('🚨 [RefreshTokenManager] Token needs immediate refresh');
+                console.log('[RefreshTokenManager] Token needs immediate refresh');
                 await this.performRefresh();
             } else {
                 // Schedule proactive refresh
-                console.log(`⏰ [RefreshTokenManager] Scheduling proactive refresh in ${Math.round(timeUntilRefresh / 1000)} seconds`);
+                console.log(`[RefreshTokenManager] Scheduling proactive refresh in ${Math.round(timeUntilRefresh / 1000)} seconds`);
                 this.scheduleProactiveRefresh(timeUntilRefresh);
             }
         } catch (error: any) {
-            console.error('❌ [RefreshTokenManager] Failed to start monitoring:', error);
+            console.error('[RefreshTokenManager] Failed to start monitoring:', error);
         }
     }
 
@@ -90,7 +90,7 @@ export class RefreshTokenManager {
         if (this.refreshTimer) {
             clearTimeout(this.refreshTimer);
             this.refreshTimer = null;
-            console.log('🛑 [RefreshTokenManager] Token monitoring stopped');
+            console.log('[RefreshTokenManager] Token monitoring stopped');
         }
 
 
@@ -127,7 +127,7 @@ export class RefreshTokenManager {
      */
     async performRefresh(updateStore: boolean = false): Promise<boolean> {
         if (this.isRefreshing) {
-            console.log('🔄 [RefreshTokenManager] Refresh already in progress, waiting...');
+            console.log('[RefreshTokenManager] Refresh already in progress, waiting...');
             return false;
         }
 
@@ -137,7 +137,7 @@ export class RefreshTokenManager {
             // Check if refresh token exists
             const refreshToken = await AuthHelper.getRefreshToken();
             if (!refreshToken) {
-                console.log('🔐 [RefreshTokenManager] No refresh token available');
+                console.log('[RefreshTokenManager] No refresh token available');
                 return false;
             }
 
@@ -145,7 +145,7 @@ export class RefreshTokenManager {
             let lastError: any;
             for (let attempt = 1; attempt <= RefreshTokenManager.MAX_RETRY_ATTEMPTS; attempt++) {
                 try {
-                    console.log(`🔄 [RefreshTokenManager] Refresh attempt ${attempt}/${RefreshTokenManager.MAX_RETRY_ATTEMPTS}...`);
+                    console.log(`[RefreshTokenManager] Refresh attempt ${attempt}/${RefreshTokenManager.MAX_RETRY_ATTEMPTS}...`);
 
                     const response = await sessionService.refreshToken(refreshToken);
 
@@ -167,15 +167,15 @@ export class RefreshTokenManager {
                         });
                     }
 
-                    console.log('✅ [RefreshTokenManager] Token refresh successful');
+                    console.log('[RefreshTokenManager] Token refresh successful');
 
                     //Reinitialize WebSocket after token refresh
                     try {
                         const { initializationService } = await import('./initializationService');
                         await initializationService.reinitializeWebSocket();
-                        console.log('✅ [RefreshTokenManager] WebSocket reinitialized after token refresh');
+                        console.log('[RefreshTokenManager] WebSocket reinitialized after token refresh');
                     } catch (wsError) {
-                        console.error('❌ [RefreshTokenManager] WebSocket reinitialization failed:', wsError);
+                        console.error('[RefreshTokenManager] WebSocket reinitialization failed:', wsError);
                         // Don't block token refresh flow
                     }
 
@@ -184,27 +184,27 @@ export class RefreshTokenManager {
                     return true;
                 } catch (error: any) {
                     lastError = error;
-                    console.error(`❌ [RefreshTokenManager] Refresh attempt ${attempt} failed:`, error);
+                    console.error(`[RefreshTokenManager] Refresh attempt ${attempt} failed:`, error);
 
                     // IMMEDIATE FAIL ON 401: Don't retry on 401 errors
                     if (error.response?.status === 401 || error.message?.includes('Invalid refresh token')) {
-                        console.log('🔐 [RefreshTokenManager] 401/Invalid token error - refresh failed');
+                        console.log('[RefreshTokenManager] 401/Invalid token error - refresh failed');
                         return false;
                     }
 
                     // Wait before retry (exponential backoff) - only for network errors
                     if (attempt < RefreshTokenManager.MAX_RETRY_ATTEMPTS) {
                         const delay = 1000 * Math.pow(2, attempt - 1);
-                        console.log(`⏳ [RefreshTokenManager] Retrying in ${delay}ms`);
+                        console.log(`[RefreshTokenManager] Retrying in ${delay}ms`);
                         await this.delay(delay);
                     }
                 }
             }
 
-            console.error('❌ [RefreshTokenManager] All refresh attempts failed:', lastError);
+            console.error('[RefreshTokenManager] All refresh attempts failed:', lastError);
             return false;
         } catch (error: any) {
-            console.error('❌ [RefreshTokenManager] Unexpected error during refresh:', error);
+            console.error('[RefreshTokenManager] Unexpected error during refresh:', error);
             return false;
         } finally {
             this.isRefreshing = false;
@@ -221,9 +221,9 @@ export class RefreshTokenManager {
 
             // Update tokens in store - Zustand store doesn't have setState, use direct state update
             // This is a workaround since we can't directly access the store's set method from outside
-            console.log('🔄 [RefreshTokenManager] Store update handled by AuthStore.refreshTokens()');
+            console.log('[RefreshTokenManager] Store update handled by AuthStore.refreshTokens()');
         } catch (error) {
-            console.warn('⚠️ [RefreshTokenManager] Failed to update auth store:', error);
+            console.warn('[RefreshTokenManager] Failed to update auth store:', error);
         }
     }
 
@@ -237,13 +237,13 @@ export class RefreshTokenManager {
 
             const isAuthenticated = await AuthHelper.isAuthenticated();
             if (!isAuthenticated) {
-                console.log('⚠️ [RefreshTokenManager] User not authenticated on resume');
+                console.log('[RefreshTokenManager] User not authenticated on resume');
                 return;
             }
 
             const tokens = await AuthHelper.getTokens();
             if (!tokens) {
-                console.log('⚠️ [RefreshTokenManager] No tokens found on resume');
+                console.log('[RefreshTokenManager] No tokens found on resume');
                 return;
             }
 
@@ -252,13 +252,13 @@ export class RefreshTokenManager {
             const shouldRefresh = timeUntilExpiry < 10 * 60 * 1000; // Less than 10 minutes
 
             if (shouldRefresh) {
-                console.log('🔄 [RefreshTokenManager] Token expires soon, refreshing on resume...');
+                console.log('[RefreshTokenManager] Token expires soon, refreshing on resume...');
                 await this.performRefresh();
             } else {
-                console.log('✅ [RefreshTokenManager] Token still valid on resume');
+                console.log('[RefreshTokenManager] Token still valid on resume');
             }
         } catch (error) {
-            console.error('❌ [RefreshTokenManager] Error on app resume check:', error);
+            console.error('[RefreshTokenManager] Error on app resume check:', error);
         }
     }
 
@@ -308,7 +308,7 @@ export class RefreshTokenManager {
             this.appStateSubscription.remove();
             this.appStateSubscription = null;
         }
-        console.log('🧹 [RefreshTokenManager] Resources cleaned up');
+        console.log('[RefreshTokenManager] Resources cleaned up');
     }
 }
 

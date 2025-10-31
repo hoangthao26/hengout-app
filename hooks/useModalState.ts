@@ -39,10 +39,10 @@ export const useModalState = (
     // Auto close when screen loses focus
     useFocusEffect(
         useCallback(() => {
-            console.log('🔍 useFocusEffect: Screen focused, modal state:', isVisible);
+            console.log('[useModalState] useFocusEffect: Screen focused, modal state:', isVisible);
             if (autoCloseOnUnfocus) {
                 return () => {
-                    console.log('🔍 useFocusEffect: Screen unfocused, closing modal');
+                    console.log('[useModalState] useFocusEffect: Screen unfocused, closing modal');
                     if (isMountedRef.current) {
                         setIsVisible(false);
                     }
@@ -55,7 +55,7 @@ export const useModalState = (
     useEffect(() => {
         if (autoCloseOnUnfocus) {
             const unsubscribe = navigation.addListener('beforeRemove', () => {
-                console.log('🔍 beforeRemove: Navigation event triggered, closing modal');
+                console.log('[useModalState] beforeRemove: Navigation event triggered, closing modal');
                 if (isMountedRef.current) {
                     setIsVisible(false);
                 }
@@ -66,7 +66,7 @@ export const useModalState = (
     }, [navigation, autoCloseOnUnfocus]);
 
     const openModal = useCallback(() => {
-        console.log('🔍 openModal: Opening modal');
+        console.log('[useModalState] openModal: Opening modal');
         if (isMountedRef.current) {
             setIsVisible(true);
             onOpen?.();
@@ -74,7 +74,7 @@ export const useModalState = (
     }, [onOpen]);
 
     const closeModal = useCallback(() => {
-        console.log('🔍 closeModal: Closing modal');
+        console.log('[useModalState] closeModal: Closing modal');
         if (isMountedRef.current) {
             setIsVisible(false);
             onClose?.();
@@ -90,7 +90,7 @@ export const useModalState = (
     }, [isVisible, openModal, closeModal]);
 
     const resetModal = useCallback(() => {
-        console.log('🔍 resetModal: Resetting modal state');
+        console.log('[useModalState] resetModal: Resetting modal state');
         if (isMountedRef.current) {
             setIsVisible(false);
         }

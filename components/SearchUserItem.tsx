@@ -30,7 +30,7 @@ const SearchUserItem: React.FC<SearchUserItemProps> = ({
     const isDark = useColorScheme() === 'dark';
 
     // Log user data for debugging
-    console.log('🎨 SearchUserItem - Rendering user:', {
+    console.log('[SearchUserItem] Rendering user:', {
         id: user.id,
         name: user.name,
         avatarUrl: user.avatarUrl,

@@ -45,18 +45,18 @@ export const useRandomRecommendations = ({ onError }: UseRandomRecommendationsPr
 
             if (response.status === 'success') {
                 setRecommendations(response.data);
-                console.log(`📍 Loaded ${response.data.length} random locations`);
+                console.log(`[useRandomRecommendations] Loaded ${response.data.length} random locations`);
                 return response.data;
             } else {
                 const errorMessage = response.message || 'Failed to get recommendations';
-                console.log('❌ [useRandomRecommendations] API Error:', errorMessage);
+                console.log('[useRandomRecommendations] API Error:', errorMessage);
                 setError(errorMessage);
                 onError?.(errorMessage);
                 return [];
             }
         } catch (err: any) {
             const errorMessage = err.message || 'Network error occurred';
-            console.log('💥 [useRandomRecommendations] Network Error:', errorMessage);
+            console.log('[useRandomRecommendations] Network Error:', errorMessage);
             setError(errorMessage);
             onError?.(errorMessage);
             return [];

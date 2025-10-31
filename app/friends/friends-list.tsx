@@ -57,16 +57,16 @@ export default function FriendsListScreen() {
     // Function to refresh conversations after friend actions
     const refreshConversations = useCallback(async () => {
         try {
-            console.log('🔄 [Friends List] Refreshing conversations after friend action...');
+            console.log('[Friends List] Refreshing conversations after friend action...');
             const response = await chatService.getConversations();
             if (response.status === 'success') {
                 setConversations(response.data);
-                console.log('✅ [Friends List] Conversations refreshed successfully');
+                console.log('[Friends List] Conversations refreshed successfully');
             } else {
-                console.warn('⚠️ [Friends List] Failed to refresh conversations:', response.message);
+                console.warn('[Friends List] Failed to refresh conversations:', response.message);
             }
         } catch (error) {
-            console.error('❌ [Friends List] Error refreshing conversations:', error);
+            console.error('[Friends List] Error refreshing conversations:', error);
         }
     }, [setConversations]);
 
@@ -181,7 +181,7 @@ export default function FriendsListScreen() {
 
         try {
             setSearchLoading(true);
-            console.log('🔍 Friends List - Starting search for:', query);
+            console.log('[Friends List] Starting search for:', query);
 
             const response = await userSearchService.searchUsers({
                 query,
@@ -189,14 +189,14 @@ export default function FriendsListScreen() {
                 size: 10
             });
 
-            console.log('📋 Friends List - Search response:', response);
-            console.log('📋 Friends List - Search results content:', response.data.content);
+            console.log('[Friends List] Search response:', response);
+            console.log('[Friends List] Search results content:', response.data.content);
 
             setSearchResults(response.data.content);
 
-            console.log('✅ Friends List - Search results set:', response.data.content.length, 'users');
+            console.log('[Friends List] Search results set:', response.data.content.length, 'users');
         } catch (error: any) {
-            console.error('❌ Friends List - Failed to search users:', error);
+            console.error('[Friends List] Failed to search users:', error);
             showError(`Failed to search users: ${error.message}`);
         } finally {
             setSearchLoading(false);

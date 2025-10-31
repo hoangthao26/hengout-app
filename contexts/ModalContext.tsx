@@ -232,7 +232,7 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
 
     // Save Location Modal helpers
     const openSaveLocationModal = (location: LocationDetails, onSuccess?: () => void) => {
-        console.log('💾 [ModalContext] Opening SaveLocationModal for:', {
+        console.log('[ModalContext] Opening SaveLocationModal for:', {
             locationId: location.id,
             locationName: location.name,
             locationAddress: location.address,
@@ -242,14 +242,14 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
 
         // Prevent opening if already visible
         if (showSaveLocationModal) {
-            console.log('🔄 [ModalContext] SaveLocationModal already visible, closing first');
+            console.log('[ModalContext] SaveLocationModal already visible, closing first');
             closeSaveLocationModal();
             // Wait a bit longer before opening new one
             setTimeout(() => {
                 setSaveLocationModalData(location);
                 setOnSaveLocationSuccess(() => onSuccess);
                 setShowSaveLocationModal(true);
-                console.log('✅ [ModalContext] SaveLocationModal reopened after delay');
+                console.log('[ModalContext] SaveLocationModal reopened after delay');
             }, 300);
             return;
         }
@@ -264,18 +264,18 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
             setSaveLocationModalData(location);
             setOnSaveLocationSuccess(() => onSuccess);
             setShowSaveLocationModal(true);
-            console.log('✅ [ModalContext] SaveLocationModal opened with data');
+            console.log('[ModalContext] SaveLocationModal opened with data');
         }, 100);
     };
 
     const closeSaveLocationModal = () => {
-        console.log('❌ [ModalContext] Closing SaveLocationModal');
+        console.log('[ModalContext] Closing SaveLocationModal');
         setShowSaveLocationModal(false);
         // Clear data after a short delay to prevent flicker
         setTimeout(() => {
             setSaveLocationModalData(null);
             setOnSaveLocationSuccess(undefined);
-            console.log('🧹 [ModalContext] SaveLocationModal data cleared');
+            console.log('[ModalContext] SaveLocationModal data cleared');
         }, 200);
     };
 

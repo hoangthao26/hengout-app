@@ -135,8 +135,8 @@ export default function SwipeTestScreen() {
                     <Text style={styles.locationName}>{item.location.name}</Text>
                     <Text style={styles.locationAddress}>{item.location.address}</Text>
                     <View style={styles.statsRow}>
-                        <Text style={styles.statText}>❤️ {item.acceptCount}</Text>
-                        <Text style={styles.statText}>❌ {item.rejectCount}</Text>
+                        <Text style={styles.statText}>Accept: {item.acceptCount}</Text>
+                        <Text style={styles.statText}>Reject: {item.rejectCount}</Text>
                     </View>
                 </View>
             </View>

@@ -71,7 +71,7 @@ export const useChat = () => {
         } catch (error: any) {
             // DEFENSIVE: Don't show error if user logged out
             if (error.message?.includes('User logged out')) {
-                console.log('ℹ️ [useChat] User logged out, skipping conversation load');
+                console.log('[useChat] User logged out, skipping conversation load');
                 return;
             }
             console.error('Failed to load conversations:', error);

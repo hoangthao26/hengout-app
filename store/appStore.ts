@@ -15,7 +15,7 @@ interface AppState {
     isAuthReady: boolean;
     isLocationReady: boolean;
     isServicesReady: boolean;
-    isChatDataPreloaded: boolean; // ✅ Thêm field này
+    isChatDataPreloaded: boolean; // Thêm field này
     isAppReady: boolean;
 
     // Error states
@@ -26,7 +26,7 @@ interface AppState {
     setAuthReady: (ready: boolean) => void;
     setLocationReady: (ready: boolean) => void;
     setServicesReady: (ready: boolean) => void;
-    setChatDataPreloaded: (preloaded: boolean) => void; // ✅ Thêm action này
+    setChatDataPreloaded: (preloaded: boolean) => void; // Thêm action này
     setAppReady: (ready: boolean) => void;
     setInitializationError: (error: string | null) => void;
 
@@ -41,7 +41,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     isAuthReady: false,
     isLocationReady: false,
     isServicesReady: false,
-    isChatDataPreloaded: false, // ✅ Thêm initial state
+    isChatDataPreloaded: false, // Thêm initial state
     isAppReady: false,
     initializationError: null,
 
@@ -50,7 +50,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     setAuthReady: (ready) => set({ isAuthReady: ready }),
     setLocationReady: (ready) => set({ isLocationReady: ready }),
     setServicesReady: (ready) => set({ isServicesReady: ready }),
-    setChatDataPreloaded: (preloaded) => set({ isChatDataPreloaded: preloaded }), // ✅ Thêm action
+    setChatDataPreloaded: (preloaded) => set({ isChatDataPreloaded: preloaded }), // Thêm action
     setAppReady: (ready) => set({ isAppReady: ready }),
     setInitializationError: (error) => set({ initializationError: error }),
 
@@ -64,7 +64,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (state.isAuthReady) completed++;
         if (state.isLocationReady) completed++;
         if (state.isServicesReady) completed++;
-        if (state.isChatDataPreloaded) completed++; // ✅ Thêm chat data preloaded
+        if (state.isChatDataPreloaded) completed++; // Thêm chat data preloaded
 
         return (completed / total) * 100;
     },

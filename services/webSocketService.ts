@@ -40,7 +40,7 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
     };
 
     ws.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
+        console.error('[WebSocket] WebSocket error:', error);
         rejectReady(error);
 
         // Notify error callbacks
@@ -52,13 +52,13 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
 
         // Handle different close codes
         if (event.code === 1001) {
-            console.log('⚠️ [WebSocket] Stream end encountered - connection lost unexpectedly');
+            console.log('[WebSocket] Stream end encountered - connection lost unexpectedly');
         } else if (event.code === 1006) {
-            console.log('⚠️ [WebSocket] Connection closed abnormally - network issue');
+            console.log('[WebSocket] Connection closed abnormally - network issue');
         } else if (event.code === 1000) {
-            console.log('ℹ️ [WebSocket] Connection closed normally');
+            console.log('[WebSocket] Connection closed normally');
         } else {
-            console.log(`⚠️ [WebSocket] Connection closed with code: ${event.code}`);
+            console.log(`[WebSocket] Connection closed with code: ${event.code}`);
         }
 
         // Notify close callbacks
@@ -68,12 +68,12 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
     ws.onmessage = (event) => {
         try {
             const message: WebSocketMessage = JSON.parse(event.data);
-            console.log('📨 Received:', message.type);
+            console.log('[WebSocket] Received:', message.type);
 
             // Handle different message types
             switch (message.type) {
                 case 'CONNECTION_SUCCESS':
-                    console.log('✅ Connected as user:', message.data.userId);
+                    console.log('[WebSocket] Connected as user:', message.data.userId);
                     break;
 
                 case 'SUBSCRIBE_SUCCESS':
@@ -89,7 +89,7 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
                     break;
 
                 case 'ACTIVITY_UPDATE':
-                    console.log('📊 [WebSocket] Activity update - FULL STRUCTURE:', {
+                    console.log('[WebSocket] Activity update - FULL STRUCTURE:', {
                         allMessageKeys: Object.keys(message),
                         conversationId: message.data?.conversationId,
                         fullMessage: message,
@@ -102,7 +102,7 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
                     if (activityHandler) {
                         activityHandler(message);
                     } else {
-                        console.log('⚠️ [WebSocket] No handler found for activity update:', activityConversationId);
+                        console.log('[WebSocket] No handler found for activity update:', activityConversationId);
                     }
                     break;
 
@@ -127,14 +127,14 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
                     break;
 
                 case 'ERROR':
-                    console.error('❌ Server error:', message.data.message);
+                    console.error('[WebSocket] Server error:', message.data.message);
                     break;
 
                 default:
-                    console.warn('⚠️ Unknown message type:', message.type);
+                    console.warn('[WebSocket] Unknown message type:', message.type);
             }
         } catch (error) {
-            console.error('❌ Failed to parse WebSocket message:', error);
+            console.error('[WebSocket] Failed to parse WebSocket message:', error);
         }
     };
 
@@ -162,7 +162,7 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
         if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify(message));
         } else {
-            console.warn('⚠️ WebSocket not connected, cannot send message');
+            console.warn('[WebSocket] WebSocket not connected, cannot send message');
         }
     }
 

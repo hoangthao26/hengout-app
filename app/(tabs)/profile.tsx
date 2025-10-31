@@ -410,7 +410,7 @@ export default function ProfileScreen() {
             console.log('[ProfileScreen] Payment flow started:', paymentData);
             // PaymentScreen will be shown automatically via paymentFlowManager subscription
         } catch (error: any) {
-            console.error('❌ [ProfileScreen] Failed to start payment:', error);
+            console.error('[ProfileScreen] Failed to start payment:', error);
             showError('Failed to start payment. Please try again.');
         }
     };
@@ -441,7 +441,7 @@ export default function ProfileScreen() {
             const tokenInfo = await AuthHelper.getTokenInfo();
 
             if (tokenInfo) {
-                console.log('🔍 Current Auth Status:');
+                console.log('Current Auth Status:');
                 console.log('- Is Authenticated:', tokenInfo.isAuthenticated);
                 console.log('- Has Tokens:', tokenInfo.hasTokens);
                 console.log('- Token Expired:', tokenInfo.tokenExpired);
@@ -456,7 +456,7 @@ export default function ProfileScreen() {
                     ? `Refresh in ${Math.round(tokenInfo.timeUntilRefresh / 60000)}m ${Math.round((tokenInfo.timeUntilRefresh % 60000) / 1000)}s`
                     : 'Refresh overdue';
 
-                showInfo(`Auth: ${tokenInfo.isAuthenticated ? '✅' : '❌'} | Expired: ${tokenInfo.tokenExpired ? '❌' : '✅'} | ${refreshStatus}`,);
+                showInfo(`Auth: ${tokenInfo.isAuthenticated ? 'Yes' : 'No'} | Expired: ${tokenInfo.tokenExpired ? 'Yes' : 'No'} | ${refreshStatus}`,);
             } else {
                 showError('Failed to get token information',);
             }

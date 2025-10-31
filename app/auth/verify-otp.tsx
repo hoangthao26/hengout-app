@@ -89,13 +89,13 @@ export default function VerifyOTPScreen() {
 
             showSuccess('Account created successfully!',);
 
-            // ✅ Reinitialize WebSocket after register success
+            // Reinitialize WebSocket after register success
             try {
                 const { initializationService } = await import('../../services/initializationService');
                 await initializationService.reinitializeWebSocket();
-                console.log('✅ [Register] WebSocket reinitialized after register');
+                console.log('[Register] WebSocket reinitialized after register');
             } catch (wsError) {
-                console.error('❌ [Register] WebSocket reinitialization failed:', wsError);
+                console.error('[Register] WebSocket reinitialization failed:', wsError);
                 // Don't block registration flow
             }
 

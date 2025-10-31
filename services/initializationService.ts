@@ -64,22 +64,22 @@ class InitializationService {
             // 1. Initialize Database (Critical - must be first)
             await this.initializeDatabase();
             appStore.setDatabaseReady(true);
-            console.log('✅ Database ready');
+            console.log('[InitializationService] Database ready');
 
             // 2. Initialize Location Services
             await this.initializeLocation();
             appStore.setLocationReady(true);
-            console.log('✅ Location ready');
+            console.log('[InitializationService] Location ready');
 
             // 3. Initialize Auth Services (BEFORE API calls) ← PROACTIVE
             await this.initializeAuthServices();
             appStore.setAuthReady(true);
-            console.log('✅ Auth ready');
+            console.log('[InitializationService] Auth ready');
 
             // 4. Initialize Chat Sync Services (AFTER auth)
             await this.initializeChatServices();
             appStore.setServicesReady(true);
-            console.log('✅ Services ready');
+            console.log('[InitializationService] Services ready');
 
             // 4.5. Initialize Conversation Cleanup Manager
             conversationCleanupManager.initialize();
@@ -91,11 +91,11 @@ class InitializationService {
 
             // 5. Initialize WebSocket Connection (AFTER auth)
             await this.initializeWebSocket();
-            console.log('✅ WebSocket ready');
+            console.log('[InitializationService] WebSocket ready');
 
             // 6. Preload Chat Data for Instant Display (AFTER WebSocket)
             await this.preloadChatData();
-            console.log('✅ Chat data preloaded');
+            console.log('[InitializationService] Chat data preloaded');
 
             // 7. Mark app as ready
             appStore.setAppReady(true);
@@ -105,7 +105,7 @@ class InitializationService {
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown initialization error';
-            console.error('❌ [InitializationService] Initialization failed:', errorMessage);
+            console.error('[InitializationService] Initialization failed:', errorMessage);
 
             appStore.setInitializationError(errorMessage);
             throw error;
@@ -161,7 +161,7 @@ class InitializationService {
                 }
             } catch { }
 
-            // ✅ Reinitialize WebSocket after login
+            // Reinitialize WebSocket after login
             await this.reinitializeWebSocket();
             // WebSocket reinitialized after login
 
@@ -187,7 +187,7 @@ class InitializationService {
                 await databaseService.initialize();
                 return;
             } catch (error) {
-                console.error(`❌ [InitializationService] Database initialization attempt ${attempt} failed:`, error);
+                console.error(`[InitializationService] Database initialization attempt ${attempt} failed:`, error);
 
                 if (attempt === this.MAX_RETRIES) {
                     throw new Error(`Database initialization failed after ${this.MAX_RETRIES} attempts: ${error}`);
@@ -225,7 +225,7 @@ class InitializationService {
             // Location services ready
 
         } catch (error) {
-            console.error('❌ [InitializationService] Location initialization failed:', error);
+            console.error('[InitializationService] Location initialization failed:', error);
             // Don't throw - location is not critical for app startup
         }
     }
@@ -264,7 +264,7 @@ class InitializationService {
             // Auth services ready
 
         } catch (error) {
-            console.error('❌ [InitializationService] Auth services initialization failed:', error);
+            console.error('[InitializationService] Auth services initialization failed:', error);
             // Don't throw - auth services can be initialized later
         }
     }
@@ -278,7 +278,7 @@ class InitializationService {
             await chatSyncService.initialize();
             // Chat services ready
         } catch (error) {
-            console.error('❌ [InitializationService] Chat services initialization failed:', error);
+            console.error('[InitializationService] Chat services initialization failed:', error);
             // Don't throw - chat services can be initialized later
         }
     }
@@ -331,7 +331,7 @@ class InitializationService {
             }
 
         } catch (error) {
-            console.error('❌ [InitializationService] WebSocket initialization failed:', error);
+            console.error('[InitializationService] WebSocket initialization failed:', error);
             // Don't throw - WebSocket can be initialized later
         }
     }
@@ -340,7 +340,7 @@ class InitializationService {
      * Preload chat data for instant display
      */
     private async preloadChatData(): Promise<void> {
-        const appStore = useAppStore.getState(); // ✅ Move appStore ra ngoài để access trong catch block
+        const appStore = useAppStore.getState(); // Move appStore ra ngoài để access trong catch block
 
         try {
             // Preloading chat data for instant display
@@ -357,7 +357,7 @@ class InitializationService {
 
             const chatStore = useChatStore.getState();
 
-            // ✅ SYNC DATA TỪ SERVER TRƯỚC KHI PRELOAD
+            // SYNC DATA TỪ SERVER TRƯỚC KHI PRELOAD
             // Syncing conversations from server
             await chatSyncService.syncConversations();
 
@@ -389,37 +389,37 @@ class InitializationService {
                             chatStore.setMessageSnapshot(conversation.id, recentMessages.slice(0, 25));
                             // Skip per-conversation preload logs; keep summary only
 
-                            // ✅ DEBUG: Verify data is stored in store
+                            // DEBUG: Verify data is stored in store
                             // Skip store debug details
                         } else {
                             // Skip empty logs to reduce noise
                         }
                     } catch (preloadError) {
-                        console.error(`❌ [InitializationService] Failed to preload messages for ${conversation.id}:`, preloadError);
+                        console.error(`[InitializationService] Failed to preload messages for ${conversation.id}:`, preloadError);
                         // Continue with other conversations
                     }
                 });
 
-                // ✅ ĐỢI TẤT CẢ PRELOADING HOÀN THÀNH
+                // ĐỢI TẤT CẢ PRELOADING HOÀN THÀNH
                 await Promise.all(preloadPromises);
 
                 // Chat data preloading completed
 
-                // 🧹 CLEANUP: Trigger cleanup after data preload
+                // CLEANUP: Trigger cleanup after data preload
                 conversationCleanupManager.cleanupInactiveConversations().catch(error => {
-                    console.error('❌ [InitializationService] Cleanup after preload failed:', error);
+                    console.error('[InitializationService] Cleanup after preload failed:', error);
                 });
 
-                // ✅ Set chat data preloaded status
+                // Set chat data preloaded status
                 appStore.setChatDataPreloaded(true);
             } else {
                 // No conversations to preload
-                // ✅ Set preloaded even if no conversations
+                // Set preloaded even if no conversations
                 appStore.setChatDataPreloaded(true);
             }
         } catch (error) {
-            console.error('❌ [InitializationService] Chat data preloading failed:', error);
-            // ✅ Set preloaded even if failed to prevent app from hanging
+            console.error('[InitializationService] Chat data preloading failed:', error);
+            // Set preloaded even if failed to prevent app from hanging
             appStore.setChatDataPreloaded(true);
             // Don't throw - this is not critical for app startup
         }
@@ -459,7 +459,7 @@ class InitializationService {
             await this.initializeWebSocket();
             // WebSocket reinitialized successfully
         } catch (error) {
-            console.error('❌ [InitializationService] WebSocket reinitialization failed:', error);
+            console.error('[InitializationService] WebSocket reinitialization failed:', error);
             // Don't throw - this is not critical
         }
     }
@@ -475,7 +475,7 @@ class InitializationService {
         appStore.setDatabaseReady(false);
         appStore.setLocationReady(false);
         appStore.setServicesReady(false);
-        appStore.setChatDataPreloaded(false); // ✅ Reset chat data preloaded
+        appStore.setChatDataPreloaded(false); // Reset chat data preloaded
         appStore.setAppReady(false);
         appStore.setInitializationError(null);
 

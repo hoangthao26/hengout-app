@@ -62,12 +62,12 @@ export default function ConfirmDeleteModal({
     );
 
     useEffect(() => {
-        console.log('🔍 ConfirmDeleteModal useEffect - isVisible:', isVisible);
+        console.log('[ConfirmDeleteModal] useEffect - isVisible:', isVisible);
         if (isVisible) {
-            console.log('🔍 Opening ConfirmDeleteModal, calling snapToIndex(0)');
+            console.log('[ConfirmDeleteModal] Opening ConfirmDeleteModal, calling snapToIndex(0)');
             bottomSheetRef.current?.snapToIndex(0);
         } else {
-            console.log('🔍 Closing ConfirmDeleteModal, calling snapToIndex(-1)');
+            console.log('[ConfirmDeleteModal] Closing ConfirmDeleteModal, calling snapToIndex(-1)');
             bottomSheetRef.current?.snapToIndex(-1);
         }
     }, [isVisible]);

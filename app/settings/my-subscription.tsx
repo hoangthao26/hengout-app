@@ -102,7 +102,7 @@ export default function MySubscriptionScreen() {
         try {
             const paymentData = await paymentFlowManager.startPayment(plan);
         } catch (error: any) {
-            console.error('❌ [MySubscriptionScreen] Failed to start payment:', error);
+            console.error('[MySubscriptionScreen] Failed to start payment:', error);
             showError('Không thể bắt đầu thanh toán. Vui lòng thử lại.');
         }
     };

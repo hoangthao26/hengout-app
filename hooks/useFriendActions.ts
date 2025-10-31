@@ -41,16 +41,16 @@ export const useFriendActions = (
     // Function to refresh conversations after friend request acceptance
     const refreshConversations = useCallback(async () => {
         try {
-            console.log('🔄 [Friend Actions] Refreshing conversations after friend request acceptance...');
+            console.log('[Friend Actions] Refreshing conversations after friend request acceptance...');
             const response = await chatService.getConversations();
             if (response.status === 'success') {
                 setConversations(response.data);
-                console.log('✅ [Friend Actions] Conversations refreshed successfully');
+                console.log('[Friend Actions] Conversations refreshed successfully');
             } else {
-                console.warn('⚠️ [Friend Actions] Failed to refresh conversations:', response.message);
+                console.warn('[Friend Actions] Failed to refresh conversations:', response.message);
             }
         } catch (error) {
-            console.error('❌ [Friend Actions] Error refreshing conversations:', error);
+            console.error('[Friend Actions] Error refreshing conversations:', error);
         }
     }, [setConversations]);
 
@@ -75,8 +75,8 @@ export const useFriendActions = (
             originalUser = searchResultsRef.current.find(u => u.id === userId);
 
             // 2. Send friend request to server with retry logic
-            console.log('🔗 [Friend Request] Send URL:', `POST /api/social/friend-requests`);
-            console.log('📝 [Friend Request] Send User ID:', userId);
+            console.log('[Friend Request] Send URL:', `POST /api/social/friend-requests`);
+            console.log('[Friend Request] Send User ID:', userId);
             const response = await socialService.sendFriendRequest(userId);
             showSuccess('Friend request sent!');
 
@@ -91,7 +91,7 @@ export const useFriendActions = (
             globalUpdateSearchUser(userId, { relationshipStatus: "REQUEST_SENT" });
 
             // 4. Call search API to get updated friendRequestId
-            console.log('🔄 API response does not contain friendRequestId, calling search API...');
+            console.log('[Friend Actions] API response does not contain friendRequestId, calling search API...');
             try {
                 // Get the user's name to search for them specifically
                 const currentUser = searchResultsRef.current.find(u => u.id === userId);
@@ -101,7 +101,7 @@ export const useFriendActions = (
                     // Find the user in search results and get their friendRequestId
                     const updatedUser = searchResponse.data.content.find((u: any) => u.id === userId);
                     if (updatedUser && updatedUser.friendRequestId) {
-                        console.log('🔄 Found friendRequestId from search:', updatedUser.friendRequestId);
+                        console.log('[Friend Actions] Found friendRequestId from search:', updatedUser.friendRequestId);
                         setSearchResults(prev => prev.map(user =>
                             user.id === userId
                                 ? {
@@ -117,7 +117,7 @@ export const useFriendActions = (
                     }
                 }
             } catch (searchError) {
-                console.warn('⚠️ Failed to get friendRequestId from search:', searchError);
+                console.warn('[Friend Actions] Failed to get friendRequestId from search:', searchError);
                 // Keep the optimistic update without friendRequestId
             }
         } catch (error: any) {
@@ -146,13 +146,13 @@ export const useFriendActions = (
             // Get original user state and friendRequestId from current ref
             originalUser = searchResultsRef.current.find(u => u.id === userId);
             friendRequestId = originalUser?.friendRequestId;
-            console.log('🔍 Cancel Request - Current searchResults:', searchResultsRef.current);
-            console.log('🔍 Cancel Request - Original user:', originalUser);
-            console.log('🔍 Cancel Request - friendRequestId:', friendRequestId);
+            console.log('[Friend Actions] Cancel Request - Current searchResults:', searchResultsRef.current);
+            console.log('[Friend Actions] Cancel Request - Original user:', originalUser);
+            console.log('[Friend Actions] Cancel Request - friendRequestId:', friendRequestId);
 
             if (!friendRequestId) {
-                console.error('❌ Cannot find friend request ID for user:', userId);
-                console.error('❌ Available users:', searchResultsRef.current.map(u => ({ id: u.id, name: u.name, friendRequestId: u.friendRequestId })));
+                console.error('[Friend Actions] Cannot find friend request ID for user:', userId);
+                console.error('[Friend Actions] Available users:', searchResultsRef.current.map(u => ({ id: u.id, name: u.name, friendRequestId: u.friendRequestId })));
                 showError('Cannot find friend request ID');
                 return;
             }
@@ -164,8 +164,8 @@ export const useFriendActions = (
                     : u
             ));
 
-            console.log('🔗 [Friend Request] Cancel URL:', `DELETE /api/social/friend-requests/${friendRequestId}`);
-            console.log('📝 [Friend Request] Cancel Request ID:', friendRequestId);
+            console.log('[Friend Actions] Cancel URL:', `DELETE /api/social/friend-requests/${friendRequestId}`);
+            console.log('[Friend Actions] Cancel Request ID:', friendRequestId);
             await socialService.cancelSentFriendRequest(friendRequestId!);
             showSuccess('Friend request cancelled!');
         } catch (error: any) {
@@ -199,8 +199,8 @@ export const useFriendActions = (
                     : user
             ));
 
-            console.log('🔗 [Friend Request] Remove Friend URL:', `DELETE /api/social/friends/${userId}`);
-            console.log('📝 [Friend Request] Remove Friend User ID:', userId);
+            console.log('[Friend Actions] Remove Friend URL:', `DELETE /api/social/friends/${userId}`);
+            console.log('[Friend Actions] Remove Friend User ID:', userId);
             await socialService.removeFriend(userId);
             showSuccess('Friend removed successfully!');
 
@@ -251,8 +251,8 @@ export const useFriendActions = (
             // Also update global store
             globalUpdateSearchUser(userId, { relationshipStatus: "FRIEND" });
 
-            console.log('🔗 [Friend Request] Accept from Search URL:', `PUT /api/social/friend-requests/${friendRequestId}?status=ACCEPTED`);
-            console.log('📝 [Friend Request] Accept from Search Request ID:', friendRequestId);
+            console.log('[Friend Actions] Accept from Search URL:', `PUT /api/social/friend-requests/${friendRequestId}?status=ACCEPTED`);
+            console.log('[Friend Actions] Accept from Search Request ID:', friendRequestId);
             await socialService.handleFriendRequest(friendRequestId, 'ACCEPTED');
             showSuccess('Friend request accepted!');
 
@@ -302,8 +302,8 @@ export const useFriendActions = (
             // Also update global store
             globalUpdateSearchUser(userId, { relationshipStatus: "NONE" });
 
-            console.log('🔗 [Friend Request] Reject from Search URL:', `PUT /api/social/friend-requests/${friendRequestId}?status=REJECTED`);
-            console.log('📝 [Friend Request] Reject from Search Request ID:', friendRequestId);
+            console.log('[Friend Actions] Reject from Search URL:', `PUT /api/social/friend-requests/${friendRequestId}?status=REJECTED`);
+            console.log('[Friend Actions] Reject from Search Request ID:', friendRequestId);
             await socialService.handleFriendRequest(friendRequestId, 'REJECTED');
             showSuccess('Friend request rejected');
 
@@ -327,8 +327,8 @@ export const useFriendActions = (
     const handleBlockUser = useCallback(async (userId: string) => {
         try {
             setProcessingUser(userId);
-            console.log('🔗 [Friend Request] Block User URL:', `PUT /api/social/friends/${userId}/block`);
-            console.log('📝 [Friend Request] Block User ID:', userId);
+            console.log('[Friend Actions] Block User URL:', `PUT /api/social/friends/${userId}/block`);
+            console.log('[Friend Actions] Block User ID:', userId);
             await socialService.blockFriend(userId, 'BLOCKED');
             showSuccess('User blocked successfully!');
 

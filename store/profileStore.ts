@@ -46,7 +46,7 @@ export const useProfileStore = create<ProfileState>()(
                     // If profile already exists, don't fetch again
                     const currentProfile = get().profile;
                     if (currentProfile) {
-                        console.log('📱 Profile already exists, skipping fetch');
+                        console.log('[ProfileStore] Profile already exists, skipping fetch');
                         return;
                     }
 

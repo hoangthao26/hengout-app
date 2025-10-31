@@ -383,7 +383,7 @@ export default function DiscoverScreen() {
             try {
                 // Check if we have location data from splash screen
                 if (lat && lng) {
-                    console.log('📍 [Discover] Using location from splash screen');
+                    console.log('[Discover] Using location from splash screen');
 
                     setInitialLocation({
                         lat: parseFloat(lat),
@@ -400,7 +400,7 @@ export default function DiscoverScreen() {
                 }
 
                 // Try to get better location using smart location service
-                console.log('📍 [Discover] Getting location with smart service...');
+                console.log('[Discover] Getting location with smart service...');
                 const { smartLocationService } = await import('../../services/smartLocationService');
 
                 const smartLocation = await smartLocationService.getCurrentLocation({
@@ -411,7 +411,7 @@ export default function DiscoverScreen() {
                 });
 
                 if (smartLocation && isMounted) {
-                    console.log('📍 [Discover] Smart location obtained:', {
+                    console.log('[Discover] Smart location obtained:', {
                         lat: smartLocation.latitude,
                         lng: smartLocation.longitude,
                         accuracy: smartLocation.accuracy,
@@ -431,7 +431,7 @@ export default function DiscoverScreen() {
                     await loadRandomRecommendations(smartLocation.latitude, smartLocation.longitude);
                 } else {
                     // Fallback: Use existing useLocation hook
-                    console.log('📍 [Discover] Smart location failed, trying fallback...');
+                    console.log('[Discover] Smart location failed, trying fallback...');
                     const hasPermission = await requestLocationPermission();
 
                     if (hasPermission && isMounted) {
@@ -448,19 +448,19 @@ export default function DiscoverScreen() {
                             await loadRandomRecommendations(currentLocation.latitude, currentLocation.longitude);
                         } else {
                             // No location available - show location picker
-                            console.log('📍 [Discover] No location available, showing location picker');
+                            console.log('[Discover] No location available, showing location picker');
                             setIsInitialized(true);
                             // TODO: Show location picker component
                         }
                     } else {
                         // No permission - show location picker
-                        console.log('📍 [Discover] No location permission, showing location picker');
+                        console.log('[Discover] No location permission, showing location picker');
                         setIsInitialized(true);
                         // TODO: Show location picker component
                     }
                 }
             } catch (error) {
-                console.log('📍 [Discover] Location initialization error:', error);
+                console.log('[Discover] Location initialization error:', error);
                 if (isMounted) {
                     setIsInitialized(true);
                     // TODO: Show location picker component
@@ -479,7 +479,7 @@ export default function DiscoverScreen() {
                 clearTimeout(searchTimeout);
             }
         };
-    }, [lat, lng, accuracy]); // ✅ Dependencies include splash location data
+    }, [lat, lng, accuracy]); // Dependencies include splash location data
 
     // Center map on GPS location when initialLocation is set and mapController is ready
     useEffect(() => {
@@ -495,7 +495,7 @@ export default function DiscoverScreen() {
     // Handle auto-open location card from collection detail
     useEffect(() => {
         if (locationId && latitude && longitude && autoOpenCard === 'true') {
-            console.log('📍 [Discover] Auto-opening location card from collection:', { locationId, latitude, longitude });
+            console.log('[Discover] Auto-opening location card from collection:', { locationId, latitude, longitude });
 
             const lat = parseFloat(latitude);
             const lng = parseFloat(longitude);
@@ -510,14 +510,14 @@ export default function DiscoverScreen() {
             // Move map center to the location (with delay to ensure map is ready)
             setTimeout(() => {
                 if (mapController) {
-                    console.log('🗺️ Moving map to location');
+                    console.log('[Discover] Moving map to location');
                     mapController.centerMapOnLocation(lat, lng, 0.005);
                 } else {
-                    console.log('⚠️ [Discover] Map controller not ready yet, retrying...');
+                    console.log('[Discover] Map controller not ready yet, retrying...');
                     // Retry after a longer delay
                     setTimeout(() => {
                         if (mapController) {
-                            console.log('🗺️ Moving map to location (retry)');
+                            console.log('[Discover] Moving map to location (retry)');
                             (mapController as any).centerMapOnLocation(lat, lng, 0.005);
                         }
                     }, 1000);
@@ -527,19 +527,19 @@ export default function DiscoverScreen() {
             // Fetch full location details and open card (fallback)
             const fetchLocationDetails = async () => {
                 try {
-                    console.log('🔄 Fetching location details for auto-open');
+                    console.log('[Discover] Fetching location details for auto-open');
                     const response = await locationService.getLocationDetails(locationId);
 
                     if (response.status === 'success') {
-                        console.log('✅ Location details fetched, opening card');
+                        console.log('[Discover] Location details fetched, opening card');
                         setSelectedLocationDetails(response.data);
                         setSelectedLocationForDetail(response.data);
                     } else {
-                        console.error('❌ [Discover] Failed to fetch location details:', response.message);
+                        console.error('[Discover] Failed to fetch location details:', response.message);
                         // showError('Không thể tải thông tin địa điểm');
                     }
                 } catch (error) {
-                    console.error('❌ [Discover] Error fetching location details:', error);
+                    console.error('[Discover] Error fetching location details:', error);
                     // showError('Lỗi khi tải thông tin địa điểm');
                 }
             };
@@ -547,12 +547,12 @@ export default function DiscoverScreen() {
             // Use location data if available, otherwise fetch from API
             if (locationData) {
                 try {
-                    console.log('✅ Using location data from params');
+                    console.log('[Discover] Using location data from params');
                     const locationDetails = JSON.parse(locationData);
                     setSelectedLocationDetails(locationDetails);
                     setSelectedLocationForDetail(locationDetails);
                 } catch (error) {
-                    console.error('❌ [Discover] Failed to parse location data:', error);
+                    console.error('[Discover] Failed to parse location data:', error);
                     // Fallback to API call
                     fetchLocationDetails();
                 }

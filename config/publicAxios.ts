@@ -15,7 +15,7 @@ export const publicAxios = axios.create({
 // Request interceptor for logging
 publicAxios.interceptors.request.use(
     (config) => {
-        console.log('🚀 Public API Request:', {
+        console.log('[PublicAxios] Public API Request:', {
             method: config.method?.toUpperCase(),
             url: config.url,
             data: config.data,
@@ -24,7 +24,7 @@ publicAxios.interceptors.request.use(
         return config;
     },
     (error) => {
-        console.warn('❌ Public API Request Error:', error);
+        console.warn('[PublicAxios] Public API Request Error:', error);
         return Promise.reject(error);
     }
 );
@@ -32,7 +32,7 @@ publicAxios.interceptors.request.use(
 // Response interceptor for logging and error handling
 publicAxios.interceptors.response.use(
     (response) => {
-        console.log('✅ Public API Response:', {
+        console.log('[PublicAxios] Public API Response:', {
             status: response.status,
             url: response.config.url,
             data: response.data
@@ -46,7 +46,7 @@ publicAxios.interceptors.response.use(
         const backendMessage = error.response?.data?.message || error.response?.data?.error;
         const message = backendMessage || error.message;
 
-        console.warn('❌ Public API Response Error:', { status, url, message });
+        console.warn('[PublicAxios] Public API Response Error:', { status, url, message });
 
         const normalizedError = new Error(message);
         (normalizedError as any).status = status;

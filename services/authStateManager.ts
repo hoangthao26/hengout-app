@@ -42,11 +42,11 @@ class AuthStateManager {
         const oldState = this.currentState;
 
         if (oldState === newState) {
-            console.log(`🔄 [AuthStateManager] State unchanged: ${newState}`);
+            console.log(`[AuthStateManager] State unchanged: ${newState}`);
             return;
         }
 
-        console.log(`🔄 [AuthStateManager] State transition: ${oldState} → ${newState}`);
+        console.log(`[AuthStateManager] State transition: ${oldState} → ${newState}`);
         this.currentState = newState;
 
         // Notify all listeners
@@ -54,7 +54,7 @@ class AuthStateManager {
             try {
                 listener(newState, oldState);
             } catch (error) {
-                console.error('❌ [AuthStateManager] Listener error:', error);
+                console.error('[AuthStateManager] Listener error:', error);
             }
         });
     }
@@ -64,12 +64,12 @@ class AuthStateManager {
      */
     addListener(listener: AuthStateChangeListener): () => void {
         this.listeners.add(listener);
-        console.log(`👂 [AuthStateManager] Added listener (${this.listeners.size} total)`);
+        console.log(`[AuthStateManager] Added listener (${this.listeners.size} total)`);
 
         // Return unsubscribe function
         return () => {
             this.listeners.delete(listener);
-            console.log(`👂 [AuthStateManager] Removed listener (${this.listeners.size} total)`);
+            console.log(`[AuthStateManager] Removed listener (${this.listeners.size} total)`);
         };
     }
 
@@ -78,7 +78,7 @@ class AuthStateManager {
      */
     clearListeners(): void {
         this.listeners.clear();
-        console.log('🧹 [AuthStateManager] Cleared all listeners');
+        console.log('[AuthStateManager] Cleared all listeners');
     }
 
     /**
@@ -116,7 +116,7 @@ class AuthStateManager {
     reset(): void {
         this.setState(AuthState.UNKNOWN);
         this.clearListeners();
-        console.log('🔄 [AuthStateManager] Reset to initial state');
+        console.log('[AuthStateManager] Reset to initial state');
     }
 }
 

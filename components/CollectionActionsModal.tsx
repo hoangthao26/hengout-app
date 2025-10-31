@@ -22,12 +22,12 @@ const CollectionActionsModal: React.FC<CollectionActionsModalProps> = ({
     const bottomSheetRef = useRef<BottomSheet>(null);
 
     useEffect(() => {
-        console.log('🔍 CollectionActionsModal useEffect - isVisible:', isVisible);
+        console.log('[CollectionActionsModal] useEffect - isVisible:', isVisible);
         if (isVisible) {
-            console.log('🔍 Opening modal, calling snapToIndex(0)');
+            console.log('[CollectionActionsModal] Opening modal, calling snapToIndex(0)');
             bottomSheetRef.current?.snapToIndex(0);
         } else {
-            console.log('🔍 Closing modal, calling snapToIndex(-1)');
+            console.log('[CollectionActionsModal] Closing modal, calling snapToIndex(-1)');
             bottomSheetRef.current?.snapToIndex(-1);
         }
     }, [isVisible]);

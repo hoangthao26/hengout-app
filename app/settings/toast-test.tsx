@@ -14,30 +14,30 @@ export default function ToastTestScreen() {
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSuccessToast = () => {
-        success('🎉 Thành công! Đây là toast success');
+        success('Thành công! Đây là toast success');
     };
 
     const handleErrorToast = () => {
-        error('❌ Lỗi! Đây là toast error');
+        error('Lỗi! Đây là toast error');
     };
 
     const handleInfoToast = () => {
-        info('ℹ️ Thông tin! Đây là toast info');
+        info('Thông tin! Đây là toast info');
     };
 
     const handleWarningToast = () => {
-        warning('⚠️ Cảnh báo! Đây là toast warning');
+        warning('Cảnh báo! Đây là toast warning');
     };
 
     const handleLoadingToast = () => {
         setIsLoading(true);
-        loading('⏳ Đang tải...');
+        loading('Đang tải...');
 
         // Auto hide after 3 seconds
         setTimeout(() => {
             hideLoading();
             setIsLoading(false);
-            success('✅ Hoàn thành!');
+            success('Hoàn thành!');
         }, 3000);
     };
 
@@ -57,7 +57,7 @@ export default function ToastTestScreen() {
     };
 
     const handleEmojiToast = () => {
-        success('🚀 🎯 💯 🔥 ⭐ 🎉');
+        success('Test emoji toast');
     };
 
     const handleSpecialChars = () => {
@@ -65,19 +65,19 @@ export default function ToastTestScreen() {
     };
 
     const handleTransparencyTest = () => {
-        success('🔍 Test độ trong suốt - Background giờ đã semi-transparent!');
+        success('Test độ trong suốt - Background giờ đã semi-transparent!');
     };
 
     const handleBlurEffectTest = () => {
-        warning('✨ Test blur effect - Shadow và elevation đã được tăng cường!');
+        warning('Test blur effect - Shadow và elevation đã được tăng cường!');
     };
 
     const handleGlassLiquidTest = () => {
-        success('🌊 Glass Liquid Effect - Blur + Gradient + Shimmer + Animation!');
+        success('Glass Liquid Effect - Blur + Gradient + Shimmer + Animation!');
     };
 
     const handleLiquidAnimationTest = () => {
-        info('💫 Liquid Animation - Spring entrance + Shimmer loop!');
+        info('Liquid Animation - Spring entrance + Shimmer loop!');
     };
 
     const TestButton = ({
@@ -134,7 +134,7 @@ export default function ToastTestScreen() {
                 {/* Basic Toast Types */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionHeader, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                        📱 Basic Toast Types
+                        Basic Toast Types
                     </Text>
 
                     <TestButton
@@ -169,7 +169,7 @@ export default function ToastTestScreen() {
                 {/* Loading Toast */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionHeader, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                        ⏳ Loading Toast
+                        Loading Toast
                     </Text>
 
                     <TestButton
@@ -184,7 +184,7 @@ export default function ToastTestScreen() {
                 {/* Message Length Tests */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionHeader, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                        📏 Message Length Tests
+                        Message Length Tests
                     </Text>
 
                     <TestButton
@@ -205,7 +205,7 @@ export default function ToastTestScreen() {
                 {/* Special Content Tests */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionHeader, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                        🎨 Special Content
+                        Special Content
                     </Text>
 
                     <TestButton
@@ -226,7 +226,7 @@ export default function ToastTestScreen() {
                 {/* Glass Liquid Effects */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionHeader, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                        🌊 Glass Liquid Effects
+                        Glass Liquid Effects
                     </Text>
 
                     <TestButton
@@ -261,7 +261,7 @@ export default function ToastTestScreen() {
                 {/* Multiple Toasts */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionHeader, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                        🔄 Multiple Toasts
+                        Multiple Toasts
                     </Text>
 
                     <TestButton
@@ -275,7 +275,7 @@ export default function ToastTestScreen() {
                 {/* Instructions */}
                 <View style={[styles.instructions, { backgroundColor: isDark ? '#1F2937' : '#F3F4F6' }]}>
                     <Text style={[styles.instructionsTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                        📋 Test Instructions
+                        Test Instructions
                     </Text>
                     <Text style={[styles.instructionsText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
                         • Tap các button để test từng loại toast{'\n'}

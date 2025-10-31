@@ -167,7 +167,7 @@ class NavigationService {
             if (config?.requiresAuth && !options?.skipAuth) {
                 const isAuthenticated = await this.checkAuthentication();
                 if (!isAuthenticated) {
-                    console.log('🔐 Authentication required, redirecting to login');
+                    console.log('[NavigationService] Authentication required, redirecting to login');
                     this.navigateToLogin();
                     return;
                 }
@@ -177,7 +177,7 @@ class NavigationService {
             if (config?.featureFlag) {
                 const isFeatureEnabled = await this.checkFeatureFlag(config.featureFlag);
                 if (!isFeatureEnabled) {
-                    console.log(`🚫 Feature ${config.featureFlag} is disabled`);
+                    console.log(`[NavigationService] Feature ${config.featureFlag} is disabled`);
                     this.navigateToFallback(route);
                     return;
                 }
@@ -195,7 +195,7 @@ class NavigationService {
             router.push(route as any);
 
         } catch (error) {
-            console.error('❌ Navigation error:', error);
+            console.error('[NavigationService] Navigation error:', error);
             this.handleNavigationError(route, error);
         } finally {
             this.isNavigating = false;
@@ -219,7 +219,7 @@ class NavigationService {
             if (config?.requiresAuth && !options?.skipAuth) {
                 const isAuthenticated = await this.checkAuthentication();
                 if (!isAuthenticated) {
-                    console.log('🔐 Authentication required, redirecting to login');
+                    console.log('[NavigationService] Authentication required, redirecting to login');
                     this.navigateToLogin();
                     return;
                 }
@@ -237,7 +237,7 @@ class NavigationService {
             router.replace(route as any);
 
         } catch (error) {
-            console.error('❌ Navigation error:', error);
+            console.error('[NavigationService] Navigation error:', error);
             this.handleNavigationError(route, error);
         } finally {
             this.isNavigating = false;
@@ -249,7 +249,7 @@ class NavigationService {
             this.logNavigation('back', 'goBack');
             router.back();
         } catch (error) {
-            console.error('❌ Go back error:', error);
+            console.error('[NavigationService] Go back error:', error);
         }
     }
 
@@ -299,7 +299,7 @@ class NavigationService {
             const { AuthHelper } = await import('./authHelper');
             return await AuthHelper.isAuthenticated();
         } catch (error) {
-            console.error('❌ Auth check failed:', error);
+            console.error('[NavigationService] Auth check failed:', error);
             return false;
         }
     }
@@ -313,13 +313,13 @@ class NavigationService {
     private static trackNavigation(route: string, analytics: { event: string; properties?: Record<string, any> }) {
         try {
             // TODO: Implement analytics service
-            console.log(`📊 Analytics: ${analytics.event}`, {
+            console.log(`[NavigationService] Analytics: ${analytics.event}`, {
                 route,
                 properties: analytics.properties,
                 timestamp: new Date().toISOString()
             });
         } catch (error) {
-            console.error('❌ Analytics tracking failed:', error);
+            console.error('[NavigationService] Analytics tracking failed:', error);
         }
     }
 
@@ -344,7 +344,7 @@ class NavigationService {
     }
 
     private static handleNavigationError(route: string, error: any) {
-        console.error(`❌ Navigation failed to ${route}:`, error);
+        console.error(`[NavigationService] Navigation failed to ${route}:`, error);
 
         // TODO: Implement error reporting service
         // For now, just log the error
@@ -487,7 +487,7 @@ class NavigationService {
     static async goToDiscover() {
         // Auto-get GPS location for discover navigation
         try {
-            console.log('📍 [NavigationService] Auto-getting GPS for discover navigation...');
+            console.log('[NavigationService] Auto-getting GPS for discover navigation...');
 
             // Import smart location service
             const { smartLocationService } = await import('./smartLocationService');
@@ -501,7 +501,7 @@ class NavigationService {
             });
 
             if (location) {
-                console.log('📍 [NavigationService] Smart location obtained for discover:', {
+                console.log('[NavigationService] Smart location obtained for discover:', {
                     lat: location.latitude,
                     lng: location.longitude,
                     accuracy: location.accuracy,
@@ -515,11 +515,11 @@ class NavigationService {
                     accuracy: location.accuracy || 0
                 });
             } else {
-                console.log('📍 [NavigationService] No location available, navigating to discover for user choice');
+                console.log('[NavigationService] No location available, navigating to discover for user choice');
                 await this.replace(ROUTES.DISCOVER);
             }
         } catch (error) {
-            console.log('📍 [NavigationService] Location error, navigating to discover for user choice:', error);
+            console.log('[NavigationService] Location error, navigating to discover for user choice:', error);
             await this.replace(ROUTES.DISCOVER);
         }
     }

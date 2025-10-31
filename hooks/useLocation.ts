@@ -170,7 +170,7 @@ export const useLocation = () => {
                 setError(`Location watching failed after ${LOCATION_CONFIG.RETRY_ATTEMPTS} attempts: ${error.message}`);
             }
         }
-    }, []); // ✅ No dependencies to prevent circular updates
+    }, []); // No dependencies to prevent circular updates
 
     const watchLocation = useCallback(async () => {
         if (!isMountedRef.current) return;

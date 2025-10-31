@@ -190,14 +190,14 @@ const GroupMembersScreen: React.FC = () => {
             setCurrentUserRole(conversationResponse.data.userRole);
 
             // Debug logs
-            console.log('🔍 [Members] Conversation info:', {
+            console.log('[Members] Conversation info:', {
                 id: conversationResponse.data.id,
                 name: conversationResponse.data.name,
                 type: conversationResponse.data.type,
                 userRole: conversationResponse.data.userRole
             });
-            console.log('🔍 [Members] Current user role from conversation:', conversationResponse.data.userRole);
-            console.log('🔍 [Members] All members:', membersResponse.data.map(m => ({
+            console.log('[Members] Current user role from conversation:', conversationResponse.data.userRole);
+            console.log('[Members] All members:', membersResponse.data.map(m => ({
                 userId: m.userId,
                 userName: m.userName,
                 role: m.role,

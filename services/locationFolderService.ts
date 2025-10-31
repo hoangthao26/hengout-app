@@ -15,9 +15,9 @@ class LocationFolderService {
             const response = await axiosInstance.get<ApiResponse<LocationFolder[]>>(endpoint);
             return response.data;
         } catch (error: any) {
-            // 🚀 DEFENSIVE: Check if error is due to user logout
+            // DEFENSIVE: Check if error is due to user logout
             if (error.message?.includes('User logged out')) {
-                console.log('ℹ️ [LocationFolderService] User logged out, skipping folder fetch');
+                console.log('[LocationFolderService] User logged out, skipping folder fetch');
                 return { status: 'success', data: [], message: 'User logged out' };
             }
             console.error('Failed to get all folders:', error);
@@ -105,11 +105,11 @@ class LocationFolderService {
             // Handle server response with errorCode but success status
             if (response.data.status === 'success') {
                 // Server returns success but with errorCode - treat as success
-                console.log(`✅ Successfully loaded ${response.data.data.content.length} locations for folder ${folderId}`);
+                console.log(`[LocationFolderService] Successfully loaded ${response.data.data.content.length} locations for folder ${folderId}`);
                 return response.data;
             } else {
                 // Server returns error status
-                console.error(`❌ Server error for folder ${folderId}:`, response.data.message);
+                console.error(`[LocationFolderService] Server error for folder ${folderId}:`, response.data.message);
                 throw new Error(response.data.message || 'Failed to get locations');
             }
         } catch (error: any) {

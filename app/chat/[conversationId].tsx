@@ -357,7 +357,7 @@ export default function ChatConversationScreen() {
             id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // More unique temporary ID
             conversationId,
             senderId: 'current_user', // Will be replaced by actual user ID
-            senderName: 'Bạn', // ✅ Consistent with WebSocket logic
+            senderName: 'Bạn', // Consistent with WebSocket logic
             senderAvatar: '',
             content: { text: messageContent },
             type: 'TEXT',
@@ -410,7 +410,7 @@ export default function ChatConversationScreen() {
                     }
                 } catch (apiError) {
                     // Fallback to WebSocket if API fails
-                    console.log('🔄 [Chat] API failed, trying WebSocket fallback');
+                    console.log('[Chat] API failed, trying WebSocket fallback');
                     sendWebSocketMessage({
                         conversationId,
                         type: 'TEXT',
@@ -482,7 +482,7 @@ export default function ChatConversationScreen() {
         if (conversationId) {
             //  OPTIMIZED: Không cần subscribe nữa vì đã subscribe toàn bộ khi mở app
             // subscribe(conversationId);
-            console.log('🔌 [Chat] Conversation opened:', conversationId, '- Already subscribed globally');
+            console.log('[Chat] Conversation opened:', conversationId, '- Already subscribed globally');
         }
 
         // No cleanup - maintain subscription for "subscribe all conversations" strategy
@@ -492,7 +492,7 @@ export default function ChatConversationScreen() {
     // Set toast function for WebSocket manager
     useEffect(() => {
         const toastFunction = (type: 'success' | 'info' | 'warning' | 'error', title: string, message?: string) => {
-            console.log(`🔔 [Toast Function] Called with: ${type} - ${title} - ${message}`);
+            console.log(`[Chat] Toast Function Called with: ${type} - ${title} - ${message}`);
             switch (type) {
                 case 'success':
                     success(title, message);
@@ -540,7 +540,7 @@ export default function ChatConversationScreen() {
                     // Remove duplicates by ID before syncing
                     const uniqueMessages = removeDuplicateMessages(storeMessages);
 
-                    console.log('🔄 [Chat] Synced messages from store:', {
+                    console.log('[Chat] Synced messages from store:', {
                         storeCount: storeMessages.length,
                         uniqueCount: uniqueMessages.length,
                         localCount: prevMessages.length,

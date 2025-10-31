@@ -150,7 +150,7 @@ class LocationService {
             const endpoint = buildEndpointUrl('LOCATION_SERVICE', 'INIT_CURRENT_VIBES');
             const response = await axiosInstance.post<InitVibesResponse>(endpoint);
             try {
-                console.log('✅ [LocationService] initCurrentVibes success:', response.data?.status || 'unknown');
+                console.log('[LocationService] initCurrentVibes success:', response.data?.status || 'unknown');
             } catch { }
             return response.data;
         } catch (error: any) {

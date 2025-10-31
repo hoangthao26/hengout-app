@@ -39,7 +39,7 @@ class GlobalErrorHandler {
         this.setupConsoleErrorHandler();
 
         this.isInitialized = true;
-        console.log('✅ Global Error Handler initialized');
+        console.log('[GlobalErrorHandler] Global Error Handler initialized');
     }
 
     /**
@@ -49,7 +49,7 @@ class GlobalErrorHandler {
         const originalErrorHandler = ErrorUtils.getGlobalHandler();
 
         ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
-            console.log('🚨 Global JavaScript Error:', error);
+            console.log('[GlobalErrorHandler] Global JavaScript Error:', error);
 
             // Create structured error
             const appError = createAppError(
@@ -80,7 +80,7 @@ class GlobalErrorHandler {
     private setupPromiseRejectionHandler(): void {
         // Handle unhandled promise rejections
         const handleUnhandledRejection = (event: any) => {
-            console.log('🚨 Unhandled Promise Rejection:', event);
+            console.log('[GlobalErrorHandler] Unhandled Promise Rejection:', event);
 
             const error = event.reason || new Error('Unhandled Promise Rejection');
             const appError = createAppError(
@@ -210,7 +210,7 @@ class GlobalErrorHandler {
     cleanup(): void {
         this.errorListeners = [];
         this.isInitialized = false;
-        console.log('🧹 Global Error Handler cleaned up');
+        console.log('[GlobalErrorHandler] Global Error Handler cleaned up');
     }
 }
 
@@ -236,7 +236,7 @@ class NetworkErrorHandler {
      * Initialize network monitoring
      */
     initialize(): void {
-        console.log('🌐 Initializing Network Error Handler...');
+        console.log('[NetworkErrorHandler] Initializing Network Error Handler...');
 
         // Check initial network status
         this.checkNetworkStatus();
@@ -246,7 +246,7 @@ class NetworkErrorHandler {
             this.checkNetworkStatus();
         }, 30000); // Check every 30 seconds
 
-        console.log('✅ Network Error Handler initialized');
+        console.log('[NetworkErrorHandler] Network Error Handler initialized');
     }
 
     /**
@@ -265,7 +265,7 @@ class NetworkErrorHandler {
             this.isOnline = true;
 
             if (!wasOnline) {
-                console.log('🌐 Network connection restored');
+                console.log('[NetworkErrorHandler] Network connection restored');
                 this.notifyOnlineListeners(true);
 
                 // Reinitialize WebSocket after network reconnect
@@ -276,7 +276,7 @@ class NetworkErrorHandler {
             this.isOnline = false;
 
             if (wasOnline) {
-                console.log('🌐 Network connection lost');
+                console.log('[NetworkErrorHandler] Network connection lost');
                 this.notifyOnlineListeners(false);
 
                 // Report network error
@@ -315,7 +315,7 @@ class NetworkErrorHandler {
      */
     private async handleNetworkReconnect(): Promise<void> {
         try {
-            console.log('🔄 [NetworkErrorHandler] Handling network reconnect...');
+            console.log('[NetworkErrorHandler] Handling network reconnect...');
 
             // Check if user is authenticated before reinitializing WebSocket
             const { useAuthStore } = await import('../store/authStore');
@@ -324,12 +324,12 @@ class NetworkErrorHandler {
             if (isAuthenticated) {
                 const { initializationService } = await import('./initializationService');
                 await initializationService.reinitializeWebSocket();
-                console.log('✅ [NetworkErrorHandler] WebSocket reinitialized after network reconnect');
+                console.log('[NetworkErrorHandler] WebSocket reinitialized after network reconnect');
             } else {
-                console.log('ℹ️ [NetworkErrorHandler] User not authenticated, skipping WebSocket reinitialization');
+                console.log('[NetworkErrorHandler] User not authenticated, skipping WebSocket reinitialization');
             }
         } catch (error) {
-            console.error('❌ [NetworkErrorHandler] WebSocket reinitialization failed:', error);
+            console.error('[NetworkErrorHandler] WebSocket reinitialization failed:', error);
             // Don't block network reconnect flow
         }
     }
@@ -359,7 +359,7 @@ class NetworkErrorHandler {
      */
     cleanup(): void {
         this.onlineListeners = [];
-        console.log('🧹 Network Error Handler cleaned up');
+        console.log('[NetworkErrorHandler] Network Error Handler cleaned up');
     }
 }
 

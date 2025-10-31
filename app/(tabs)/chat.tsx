@@ -62,7 +62,7 @@ export default function ChatScreen() {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchLoading, setSearchLoading] = useState(false);
 
-    // ✅ Subscribe to store changes for real-time updates
+    // Subscribe to store changes for real-time updates
     // This ensures new conversations appear immediately without pull-to-refresh
     useEffect(() => {
         if (searchQuery.trim()) {
@@ -83,13 +83,13 @@ export default function ChatScreen() {
                 setConversations(localConversations);
                 // setFilteredConversations sẽ được cập nhật tự động qua useEffect
 
-                // ✅ MVP OPTIMIZATION: Disabled preloading to reduce memory usage
+                // MVP OPTIMIZATION: Disabled preloading to reduce memory usage
                 // Preloading messages for top conversations is disabled for better performance
-                console.log('✅ [MVP Chat] Conversations loaded without preloading messages');
+                console.log('[MVP Chat] Conversations loaded without preloading messages');
 
-                // ✅ MVP OPTIMIZATION: Disabled background sync to reduce network calls
+                // MVP OPTIMIZATION: Disabled background sync to reduce network calls
                 // Background sync is disabled for better performance, rely on WebSocket for real-time updates
-                console.log('✅ [MVP Chat] Skipped background sync, using WebSocket for real-time updates');
+                console.log('[MVP Chat] Skipped background sync, using WebSocket for real-time updates');
             } else {
                 // Fallback to direct API call if SQLite not ready
                 const response = await chatService.getConversations();
@@ -103,7 +103,7 @@ export default function ChatScreen() {
         } catch (err: any) {
             // DEFENSIVE: Don't show error if user logged out
             if (err.message?.includes('User logged out')) {
-                console.log('ℹ️ [Chat] User logged out, skipping conversation load');
+                console.log('[Chat] User logged out, skipping conversation load');
                 return;
             }
             console.error('Failed to load conversations:', err);
@@ -184,7 +184,7 @@ export default function ChatScreen() {
     const handleCreateGroup = useCallback(() => {
         // Không cần reload toàn bộ danh sách nữa vì conversation đã được thêm vào store ngay lập tức
         setOnCreateGroupSuccess(() => {
-            console.log('✅ [Chat] Group created successfully, conversation already added to store');
+            console.log('[Chat] Group created successfully, conversation already added to store');
         });
         openCreateGroupModal();
     }, [setOnCreateGroupSuccess, openCreateGroupModal]);
@@ -195,7 +195,7 @@ export default function ChatScreen() {
         loadConversations();
     }, [loadConversations]);
 
-    // ✅ REMOVED: useFocusEffect reload - not needed because:
+    // REMOVED: useFocusEffect reload - not needed because:
     // 1. WebSocket updates store in real-time
     // 2. Store changes trigger UI re-render automatically
     // 3. Reloading from database can overwrite real-time updates
@@ -203,19 +203,19 @@ export default function ChatScreen() {
 
     // useFocusEffect(
     //     useCallback(() => {
-    //         console.log('🔄 [Chat] Screen focused, reloading conversations...');
+    //         console.log('[Chat] Screen focused, reloading conversations...');
     //         loadConversations();
     //     }, [loadConversations])
     // );
 
-    // ✅ Note: This is now handled in the useEffect above (line 66)
+    // Note: This is now handled in the useEffect above (line 66)
     // Removed duplicate useEffect to avoid conflicts
 
     // Render conversation item
     const renderConversationItem = ({ item }: { item: ChatConversation }) => {
         // Debug log to check lastMessage data
         if (item.lastMessage?.type === 'ACTIVITY') {
-            console.log('🔍 [ConversationList] Activity lastMessage:', {
+            console.log('[ConversationList] Activity lastMessage:', {
                 conversationId: item.id,
                 conversationName: item.name,
                 lastMessage: item.lastMessage,

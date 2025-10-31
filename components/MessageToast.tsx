@@ -44,7 +44,7 @@ const MessageToast: React.FC<MessageToastProps> = ({
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Debug logs
-    console.log('🔔 [MessageToast] Component rendered:', {
+    console.log('[MessageToast] Component rendered:', {
         conversationId: conversation.id,
         messageId: message.id,
         messageContent: message.content?.text || 'Activity',
@@ -58,7 +58,7 @@ const MessageToast: React.FC<MessageToastProps> = ({
     const scaleAnim = useSharedValue(1);
 
     useEffect(() => {
-        console.log('🔔 [MessageToast] useEffect triggered:', {
+        console.log('[MessageToast] useEffect triggered:', {
             messageId: message.id,
             messageContent: message.content?.text || 'Activity',
             duration: duration
@@ -66,7 +66,7 @@ const MessageToast: React.FC<MessageToastProps> = ({
 
         // Clear existing timeout
         if (timeoutRef.current) {
-            console.log('🔔 [MessageToast] Clearing existing timeout');
+            console.log('[MessageToast] Clearing existing timeout');
             clearTimeout(timeoutRef.current);
         }
 
@@ -82,25 +82,25 @@ const MessageToast: React.FC<MessageToastProps> = ({
 
         // Auto dismiss
         timeoutRef.current = setTimeout(() => {
-            console.log('🔔 [MessageToast] Auto-dismiss timeout triggered');
+            console.log('[MessageToast] Auto-dismiss timeout triggered');
             handleDismiss();
         }, duration);
 
-        console.log('🔔 [MessageToast] Set new timeout:', duration);
+        console.log('[MessageToast] Set new timeout:', duration);
 
         return () => {
             if (timeoutRef.current) {
-                console.log('🔔 [MessageToast] Cleanup timeout');
+                console.log('[MessageToast] Cleanup timeout');
                 clearTimeout(timeoutRef.current);
             }
         };
     }, [message.id, duration]); // Depend on message.id and duration
 
     const handleDismiss = () => {
-        console.log('🔔 [MessageToast] handleDismiss called');
+        console.log('[MessageToast] handleDismiss called');
 
         if (timeoutRef.current) {
-            console.log('🔔 [MessageToast] Clearing timeout in handleDismiss');
+            console.log('[MessageToast] Clearing timeout in handleDismiss');
             clearTimeout(timeoutRef.current);
         }
 
@@ -111,7 +111,7 @@ const MessageToast: React.FC<MessageToastProps> = ({
         opacityAnim.value = withTiming(0, {
             duration: 250,
         }, () => {
-            console.log('🔔 [MessageToast] Animation complete, calling onDismiss');
+            console.log('[MessageToast] Animation complete, calling onDismiss');
             runOnJS(onDismiss)();
         });
     };

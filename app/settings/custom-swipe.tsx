@@ -510,7 +510,7 @@ const CustomSwipeScreen: React.FC = () => {
                 {isVoteTimeExpired ? (
                     <View style={styles.expiredContainer}>
                         <Text style={[styles.expiredText, { color: '#EF4444' }]}>
-                            ⏰ Thời gian bình chọn đã kết thúc
+                            Thời gian bình chọn đã kết thúc
                         </Text>
                         <Text style={[styles.expiredSubText, { color: isDark ? '#D1D5DB' : '#6B7280' }]}>
                             Tự động quay lại sau 3 giây...
@@ -527,7 +527,7 @@ const CustomSwipeScreen: React.FC = () => {
                     <View style={styles.emptyContainer}>
                         <View style={styles.emptyIconContainer}>
                             <Text style={styles.emptyIcon}>
-                                {allSuggestions.length === 0 ? '📍' : '✅'}
+                                {allSuggestions.length === 0 ? '' : ''}
                             </Text>
                         </View>
                         <Text style={[styles.emptyTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>

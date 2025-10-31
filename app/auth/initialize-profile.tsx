@@ -37,7 +37,7 @@ export default function InitializeProfileScreen() {
 
         setLoading(true);
         try {
-            console.log('🚀 Initializing profile with data:', formData);
+            console.log('[InitializeProfile] Initializing profile with data:', formData);
 
             // Use Zustand store instead of direct API call
             await initializeProfile(formData);
@@ -45,7 +45,7 @@ export default function InitializeProfileScreen() {
             showSuccess('Profile initialized successfully!',);
             NavigationService.secureNavigateToTabs();
         } catch (error: any) {
-            console.error('❌ Profile initialization failed:', error);
+            console.error('[InitializeProfile] Profile initialization failed:', error);
             showError(error.message || 'Failed to initialize profile',);
         } finally {
             setLoading(false);

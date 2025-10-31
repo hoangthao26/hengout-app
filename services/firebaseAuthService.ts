@@ -133,13 +133,13 @@ export class FirebaseAuthService {
      */
     private async authenticateWithBackend(userInfo: FirebaseUserInfo): Promise<{ success: boolean; data?: any; error?: string }> {
         try {
-            console.log('🔄 Authenticating with backend using Firebase...');
+            console.log('[FirebaseAuth] Authenticating with backend using Firebase...');
 
             const apiBaseUrl = process.env.API_BASE_URL || process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000';
             const apiUrl = `${apiBaseUrl}/api/v1/auth/user/oauth/google`;
 
-            console.log('🌐 API URL:', apiUrl);
-            console.log('📤 Request payload:', { idToken: userInfo.idToken });
+            console.log('[FirebaseAuth] API URL:', apiUrl);
+            console.log('[FirebaseAuth] Request payload:', { idToken: userInfo.idToken });
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -152,15 +152,15 @@ export class FirebaseAuthService {
             });
 
             const responseText = await response.text();
-            console.log('📡 Backend response text:', responseText);
+            console.log('[FirebaseAuth] Backend response text:', responseText);
 
             let data;
             try {
                 data = JSON.parse(responseText);
-                console.log('📡 Backend response JSON:', data);
+                console.log('[FirebaseAuth] Backend response JSON:', data);
             } catch (parseError) {
-                console.error('❌ Failed to parse JSON response:', parseError);
-                console.error('❌ Response was:', responseText);
+                console.error('[FirebaseAuth] Failed to parse JSON response:', parseError);
+                console.error('[FirebaseAuth] Response was:', responseText);
                 return {
                     success: false,
                     error: `Backend returned invalid JSON: ${responseText.substring(0, 100)}...`
@@ -190,7 +190,7 @@ export class FirebaseAuthService {
                 };
             }
         } catch (error: any) {
-            console.error('❌ Backend authentication error:', error);
+            console.error('[FirebaseAuth] Backend authentication error:', error);
             return {
                 success: false,
                 error: error.message || 'Backend authentication failed'

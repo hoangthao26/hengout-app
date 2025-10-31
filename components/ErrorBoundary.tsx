@@ -51,7 +51,7 @@ export class ErrorBoundary extends Component<Props, State> {
         });
 
         // Log error
-        console.error('🚨 ErrorBoundary caught error:', {
+        console.error('[ErrorBoundary] ErrorBoundary caught error:', {
             error: appError,
             errorInfo,
             retryCount: this.state.retryCount
@@ -105,7 +105,7 @@ export class ErrorBoundary extends Component<Props, State> {
         if (!error) return;
 
         // In Phase 3, this will integrate with error reporting service
-        console.log('📊 Error reported:', error);
+        console.log('[ErrorBoundary] Error reported:', error);
 
         Alert.alert(
             'Error Reported',

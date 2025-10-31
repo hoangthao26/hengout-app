@@ -183,15 +183,15 @@ export class AuthHelper {
             }
             await this.clearTokens();
             await OnboardingService.clearOnboardingStatus();
-            console.log('✅ Local tokens and onboarding status cleared');
+            console.log('[AuthHelper] Local tokens and onboarding status cleared');
 
             // CLEAR DATABASE: Clear all local database data (like WhatsApp/Telegram)
             try {
                 const { databaseService } = await import('./databaseService');
                 await databaseService.clearAllData();
-                console.log('✅ [AuthHelper] Database cleared successfully');
+                console.log('[AuthHelper] Database cleared successfully');
             } catch (dbError) {
-                console.error('❌ [AuthHelper] Failed to clear database:', dbError);
+                console.error('[AuthHelper] Failed to clear database:', dbError);
                 // Don't throw - database clear failure shouldn't block logout
             }
 
@@ -245,7 +245,7 @@ export class AuthHelper {
             try {
                 const { databaseService } = await import('./databaseService');
                 await databaseService.clearAllData();
-                console.log('✅ [AuthHelper] Database cleared successfully (force logout)');
+                console.log('[AuthHelper] Database cleared successfully (force logout)');
             } catch (dbError) {
                 console.error('Failed to clear database:', dbError);
             }
@@ -432,7 +432,7 @@ export class AuthHelper {
             }
             return true;
         } catch (error) {
-            console.log('🔄 Token pre-refresh error:', (error as any)?.message || 'Unknown error');
+            console.log('[AuthHelper] Token pre-refresh error:', (error as any)?.message || 'Unknown error');
             return false;
         }
     }
@@ -441,7 +441,7 @@ export class AuthHelper {
      * Start token pre-refresh monitoring
      */
     static startTokenMonitoring(): NodeJS.Timeout {
-        console.log('🕐 Starting token monitoring...');
+        console.log('[AuthHelper] Starting token monitoring...');
 
         return setInterval(async () => {
             try {
@@ -450,7 +450,7 @@ export class AuthHelper {
                     await this.preRefreshTokenIfNeeded();
                 }
             } catch (error) {
-                console.error('❌ Token monitoring error:', error);
+                console.error('[AuthHelper] Token monitoring error:', error);
             }
         }, 60000); // Check every minute
     }
@@ -459,7 +459,7 @@ export class AuthHelper {
      * Stop token pre-refresh monitoring
      */
     static stopTokenMonitoring(intervalId: NodeJS.Timeout): void {
-        console.log('🛑 Stopping token monitoring...');
+        console.log('[AuthHelper] Stopping token monitoring...');
         clearInterval(intervalId);
     }
 }

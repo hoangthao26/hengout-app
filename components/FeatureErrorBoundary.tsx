@@ -58,7 +58,7 @@ export class FeatureErrorBoundary extends Component<FeatureErrorBoundaryProps, F
         // Notify parent component
         this.props.onError?.(appError);
 
-        console.log(`❌ Feature Error Boundary caught error in ${feature}:`, appError);
+        console.log(`[FeatureErrorBoundary] Feature Error Boundary caught error in ${feature}:`, appError);
     }
 
     handleRetry = () => {

@@ -136,7 +136,7 @@ class ChatSyncService {
                 // Delete conversations that are no longer in server response (user left/disbanded)
                 for (const currentConv of currentConversations) {
                     if (!serverConversationIds.has(currentConv.id)) {
-                        console.log(`🗑️ [ChatSyncService] Removing conversation ${currentConv.id} (no longer accessible)`);
+                        console.log(`[ChatSyncService] Removing conversation ${currentConv.id} (no longer accessible)`);
                         await databaseService.deleteConversation(currentConv.id);
                     }
                 }
@@ -152,7 +152,7 @@ class ChatSyncService {
                     await AuthHelper.logoutAndNavigate();
                     return;
                 } catch (logoutError) {
-                    console.error('❌ [ChatSyncService] Failed to logout:', logoutError);
+                    console.error('[ChatSyncService] Failed to logout:', logoutError);
                 }
             }
 

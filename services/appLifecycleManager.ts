@@ -13,7 +13,7 @@ class AppLifecycleManager {
     private readonly BACKGROUND_CLEANUP_THRESHOLD = 30 * 60 * 1000; // 30 minutes
     private readonly FOREGROUND_CLEANUP_DELAY = 5 * 1000; // 5 seconds
 
-    // 🛡️ PROTECTION: Debouncing to prevent race conditions
+    // PROTECTION: Debouncing to prevent race conditions
     private disconnectTimeout: NodeJS.Timeout | null = null;
     private reconnectTimeout: NodeJS.Timeout | null = null;
     private isDisconnecting = false;
@@ -24,7 +24,7 @@ class AppLifecycleManager {
      */
     initialize(): void {
         if (this.isInitialized) {
-            console.log('⚠️ [AppLifecycle] Already initialized');
+            console.log('[AppLifecycle] Already initialized');
             return;
         }
 
@@ -34,7 +34,7 @@ class AppLifecycleManager {
         this.appStateSubscription = AppState.addEventListener('change', this.handleAppStateChange);
 
         this.isInitialized = true;
-        console.log('✅ [AppLifecycle] App lifecycle manager initialized');
+        console.log('[AppLifecycle] App lifecycle manager initialized');
     }
 
     /**
@@ -92,32 +92,32 @@ class AppLifecycleManager {
         if (this.reconnectTimeout) {
             clearTimeout(this.reconnectTimeout);
             this.isReconnecting = false;
-            console.log('🧹 [AppLifecycle] Cleared pending reconnect');
+            console.log('[AppLifecycle] Cleared pending reconnect');
         }
 
         // Set debounced disconnect
         this.disconnectTimeout = setTimeout(async () => {
-            console.log('⏰ [AppLifecycle] Debounce timeout reached, starting disconnect...');
+            console.log('[AppLifecycle] Debounce timeout reached, starting disconnect...');
 
             if (this.isDisconnecting) {
-                console.log('⚠️ [AppLifecycle] Disconnect already in progress, skipping');
+                console.log('[AppLifecycle] Disconnect already in progress, skipping');
                 return;
             }
 
             this.isDisconnecting = true;
             try {
-                console.log('🔌 [AppLifecycle] Disconnecting WebSocket...');
+                console.log('[AppLifecycle] Disconnecting WebSocket...');
                 const { chatWebSocketManager } = await import('./chatWebSocketManager');
                 await chatWebSocketManager.disconnect();
-                console.log('✅ [AppLifecycle] WebSocket disconnected due to background');
+                console.log('[AppLifecycle] WebSocket disconnected due to background');
             } catch (error) {
-                console.error('❌ [AppLifecycle] Failed to disconnect WebSocket on background:', error);
+                console.error('[AppLifecycle] Failed to disconnect WebSocket on background:', error);
             } finally {
                 this.isDisconnecting = false;
             }
         }, 1000); // 1 second debounce
 
-        console.log('⏳ [AppLifecycle] Disconnect scheduled in 1000ms');
+        console.log('[AppLifecycle] Disconnect scheduled in 1000ms');
     }
 
     /**
@@ -129,27 +129,27 @@ class AppLifecycleManager {
         const backgroundDuration = Date.now() - this.backgroundTime;
         console.log(`[AppLifecycle] Background duration: ${Math.round(backgroundDuration / 1000)}s`);
 
-        // 🛡️ PROTECTION: Debounced reconnect to prevent race conditions
+        // PROTECTION: Debounced reconnect to prevent race conditions
         this.debouncedReconnect();
 
         // Trigger cleanup if app was in background for a long time
         if (backgroundDuration > this.BACKGROUND_CLEANUP_THRESHOLD) {
-            console.log('🧹 [AppLifecycle] App was in background for long time, triggering cleanup');
+            console.log('[AppLifecycle] App was in background for long time, triggering cleanup');
 
             // Delay cleanup to avoid blocking app startup
             setTimeout(() => {
                 conversationCleanupManager.cleanupInactiveConversations().catch(error => {
-                    console.error('❌ [AppLifecycle] Cleanup after foreground failed:', error);
+                    console.error('[AppLifecycle] Cleanup after foreground failed:', error);
                 });
             }, this.FOREGROUND_CLEANUP_DELAY);
         }
     }
 
     /**
-     * 🛡️ Debounced reconnect to prevent race conditions
+     * Debounced reconnect to prevent race conditions
      */
     private debouncedReconnect(): void {
-        console.log('🔄 [AppLifecycle] Starting debounced reconnect...');
+        console.log('[AppLifecycle] Starting debounced reconnect...');
 
         // Clear any pending disconnect
         if (this.disconnectTimeout) {
@@ -161,15 +161,15 @@ class AppLifecycleManager {
         // Clear any pending reconnect
         if (this.reconnectTimeout) {
             clearTimeout(this.reconnectTimeout);
-            console.log('🧹 [AppLifecycle] Cleared pending reconnect');
+            console.log('[AppLifecycle] Cleared pending reconnect');
         }
 
         // Set debounced reconnect
         this.reconnectTimeout = setTimeout(async () => {
-            console.log('⏰ [AppLifecycle] Debounce timeout reached, starting reconnect...');
+            console.log('[AppLifecycle] Debounce timeout reached, starting reconnect...');
 
             if (this.isReconnecting) {
-                console.log('⚠️ [AppLifecycle] Reconnect already in progress, skipping');
+                console.log('[AppLifecycle] Reconnect already in progress, skipping');
                 return;
             }
 
@@ -178,13 +178,13 @@ class AppLifecycleManager {
                 // OPTIMIZED: Reinitialize services when app comes to foreground (giống lúc mở app)
                 await this.reinitializeOnForeground();
             } catch (error) {
-                console.error('❌ [AppLifecycle] Reconnect failed:', error);
+                console.error('[AppLifecycle] Reconnect failed:', error);
             } finally {
                 this.isReconnecting = false;
             }
         }, 500); // 0.5 second debounce (faster than disconnect)
 
-        console.log('⏳ [AppLifecycle] Reconnect scheduled in 500ms');
+        console.log('[AppLifecycle] Reconnect scheduled in 500ms');
     }
 
     /**
@@ -192,52 +192,52 @@ class AppLifecycleManager {
      */
     private async reinitializeOnForeground(): Promise<void> {
         try {
-            console.log('🔄 [AppLifecycle] Reinitializing services on foreground...');
+            console.log('[AppLifecycle] Reinitializing services on foreground...');
 
             // 1. Check authentication
-            console.log('🔐 [AppLifecycle] Checking authentication...');
+            console.log('[AppLifecycle] Checking authentication...');
             const { AuthHelper } = await import('./authHelper');
             const isAuthenticated = await AuthHelper.isAuthenticated();
 
             if (!isAuthenticated) {
-                console.log('⚠️ [AppLifecycle] User not authenticated, skipping reinitialization');
+                console.log('[AppLifecycle] User not authenticated, skipping reinitialization');
                 return;
             }
-            console.log('✅ [AppLifecycle] User authenticated, proceeding...');
+            console.log('[AppLifecycle] User authenticated, proceeding...');
 
             // 2. Ensure WebSocket is connected (trigger reconnect if needed)
             const { chatWebSocketManager } = await import('./chatWebSocketManager');
             const isConnected = chatWebSocketManager.isConnected();
 
             if (!isConnected) {
-                console.log('🔌 [AppLifecycle] WebSocket disconnected, triggering reconnect...');
+                console.log('[AppLifecycle] WebSocket disconnected, triggering reconnect...');
                 try {
                     await chatWebSocketManager.connect();
-                    console.log('✅ [AppLifecycle] WebSocket connected successfully');
+                    console.log('[AppLifecycle] WebSocket connected successfully');
                 } catch (connectError) {
-                    console.error('❌ [AppLifecycle] Failed to connect WebSocket:', connectError);
+                    console.error('[AppLifecycle] Failed to connect WebSocket:', connectError);
                     // Continue anyway - WebSocket will auto-reconnect later
                 }
             } else {
-                console.log('✅ [AppLifecycle] WebSocket already connected');
+                console.log('[AppLifecycle] WebSocket already connected');
             }
 
             // 3. Sync conversations from server (giống preloadChatData)
-            console.log('🔄 [AppLifecycle] Syncing conversations from server...');
+            console.log('[AppLifecycle] Syncing conversations from server...');
             const { chatSyncService } = await import('./chatSyncService');
             await chatSyncService.syncConversations();
-            console.log('✅ [AppLifecycle] Conversations synced from server');
+            console.log('[AppLifecycle] Conversations synced from server');
 
             // 4. Get updated conversations
-            console.log('📋 [AppLifecycle] Getting conversations from database...');
+            console.log('[AppLifecycle] Getting conversations from database...');
             const conversations = await chatSyncService.getConversations();
-            console.log(`📋 [AppLifecycle] Found ${conversations.length} conversations`);
+            console.log(`[AppLifecycle] Found ${conversations.length} conversations`);
 
             if (conversations.length > 0) {
                 // 5. Ensure WebSocket is subscribed to ALL current conversations (including new ones)
                 const conversationIds = conversations.map(conversation => conversation.id);
-                console.log(`🔌 [AppLifecycle] Ensuring WebSocket subscription for ${conversationIds.length} conversations...`);
-                console.log(`🔌 [AppLifecycle] Conversation IDs: ${conversationIds.join(', ')}`);
+                console.log(`[AppLifecycle] Ensuring WebSocket subscription for ${conversationIds.length} conversations...`);
+                console.log(`[AppLifecycle] Conversation IDs: ${conversationIds.join(', ')}`);
 
                 // Get currently subscribed conversations
                 const subscribedIds = chatWebSocketManager.getSubscribedConversations();
@@ -247,22 +247,22 @@ class AppLifecycleManager {
                 const conversationsToSubscribe = conversationIds.filter(id => !subscribedSet.has(id));
 
                 if (conversationsToSubscribe.length > 0) {
-                    console.log(`🔌 [AppLifecycle] Found ${conversationsToSubscribe.length} new conversations to subscribe`);
+                    console.log(`[AppLifecycle] Found ${conversationsToSubscribe.length} new conversations to subscribe`);
                     await chatWebSocketManager.subscribeToAllConversations(conversationsToSubscribe);
-                    console.log('✅ [AppLifecycle] Subscribed to new conversations');
+                    console.log('[AppLifecycle] Subscribed to new conversations');
                 } else {
-                    console.log('✅ [AppLifecycle] All conversations already subscribed');
+                    console.log('[AppLifecycle] All conversations already subscribed');
                 }
 
                 // 6. Update store with fresh data
-                console.log('💾 [AppLifecycle] Updating store with fresh data...');
+                console.log('[AppLifecycle] Updating store with fresh data...');
                 const { useChatStore } = await import('../store/chatStore');
                 const chatStore = useChatStore.getState();
                 chatStore.setConversations(conversations);
-                console.log('✅ [AppLifecycle] Store updated with fresh conversations');
+                console.log('[AppLifecycle] Store updated with fresh conversations');
 
                 // 7. Preload messages for top conversations (giống preloadChatData)
-                console.log('📨 [AppLifecycle] Preloading messages for top conversations...');
+                console.log('[AppLifecycle] Preloading messages for top conversations...');
                 const topConversations = conversations.slice(0, 15); // Top 15 conversations
 
                 const preloadPromises = topConversations.map(async (conversation) => {
@@ -279,27 +279,27 @@ class AppLifecycleManager {
                             chatStore.setMessageSnapshot(conversation.id, recentMessages.slice(0, 25));
                         }
                     } catch (preloadError) {
-                        console.error(`❌ [AppLifecycle] Failed to preload messages for ${conversation.id}:`, preloadError);
+                        console.error(`[AppLifecycle] Failed to preload messages for ${conversation.id}:`, preloadError);
                     }
                 });
 
                 // Wait for all preloading to complete
                 await Promise.all(preloadPromises);
-                console.log('✅ [AppLifecycle] Messages preloaded for top conversations');
+                console.log('[AppLifecycle] Messages preloaded for top conversations');
 
                 // 8. Trigger smart sync for all conversations (giống initializeWebSocket)
                 console.log('[AppLifecycle] Triggering smart sync for all conversations...');
                 const { smartSyncManager } = await import('./smartSyncManager');
                 smartSyncManager.scheduleBatchSync(conversationIds, 'app_foreground');
-                console.log('✅ [AppLifecycle] Smart sync scheduled');
+                console.log('[AppLifecycle] Smart sync scheduled');
 
                 console.log('[AppLifecycle] Services reinitialized on foreground successfully');
             } else {
-                console.log('ℹ️ [AppLifecycle] No conversations found, skipping subscription');
+                console.log('[AppLifecycle] No conversations found, skipping subscription');
             }
 
         } catch (error) {
-            console.error('❌ [AppLifecycle] Reinitialization on foreground failed:', error);
+            console.error('[AppLifecycle] Reinitialization on foreground failed:', error);
         }
     }
 
@@ -307,11 +307,11 @@ class AppLifecycleManager {
      * Handle memory warning
      */
     handleMemoryWarning(): void {
-        console.log('🚨 [AppLifecycle] Memory warning received');
+        console.log('[AppLifecycle] Memory warning received');
 
         // Trigger emergency cleanup
         conversationCleanupManager.emergencyCleanup().catch(error => {
-            console.error('❌ [AppLifecycle] Emergency cleanup failed:', error);
+            console.error('[AppLifecycle] Emergency cleanup failed:', error);
         });
     }
 
@@ -333,9 +333,9 @@ class AppLifecycleManager {
             return;
         }
 
-        console.log('🧹 [AppLifecycle] Cleaning up app lifecycle manager');
+        console.log('[AppLifecycle] Cleaning up app lifecycle manager');
 
-        // 🛡️ PROTECTION: Clear all timeouts
+        // PROTECTION: Clear all timeouts
         if (this.disconnectTimeout) {
             clearTimeout(this.disconnectTimeout);
             this.disconnectTimeout = null;
@@ -360,7 +360,7 @@ class AppLifecycleManager {
         this.appState = 'active';
         this.backgroundTime = 0;
 
-        console.log('✅ [AppLifecycle] App lifecycle manager cleaned up');
+        console.log('[AppLifecycle] App lifecycle manager cleaned up');
     }
 
     /**

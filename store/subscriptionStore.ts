@@ -251,7 +251,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
                 groupStatusLoading: { ...state.groupStatusLoading, [groupId]: false }
             }));
         } catch (error: any) {
-            console.error(`❌ [SubscriptionStore] Failed to fetch group status for ${groupId}:`, error?.message || error);
+            console.error(`[SubscriptionStore] Failed to fetch group status for ${groupId}:`, error?.message || error);
             set(state => ({
                 groupStatusError: { ...state.groupStatusError, [groupId]: error.message || 'Failed to fetch group status' },
                 groupStatusLoading: { ...state.groupStatusLoading, [groupId]: false }

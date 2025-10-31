@@ -29,7 +29,7 @@ class ChatService {
         } catch (error: any) {
             // DEFENSIVE: Don't throw error if user logged out
             if (error.message?.includes('User logged out')) {
-                console.log('ℹ️ [ChatService] User logged out, skipping conversation fetch');
+                console.log('[ChatService] User logged out, skipping conversation fetch');
                 return { status: 'success', data: [], message: 'User logged out' };
             }
             console.error('Failed to get conversations:', error);

@@ -25,11 +25,11 @@ class RequestManager {
      * Initialize request manager (call when user logs in)
      */
     initialize(): void {
-        console.log('🚀 [RequestManager] Initializing...');
+        console.log('[RequestManager] Initializing...');
         this.cancelTokenSource = axios.CancelToken.source();
         this.activeRequests.clear();
         this.isShuttingDown = false;
-        console.log('✅ [RequestManager] Initialized');
+        console.log('[RequestManager] Initialized');
     }
 
     /**
@@ -37,7 +37,7 @@ class RequestManager {
      */
     getCancelToken() {
         if (!this.cancelTokenSource) {
-            console.warn('⚠️ [RequestManager] No cancel token available, creating new one');
+            console.warn('[RequestManager] No cancel token available, creating new one');
             this.cancelTokenSource = axios.CancelToken.source();
         }
         return this.cancelTokenSource.token;
@@ -48,11 +48,11 @@ class RequestManager {
      */
     trackRequest(requestId: string): void {
         if (this.isShuttingDown) {
-            console.log('🚫 [RequestManager] Shutting down, rejecting new request:', requestId);
+            console.log('[RequestManager] Shutting down, rejecting new request:', requestId);
             throw new Error('Request manager is shutting down');
         }
         this.activeRequests.add(requestId);
-        console.log(`📊 [RequestManager] Tracking request: ${requestId} (${this.activeRequests.size} active)`);
+        console.log(`[RequestManager] Tracking request: ${requestId} (${this.activeRequests.size} active)`);
     }
 
     /**
@@ -60,19 +60,19 @@ class RequestManager {
      */
     untrackRequest(requestId: string): void {
         this.activeRequests.delete(requestId);
-        console.log(`📊 [RequestManager] Untracked request: ${requestId} (${this.activeRequests.size} active)`);
+        console.log(`[RequestManager] Untracked request: ${requestId} (${this.activeRequests.size} active)`);
     }
 
     /**
      * Cancel all pending requests (call when user logs out)
      */
     cancelAllRequests(): void {
-        console.log('🚫 [RequestManager] Cancelling all requests...');
+        console.log('[RequestManager] Cancelling all requests...');
         this.isShuttingDown = true;
 
         if (this.cancelTokenSource) {
             this.cancelTokenSource.cancel('User logged out');
-            console.log(`✅ [RequestManager] Cancelled ${this.activeRequests.size} pending requests`);
+            console.log(`[RequestManager] Cancelled ${this.activeRequests.size} pending requests`);
         }
 
         this.activeRequests.clear();
@@ -99,7 +99,7 @@ class RequestManager {
     reset(): void {
         this.cancelAllRequests();
         this.isShuttingDown = false;
-        console.log('🔄 [RequestManager] Reset');
+        console.log('[RequestManager] Reset');
     }
 }
 

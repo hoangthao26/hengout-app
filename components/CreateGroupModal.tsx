@@ -152,19 +152,19 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             });
 
             if (response.status === 'success') {
-                // ✅ Thêm conversation mới vào store ngay lập tức
+                // Thêm conversation mới vào store ngay lập tức
                 addConversation(response.data);
 
-                // ✅ Save conversation vào database ngay để hiển thị trong list
+                // Save conversation vào database ngay để hiển thị trong list
                 if (chatSyncInitialized) {
                     try {
                         // Import databaseService to save directly
                         const { databaseService } = await import('../services/databaseService');
                         await databaseService.initialize();
                         await databaseService.saveConversation(response.data);
-                        console.log('✅ [CreateGroupModal] Conversation saved to database');
+                        console.log('[CreateGroupModal] Conversation saved to database');
                     } catch (dbError) {
-                        console.error('⚠️ [CreateGroupModal] Failed to save conversation to database:', dbError);
+                        console.error('[CreateGroupModal] Failed to save conversation to database:', dbError);
                         // Don't block user, just log error - sync will handle it later
                     }
                 }

@@ -239,7 +239,7 @@ export default function ActivityResultModal({
                             {/* Statistics */}
                             <View style={[styles.section, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}>
                                 <Text style={[styles.sectionTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                                    📊 Thống kê
+                                    Thống kê
                                 </Text>
                                 <View style={styles.statsContainer}>
                                     <View style={styles.statItem}>
@@ -274,7 +274,7 @@ export default function ActivityResultModal({
                             {/* All Suggestions */}
                             <View style={[styles.section, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}>
                                 <Text style={[styles.sectionTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                                    📋 Tất cả đề xuất
+                                    Tất cả đề xuất
                                 </Text>
                                 {resultData.suggestions.map((suggestion) => renderLocationCard(suggestion))}
                             </View>

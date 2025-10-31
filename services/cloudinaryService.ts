@@ -22,14 +22,14 @@ export class CloudinaryService {
         scale: number;
     }): Promise<string> {
         try {
-            console.log('☁️ Starting Cloudinary upload for:', imageUri);
+            console.log('[CloudinaryService] Starting Cloudinary upload for:', imageUri);
 
             // Create FormData for upload with timestamp
             const timestamp = Date.now();
             const fileName = `avatar_${timestamp}.jpg`;
 
-            console.log('📁 Uploading file with name:', fileName);
-            console.log('🆔 Public ID:', `avatar_${timestamp}`);
+            console.log('[CloudinaryService] Uploading file with name:', fileName);
+            console.log('[CloudinaryService] Public ID:', `avatar_${timestamp}`);
 
             const formData = new FormData();
             formData.append('file', {
@@ -42,7 +42,7 @@ export class CloudinaryService {
             formData.append('public_id', `avatar_${timestamp}`);
             formData.append('tags', 'avatar,profile');
 
-            console.log('☁️ Uploading to Cloudinary...');
+            console.log('[CloudinaryService] Uploading to Cloudinary...');
 
             const response = await fetch(this.UPLOAD_URL, {
                 method: 'POST',
@@ -54,25 +54,25 @@ export class CloudinaryService {
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('❌ Cloudinary response error:', errorText);
+                console.error('[CloudinaryService] Cloudinary response error:', errorText);
                 throw new Error(`Upload failed: ${response.status} ${response.statusText} - ${errorText}`);
             }
 
             const result = await response.json();
-            console.log('☁️ Upload successful:', result);
+            console.log('[CloudinaryService] Upload successful:', result);
 
             if (result.secure_url) {
                 // Apply only quality and format optimization, no cropping
                 // q_80: quality 80%, f_auto: format auto
                 const optimizedUrl = result.secure_url.replace('/upload/', '/upload/q_80,f_auto/');
-                console.log('☁️ Original URL:', result.secure_url);
-                console.log('☁️ Optimized URL:', optimizedUrl);
+                console.log('[CloudinaryService] Original URL:', result.secure_url);
+                console.log('[CloudinaryService] Optimized URL:', optimizedUrl);
                 return optimizedUrl;
             } else {
                 throw new Error('No secure_url in response');
             }
         } catch (error: any) {
-            console.error('❌ Cloudinary upload failed:', error);
+            console.error('[CloudinaryService] Cloudinary upload failed:', error);
             throw new Error(`Upload failed: ${error.message}`);
         }
     }

@@ -34,14 +34,14 @@ export default function RootLayout() {
     // Handle deep linking for payment redirects (PaymentScreen handles payment deep links)
     React.useEffect(() => {
         const handleDeepLink = async (url: string) => {
-            console.log('🔗 [DeepLink] Received URL:', url);
+            console.log('[DeepLink] Received URL:', url);
 
             // Payment deep links are handled by dedicated pages:
             // - hengout://payment-success -> payment-success.tsx
             // - hengout://payment-cancel -> payment-cancel.tsx
             // - hengout://payment-callback -> payment-callback.tsx
             // No need to handle them here as they have their own routes
-            console.log('🔗 [DeepLink] Deep link received, letting router handle it');
+            console.log('[DeepLink] Deep link received, letting router handle it');
         };
 
         // Handle initial URL if app was opened via deep link
@@ -72,7 +72,7 @@ export default function RootLayout() {
                 appLifecycleManager.initialize();
                 console.log('[RootLayout] App lifecycle manager initialized');
             } catch (error) {
-                console.error('❌ [RootLayout] Failed to initialize app lifecycle manager:', error);
+                console.error('[RootLayout] Failed to initialize app lifecycle manager:', error);
             }
         };
 
@@ -81,9 +81,9 @@ export default function RootLayout() {
             try {
                 const { notificationManager } = await import('../services/notificationManager');
                 // Note: Toast context and navigation will be initialized later when available
-                console.log('🔔 [RootLayout] Notification manager imported');
+                console.log('[RootLayout] Notification manager imported');
             } catch (error) {
-                console.error('❌ [RootLayout] Failed to import notification manager:', error);
+                console.error('[RootLayout] Failed to import notification manager:', error);
             }
         };
 
@@ -96,7 +96,7 @@ export default function RootLayout() {
                 try {
                     const isAuthenticated = await AuthHelper.isAuthenticated();
                     if (!isAuthenticated) {
-                        console.log('🔐 User not authenticated, redirecting to login');
+                        console.log('[RootLayout] User not authenticated, redirecting to login');
                         // AuthHelper will handle navigation automatically
                     } else {
                         // Start token monitoring if user is authenticated
@@ -104,11 +104,11 @@ export default function RootLayout() {
                             tokenMonitoringInterval = AuthHelper.startTokenMonitoring();
                         }
 
-                        // ✅ OPTIMIZED: WebSocket reconnection is now handled by appLifecycleManager
+                        // OPTIMIZED: WebSocket reconnection is now handled by appLifecycleManager
                         // No need to handle WebSocket here to avoid conflicts
                     }
                 } catch (error) {
-                    console.error('❌ Auth check failed:', error);
+                    console.error('[RootLayout] Auth check failed:', error);
                     // Report auth error to global handler
                     globalErrorHandler.reportError(
                         error as Error,
@@ -130,7 +130,7 @@ export default function RootLayout() {
                     tokenMonitoringInterval = null;
                 }
 
-                // ✅ OPTIMIZED: WebSocket disconnection is now handled by appLifecycleManager
+                // OPTIMIZED: WebSocket disconnection is now handled by appLifecycleManager
                 // No need to handle WebSocket here to avoid conflicts
             }
         };
@@ -145,7 +145,7 @@ export default function RootLayout() {
                     tokenMonitoringInterval = AuthHelper.startTokenMonitoring();
                 }
             } catch (error) {
-                console.error('❌ Failed to initialize token monitoring:', error);
+                console.error('[RootLayout] Failed to initialize token monitoring:', error);
                 // Report initialization error
                 globalErrorHandler.reportError(
                     error as Error,
@@ -180,7 +180,7 @@ export default function RootLayout() {
                     enableRecovery={true}
                     maxRetries={3}
                     onError={(error) => {
-                        console.error('🚨 Root ErrorBoundary caught error:', error);
+                        console.error('[RootLayout] Root ErrorBoundary caught error:', error);
                         globalErrorHandler.reportError(
                             error.originalError || new Error(error.message),
                             error.category,

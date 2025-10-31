@@ -173,7 +173,7 @@ export default function OnboardingWizardScreen() {
     const handleComplete = async () => {
         setLoading(true);
         try {
-            console.log('🚀 Completing onboarding...', data);
+            console.log('[OnboardingWizard] Completing onboarding...', data);
 
             const profileData: InitializeProfileRequest = {
                 displayName: data.displayName,
@@ -219,7 +219,7 @@ export default function OnboardingWizardScreen() {
             NavigationService.secureNavigateToDiscover();
             }
         } catch (error: any) {
-            console.error('❌ Onboarding failed:', error);
+            console.error('[OnboardingWizard] Onboarding failed:', error);
             showError(error.message || 'Không thể hoàn tất thiết lập hồ sơ',);
         } finally {
             setLoading(false);

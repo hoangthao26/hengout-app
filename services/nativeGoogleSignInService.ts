@@ -43,9 +43,9 @@ class NativeGoogleSignInService {
             });
 
             this.isConfigured = true;
-            console.log('✅ Google Sign-In configured successfully');
+            console.log('[NativeGoogleSignIn] Google Sign-In configured successfully');
         } catch (error) {
-            console.error('❌ Google Sign-In configuration failed:', error);
+            console.error('[NativeGoogleSignIn] Google Sign-In configuration failed:', error);
         }
     }
 
@@ -61,7 +61,7 @@ class NativeGoogleSignInService {
             // Sign in
             const userInfo = await GoogleSignin.signIn();
 
-            console.log('✅ Google Sign-In successful:', userInfo);
+            console.log('[NativeGoogleSignIn] Google Sign-In successful:', userInfo);
 
             // Transform to our interface
             const googleUser: GoogleUser = {
@@ -89,7 +89,7 @@ class NativeGoogleSignInService {
             }
 
         } catch (error: any) {
-            console.error('❌ Google Sign-In error:', error);
+            console.error('[NativeGoogleSignIn] Google Sign-In error:', error);
 
             if (error.code === statusCodes.SIGN_IN_CANCELLED) {
                 return {
@@ -118,10 +118,10 @@ class NativeGoogleSignInService {
     async signOut(): Promise<boolean> {
         try {
             await GoogleSignin.signOut();
-            console.log('✅ Google Sign-Out successful');
+            console.log('[NativeGoogleSignIn] Google Sign-Out successful');
             return true;
         } catch (error) {
-            console.error('❌ Google Sign-Out error:', error);
+            console.error('[NativeGoogleSignIn] Google Sign-Out error:', error);
             return false;
         }
     }
@@ -131,7 +131,7 @@ class NativeGoogleSignInService {
             const userInfo = await GoogleSignin.getCurrentUser();
             return userInfo !== null;
         } catch (error) {
-            console.error('❌ Check sign-in status error:', error);
+            console.error('[NativeGoogleSignIn] Check sign-in status error:', error);
             return false;
         }
     }
@@ -153,14 +153,14 @@ class NativeGoogleSignInService {
 
             return null;
         } catch (error) {
-            console.error('❌ Get current user error:', error);
+            console.error('[NativeGoogleSignIn] Get current user error:', error);
             return null;
         }
     }
 
     private async authenticateWithBackend(user: GoogleUser): Promise<GoogleSignInResult> {
         try {
-            console.log('🔄 Authenticating with backend...');
+            console.log('[NativeGoogleSignIn] Authenticating with backend...');
 
             // TODO: Replace with your actual backend endpoint
             const response = await fetch('YOUR_BACKEND_GOOGLE_AUTH_ENDPOINT', {
@@ -188,7 +188,7 @@ class NativeGoogleSignInService {
                 data: backendData
             };
         } catch (error: any) {
-            console.error('❌ Backend authentication error:', error);
+            console.error('[NativeGoogleSignIn] Backend authentication error:', error);
             return {
                 success: false,
                 error: error.message || 'Backend authentication failed'

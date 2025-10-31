@@ -25,9 +25,9 @@ class SessionService {
             const request: RefreshTokenRequest = { refreshToken };
             const endpoint = buildEndpointUrl('AUTH_SERVICE', 'REFRESH_TOKEN');
 
-            // 🔥 ENTERPRISE BEST PRACTICE: No Authorization header needed
+            // ENTERPRISE BEST PRACTICE: No Authorization header needed
             // Backend supports refresh token rotation independently
-            console.log('🔄 [SessionService] Refreshing token with rotation:', {
+            console.log('[SessionService] Refreshing token with rotation:', {
                 hasRefreshToken: !!refreshToken,
                 refreshTokenLength: refreshToken?.length || 0,
                 endpoint: endpoint,
@@ -39,7 +39,7 @@ class SessionService {
             return response.data;
         } catch (error: any) {
             // Silent log for refresh token failure - don't show error to user
-            console.log('🔄 [SessionService] Refresh token failed:', error?.message || 'Unknown error');
+            console.log('[SessionService] Refresh token failed:', error?.message || 'Unknown error');
             throw error;
         }
     }
@@ -53,18 +53,18 @@ class SessionService {
             const request: LogoutRequest = { refreshToken };
             const endpoint = buildEndpointUrl('AUTH_SERVICE', 'LOGOUT');
 
-            console.log('🚪 [SessionService] Logging out user:', {
+            console.log('[SessionService] Logging out user:', {
                 hasRefreshToken: !!refreshToken,
                 refreshTokenLength: refreshToken?.length || 0,
                 endpoint: endpoint,
                 usingAxiosInstance: true,
             });
 
-            // 🚀 USE AXIOS INSTANCE: Include access token in header for logout
+            // USE AXIOS INSTANCE: Include access token in header for logout
             const response = await axiosInstance.post<LogoutResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.error('❌ [SessionService] Failed to logout user:', error);
+            console.error('[SessionService] Failed to logout user:', error);
             throw error;
         }
     }

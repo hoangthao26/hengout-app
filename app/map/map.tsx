@@ -15,7 +15,7 @@ export default function MapScreen() {
 
     const handleLocationSelect = (location: { lat: number; lng: number }) => {
         setSelectedLocation(location);
-        console.log('📍 Selected location:', location);
+        console.log('[Map] Selected location:', location);
     };
 
     const handleGetCurrentLocation = async () => {

@@ -87,9 +87,9 @@ const SaveLocationModal: React.FC<SaveLocationModalProps> = ({
 
             if (response.status === 'success') {
                 setFolders(response.data);
-                console.log('✅ [SaveLocationModal] Successfully loaded folders');
+                console.log('[SaveLocationModal] Successfully loaded folders');
             } else {
-                console.log('❌ [SaveLocationModal] Failed to load folders:', response.message);
+                console.log('[SaveLocationModal] Failed to load folders:', response.message);
                 showError('Không thể tải danh sách collections');
             }
         } catch (error) {
@@ -125,7 +125,7 @@ const SaveLocationModal: React.FC<SaveLocationModalProps> = ({
     const handleSaveToFolder = async (folder: LocationFolder) => {
         if (!location) return;
 
-        console.log('💾 [SaveLocationModal] Starting save location to folder:', {
+        console.log('[SaveLocationModal] Starting save location to folder:', {
             locationId: location.id,
             locationName: location.name,
             folderId: folder.id,
@@ -139,7 +139,7 @@ const SaveLocationModal: React.FC<SaveLocationModalProps> = ({
                 locationId: location.id
             };
 
-            console.log('📤 [SaveLocationModal] API Request:', {
+            console.log('[SaveLocationModal] API Request:', {
                 endpoint: `POST /folder/${folder.id}/locations`,
                 requestData,
                 folderId: folder.id,
@@ -148,7 +148,7 @@ const SaveLocationModal: React.FC<SaveLocationModalProps> = ({
 
             const response = await locationFolderService.addLocationToFolder(folder.id, requestData);
 
-            console.log('📥 [SaveLocationModal] API Response:', {
+            console.log('[SaveLocationModal] API Response:', {
                 status: response.status,
                 data: response.data,
                 message: response.message,
@@ -157,14 +157,14 @@ const SaveLocationModal: React.FC<SaveLocationModalProps> = ({
             });
 
             if (response.status === 'success') {
-                console.log('✅ [SaveLocationModal] Successfully saved location to folder');
+                console.log('[SaveLocationModal] Successfully saved location to folder');
                 showSuccess(`Đã lưu "${location.name}" vào "${folder.name}"`);
                 // Chỉ gọi onSuccess callback, không gọi handleClose để không tắt LocationDetailModal
                 onSuccess?.();
                 // Chỉ đóng SaveLocationModal
                 handleClose();
             } else {
-                console.log('❌ [SaveLocationModal] API returned error status:', response.message);
+                console.log('[SaveLocationModal] API returned error status:', response.message);
                 showError(response.message || 'Không thể lưu địa điểm');
             }
         } catch (error: any) {

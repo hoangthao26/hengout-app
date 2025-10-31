@@ -19,7 +19,7 @@ export default function SplashScreen() {
   const {
     isAppReady,
     isServicesReady,
-    isChatDataPreloaded // ✅ Thêm chat data preloaded status
+    isChatDataPreloaded // Thêm chat data preloaded status
   } = useAppStore();
 
   // GPS Location state
@@ -41,20 +41,20 @@ export default function SplashScreen() {
         // Initialize all services (Database, Location, Chat Services)
         await initializationService.initialize();
 
-        console.log('✅ App initialized');
+        console.log('[SplashScreen] App initialized');
 
         // MVP: centralize lightweight user init on app start
         initSvc.initOnAppStart();
       } catch (error) {
-        console.error('❌ [SplashScreen] App initialization failed:', error);
+        console.error('[SplashScreen] App initialization failed:', error);
         // Continue with app - some services might still work
       }
     };
 
     initializeApp();
-  }, []); // ✅ Empty dependency array để chỉ chạy 1 lần
+  }, []); // Empty dependency array để chỉ chạy 1 lần
 
-  // 🗺️ ENTERPRISE FEATURE: Get GPS location after services are ready
+  // ENTERPRISE FEATURE: Get GPS location after services are ready
   useEffect(() => {
     const getLocationData = async () => {
       // Only get location if services are ready
@@ -73,7 +73,7 @@ export default function SplashScreen() {
         });
 
         if (location) {
-          console.log('📍 [Splash] Smart location obtained:', {
+          console.log('[Splash] Smart location obtained:', {
             lat: location.latitude,
             lng: location.longitude,
             accuracy: location.accuracy,
@@ -86,12 +86,12 @@ export default function SplashScreen() {
             accuracy: location.accuracy || 0
           });
         } else {
-          console.log('📍 [Splash] No location available, will let user choose later');
+          console.log('[Splash] No location available, will let user choose later');
           // Don't set fallback location - let user choose in discover screen
           setLocationData(null);
         }
       } catch (error) {
-        console.log('📍 [Splash] Location error:', error);
+        console.log('[Splash] Location error:', error);
         // Don't set fallback location - let user choose in discover screen
         setLocationData(null);
       }
@@ -119,7 +119,7 @@ export default function SplashScreen() {
   useEffect(() => {
     // State change monitoring (reduced logging)
 
-    // ✅ ĐỢI CHAT DATA PRELOADED HOÀN THÀNH
+    // ĐỢI CHAT DATA PRELOADED HOÀN THÀNH
     if (!isLoading && isAppReady && isChatDataPreloaded && locationData) {
       // Navigate immediately when both auth and GPS are ready
       const navigate = () => {
@@ -130,11 +130,11 @@ export default function SplashScreen() {
         }).start(() => {
           // Navigate based on authentication state
           if (isAuthenticated) {
-            console.log('✅ Navigating to main app');
+            console.log('[SplashScreen] Navigating to main app');
             // Pass location data to Discover screen
             NavigationService.secureNavigateToDiscover(locationData);
           } else {
-            console.log('❌ Navigating to login');
+            console.log('[SplashScreen] Navigating to login');
             NavigationService.goToLogin();
           }
         });
@@ -145,7 +145,7 @@ export default function SplashScreen() {
 
       return () => clearTimeout(timer);
     }
-  }, [isLoading, isAuthenticated, isAppReady, isChatDataPreloaded, locationData, router, fadeAnim]); // ✅ Thêm isChatDataPreloaded vào dependencies
+  }, [isLoading, isAuthenticated, isAppReady, isChatDataPreloaded, locationData, router, fadeAnim]); // Thêm isChatDataPreloaded vào dependencies
 
   return (
     <Animated.View

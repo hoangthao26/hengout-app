@@ -96,7 +96,7 @@ const EditGroupModal: React.FC<EditGroupModalProps> = ({
     // Ensure square image
     const ensureSquareImage = useCallback(async (imageUri: string): Promise<string> => {
         try {
-            console.log('🔧 Ensuring square image for:', imageUri);
+            console.log('[EditGroupModal] Ensuring square image for:', imageUri);
 
             // Get image info first
             const imageInfo = await ImageManipulator.manipulateAsync(
@@ -105,7 +105,7 @@ const EditGroupModal: React.FC<EditGroupModalProps> = ({
                 { format: ImageManipulator.SaveFormat.JPEG }
             );
 
-            console.log('🔧 Original dimensions:', `${imageInfo.width}x${imageInfo.height}`);
+            console.log('[EditGroupModal] Original dimensions:', `${imageInfo.width}x${imageInfo.height}`);
 
             // Target size for all avatars
             const TARGET_SIZE = 1024;
@@ -118,7 +118,7 @@ const EditGroupModal: React.FC<EditGroupModalProps> = ({
                 const x = (imageInfo.width - size) / 2;
                 const y = (imageInfo.height - size) / 2;
 
-                console.log('🔧 Cropping to square:', `${size}x${size} from (${x}, ${y})`);
+                console.log('[EditGroupModal] Cropping to square:', `${size}x${size} from (${x}, ${y})`);
 
                 manipulations.push({
                     crop: {
@@ -131,7 +131,7 @@ const EditGroupModal: React.FC<EditGroupModalProps> = ({
             }
 
             // Always resize to target size for consistency
-            console.log('🔧 Resizing to standard size:', `${TARGET_SIZE}x${TARGET_SIZE}`);
+            console.log('[EditGroupModal] Resizing to standard size:', `${TARGET_SIZE}x${TARGET_SIZE}`);
             manipulations.push({
                 resize: {
                     width: TARGET_SIZE,
@@ -149,10 +149,10 @@ const EditGroupModal: React.FC<EditGroupModalProps> = ({
                 }
             );
 
-            console.log('🔧 Final dimensions:', `${processedImage.width}x${processedImage.height}`);
+            console.log('[EditGroupModal] Final dimensions:', `${processedImage.width}x${processedImage.height}`);
             return processedImage.uri;
         } catch (error) {
-            console.error('❌ Error ensuring square image:', error);
+            console.error('[EditGroupModal] Error ensuring square image:', error);
             // Return original if manipulation fails
             return imageUri;
         }
@@ -161,29 +161,29 @@ const EditGroupModal: React.FC<EditGroupModalProps> = ({
     // Pick image from gallery
     const pickImageFromGallery = useCallback(async () => {
         try {
-            console.log('📸 Starting gallery picker...');
+            console.log('[EditGroupModal] Starting gallery picker...');
 
             // Check current permission status first
             const { status: currentStatus } = await ImagePicker.getMediaLibraryPermissionsAsync();
-            console.log('📸 Current permission status:', currentStatus);
+            console.log('[EditGroupModal] Current permission status:', currentStatus);
 
             let finalStatus = currentStatus;
 
             // Request permission if not already granted
             if (currentStatus !== 'granted') {
-                console.log('📸 Requesting gallery permissions...');
+                console.log('[EditGroupModal] Requesting gallery permissions...');
                 const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
                 finalStatus = status;
-                console.log('📸 Permission request result:', status);
+                console.log('[EditGroupModal] Permission request result:', status);
             }
 
             if (finalStatus !== 'granted') {
-                console.log('❌ Permission denied');
+                console.log('[EditGroupModal] Permission denied');
                 showError('Quyền truy cập bị từ chối', 'Vui lòng cấp quyền truy cập thư viện ảnh trong Cài đặt.');
                 return;
             }
 
-            console.log('📸 Opening image library...');
+            console.log('[EditGroupModal] Opening image library...');
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ['images'],
                 quality: 1.0, // Maximum quality for better crop results
@@ -196,22 +196,22 @@ const EditGroupModal: React.FC<EditGroupModalProps> = ({
                 presentationStyle: ImagePicker.UIImagePickerPresentationStyle.AUTOMATIC,
             });
 
-            console.log('📸 Full result:', JSON.stringify(result, null, 2));
+            console.log('[EditGroupModal] Full result:', JSON.stringify(result, null, 2));
 
             if (!result.canceled && result.assets && result.assets.length > 0) {
                 const asset = result.assets[0];
-                console.log('📸 Image selected:', asset.uri);
-                console.log('📸 Image dimensions:', `${asset.width}x${asset.height}`);
-                console.log('📸 Image type:', asset.type);
+                console.log('[EditGroupModal] Image selected:', asset.uri);
+                console.log('[EditGroupModal] Image dimensions:', `${asset.width}x${asset.height}`);
+                console.log('[EditGroupModal] Image type:', asset.type);
 
                 // Process and set image
                 await uploadImage(asset.uri);
             } else {
-                console.log('📸 Image picker canceled or no assets');
+                console.log('[EditGroupModal] Image picker canceled or no assets');
             }
         } catch (error: any) {
-            console.error('❌ Error picking image:', error);
-            console.error('❌ Error stack:', error.stack);
+            console.error('[EditGroupModal] Error picking image:', error);
+            console.error('[EditGroupModal] Error stack:', error.stack);
             showError('Lỗi chọn ảnh', `Không thể chọn ảnh: ${error.message}`);
         }
     }, [showError]);
@@ -219,29 +219,29 @@ const EditGroupModal: React.FC<EditGroupModalProps> = ({
     // Take photo with camera
     const takePhoto = useCallback(async () => {
         try {
-            console.log('📷 Starting camera...');
+            console.log('[EditGroupModal] Starting camera...');
 
             // Check current permission status first
             const { status: currentStatus } = await ImagePicker.getCameraPermissionsAsync();
-            console.log('📷 Current permission status:', currentStatus);
+            console.log('[EditGroupModal] Current permission status:', currentStatus);
 
             let finalStatus = currentStatus;
 
             // Request permission if not already granted
             if (currentStatus !== 'granted') {
-                console.log('📷 Requesting camera permissions...');
+                console.log('[EditGroupModal] Requesting camera permissions...');
                 const { status } = await ImagePicker.requestCameraPermissionsAsync();
                 finalStatus = status;
-                console.log('📷 Permission request result:', status);
+                console.log('[EditGroupModal] Permission request result:', status);
             }
 
             if (finalStatus !== 'granted') {
-                console.log('❌ Permission denied');
+                console.log('[EditGroupModal] Permission denied');
                 showError('Quyền truy cập bị từ chối', 'Vui lòng cấp quyền truy cập camera trong Cài đặt.');
                 return;
             }
 
-            console.log('📷 Opening camera...');
+            console.log('[EditGroupModal] Opening camera...');
             const result = await ImagePicker.launchCameraAsync({
                 mediaTypes: ['images'],
                 quality: 1.0, // Maximum quality for better crop results
@@ -252,22 +252,22 @@ const EditGroupModal: React.FC<EditGroupModalProps> = ({
                 presentationStyle: ImagePicker.UIImagePickerPresentationStyle.AUTOMATIC,
             });
 
-            console.log('📷 Full result:', JSON.stringify(result, null, 2));
+            console.log('[EditGroupModal] Full result:', JSON.stringify(result, null, 2));
 
             if (!result.canceled && result.assets && result.assets.length > 0) {
                 const asset = result.assets[0];
-                console.log('📷 Photo taken:', asset.uri);
-                console.log('📷 Photo dimensions:', `${asset.width}x${asset.height}`);
-                console.log('📷 Photo type:', asset.type);
+                console.log('[EditGroupModal] Photo taken:', asset.uri);
+                console.log('[EditGroupModal] Photo dimensions:', `${asset.width}x${asset.height}`);
+                console.log('[EditGroupModal] Photo type:', asset.type);
 
                 // Process and set image
                 await uploadImage(asset.uri);
             } else {
-                console.log('📷 Camera canceled or no assets');
+                console.log('[EditGroupModal] Camera canceled or no assets');
             }
         } catch (error: any) {
-            console.error('❌ Error taking photo:', error);
-            console.error('❌ Error stack:', error.stack);
+            console.error('[EditGroupModal] Error taking photo:', error);
+            console.error('[EditGroupModal] Error stack:', error.stack);
             showError('Lỗi chụp ảnh', `Không thể chụp ảnh: ${error.message}`);
         }
     }, [showError]);
@@ -275,22 +275,22 @@ const EditGroupModal: React.FC<EditGroupModalProps> = ({
     // Upload image to cloudinary
     const uploadImage = useCallback(async (imageUri: string) => {
         try {
-            console.log('☁️ Starting image upload for:', imageUri);
+            console.log('[EditGroupModal] Starting image upload for:', imageUri);
             setUploadingAvatar(true);
 
             // Ensure image is square before upload
             const squareImageUri = await ensureSquareImage(imageUri);
-            console.log('☁️ Using square image for upload:', squareImageUri);
+            console.log('[EditGroupModal] Using square image for upload:', squareImageUri);
 
             // Upload to cloudinary
             const avatarUrl = await CloudinaryService.uploadImage(squareImageUri);
-            console.log('☁️ Upload successful, URL:', avatarUrl);
+            console.log('[EditGroupModal] Upload successful, URL:', avatarUrl);
 
             // Set the new avatar URL
             setGroupAvatar(avatarUrl);
         } catch (error: any) {
-            console.error('❌ Failed to upload avatar:', error);
-            console.error('❌ Error details:', error.message);
+            console.error('[EditGroupModal] Failed to upload avatar:', error);
+            console.error('[EditGroupModal] Error details:', error.message);
             showError('Lỗi cập nhật ảnh đại diện', `Không thể cập nhật ảnh đại diện: ${error.message}`);
         } finally {
             setUploadingAvatar(false);

@@ -49,13 +49,13 @@ class SmartLocationService {
             useCache = true
         } = options;
 
-        console.log('📍 [SmartLocation] Getting current location...');
+        console.log('[SmartLocation] Getting current location...');
 
         // 1. Check cache first if enabled
         if (useCache) {
             const cachedLocation = await this.getCachedLocation();
             if (cachedLocation && !this.isLocationStale(cachedLocation)) {
-                console.log('📍 [SmartLocation] Using cached location');
+                console.log('[SmartLocation] Using cached location');
                 return cachedLocation;
             }
         }
@@ -76,11 +76,11 @@ class SmartLocationService {
 
         // 4. Return stale cache if available
         if (useCache && this.cache) {
-            console.log('📍 [SmartLocation] Using stale cached location');
+            console.log('[SmartLocation] Using stale cached location');
             return this.cache;
         }
 
-        console.log('📍 [SmartLocation] No location available');
+        console.log('[SmartLocation] No location available');
         return null;
     }
 
@@ -94,19 +94,19 @@ class SmartLocationService {
     ): Promise<LocationData | null> {
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
-                console.log(`📍 [SmartLocation] GPS attempt ${attempt}/${retries}`);
+                console.log(`[SmartLocation] GPS attempt ${attempt}/${retries}`);
 
                 // Check if location services are enabled
                 const isLocationEnabled = await Location.hasServicesEnabledAsync();
                 if (!isLocationEnabled) {
-                    console.log('📍 [SmartLocation] Location services disabled');
+                    console.log('[SmartLocation] Location services disabled');
                     return null;
                 }
 
                 // Request permission
                 const { status } = await Location.requestForegroundPermissionsAsync();
                 if (status !== 'granted') {
-                    console.log('📍 [SmartLocation] Location permission denied');
+                    console.log('[SmartLocation] Location permission denied');
                     return null;
                 }
 
@@ -130,7 +130,7 @@ class SmartLocationService {
                         source: 'gps'
                     };
 
-                    console.log('📍 [SmartLocation] GPS location obtained:', {
+                    console.log('[SmartLocation] GPS location obtained:', {
                         lat: locationData.latitude,
                         lng: locationData.longitude,
                         accuracy: locationData.accuracy,
@@ -140,7 +140,7 @@ class SmartLocationService {
                     return locationData;
                 }
             } catch (error) {
-                console.log(`📍 [SmartLocation] GPS attempt ${attempt} failed:`, error);
+                console.log(`[SmartLocation] GPS attempt ${attempt} failed:`, error);
 
                 if (attempt < retries) {
                     // Wait before retry with exponential backoff
@@ -158,7 +158,7 @@ class SmartLocationService {
      */
     private async getNetworkLocation(): Promise<LocationData | null> {
         try {
-            console.log('📍 [SmartLocation] Trying network location...');
+            console.log('[SmartLocation] Trying network location...');
 
             // This would typically use a geolocation API
             // For now, we'll return null as we don't have network geolocation
@@ -169,7 +169,7 @@ class SmartLocationService {
 
             return null;
         } catch (error) {
-            console.log('📍 [SmartLocation] Network location failed:', error);
+            console.log('[SmartLocation] Network location failed:', error);
             return null;
         }
     }
@@ -181,9 +181,9 @@ class SmartLocationService {
         try {
             this.cache = location;
             await AsyncStorage.setItem('smart_location_cache', JSON.stringify(location));
-            console.log('📍 [SmartLocation] Location cached');
+            console.log('[SmartLocation] Location cached');
         } catch (error) {
-            console.log('📍 [SmartLocation] Failed to cache location:', error);
+            console.log('[SmartLocation] Failed to cache location:', error);
         }
     }
 
@@ -203,7 +203,7 @@ class SmartLocationService {
                 return location;
             }
         } catch (error) {
-            console.log('📍 [SmartLocation] Failed to get cached location:', error);
+            console.log('[SmartLocation] Failed to get cached location:', error);
         }
         return null;
     }
@@ -247,9 +247,9 @@ class SmartLocationService {
         try {
             this.cache = null;
             await AsyncStorage.removeItem('smart_location_cache');
-            console.log('📍 [SmartLocation] Cache cleared');
+            console.log('[SmartLocation] Cache cleared');
         } catch (error) {
-            console.log('📍 [SmartLocation] Failed to clear cache:', error);
+            console.log('[SmartLocation] Failed to clear cache:', error);
         }
     }
 

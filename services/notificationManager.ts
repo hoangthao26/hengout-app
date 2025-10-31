@@ -33,7 +33,7 @@ class NotificationManager {
 
     // Handle new message notification
     handleNewMessage(message: ChatMessage, conversation: ChatConversation) {
-        console.log('🔔 [NotificationManager] handleNewMessage called:', {
+        console.log('[NotificationManager] handleNewMessage called:', {
             messageId: message.id,
             conversationId: conversation.id,
             conversationName: conversation.name,
@@ -46,7 +46,7 @@ class NotificationManager {
 
         // Don't show notification if it's the current conversation
         if (this.currentConversationId === conversation.id) {
-            console.log('🔔 [NotificationManager] Skipping notification - user is in this conversation');
+            console.log('[NotificationManager] Skipping notification - user is in this conversation');
             // Still increment unread count but don't show toast
             notificationStore.incrementUnreadCount(conversation.id);
             return;
@@ -54,17 +54,17 @@ class NotificationManager {
 
         // Don't show notification if user sent the message
         if (message.senderId === 'current-user-id') { // TODO: Get from auth store
-            console.log('🔔 [NotificationManager] Skipping notification - user sent message');
+            console.log('[NotificationManager] Skipping notification - user sent message');
             return;
         }
 
         // Don't show notification if in-app notifications are disabled
         if (!notificationStore.isInAppNotificationEnabled) {
-            console.log('🔔 [NotificationManager] Skipping notification - in-app notifications disabled');
+            console.log('[NotificationManager] Skipping notification - in-app notifications disabled');
             return;
         }
 
-        console.log('🔔 [NotificationManager] Showing notification...');
+        console.log('[NotificationManager] Showing notification...');
 
         // Increment unread count
         notificationStore.incrementUnreadCount(conversation.id);
@@ -85,7 +85,7 @@ class NotificationManager {
 
     // Show message notification toast
     private showMessageNotification(message: ChatMessage, conversation: ChatConversation) {
-        console.log('🔔 [NotificationManager] showMessageNotification called:', {
+        console.log('[NotificationManager] showMessageNotification called:', {
             conversationId: conversation.id,
             conversationName: conversation.name,
             messageContent: this.getMessagePreview(message),
@@ -93,7 +93,7 @@ class NotificationManager {
         });
 
         if (!this.toastContext) {
-            console.warn('❌ [NotificationManager] Toast context not initialized');
+            console.warn('[NotificationManager] Toast context not initialized');
             return;
         }
 
@@ -101,7 +101,7 @@ class NotificationManager {
 
         // Check if notification is already active for this conversation
         if (notificationStore.activeNotifications.includes(conversation.id)) {
-            console.log('🔔 [NotificationManager] Updating existing notification for conversation:', conversation.id);
+            console.log('[NotificationManager] Updating existing notification for conversation:', conversation.id);
 
             // Update existing toast instead of creating new one
             this.updateExistingToast(conversation, message);
@@ -114,9 +114,9 @@ class NotificationManager {
         // Use conversation ID as toast ID for consistency
         const toastId = conversation.id;
 
-        console.log('🔔 [NotificationManager] Showing new message toast...');
-        console.log('🔔 [NotificationManager] Toast ID:', toastId);
-        console.log('🔔 [NotificationManager] Toast data:', {
+        console.log('[NotificationManager] Showing new message toast...');
+        console.log('[NotificationManager] Toast ID:', toastId);
+        console.log('[NotificationManager] Toast data:', {
             id: toastId,
             type: 'message',
             title: this.getConversationName(conversation),
@@ -138,19 +138,19 @@ class NotificationManager {
             messageData: message,
         });
 
-        console.log('🔔 [NotificationManager] showToast result:', result);
-        console.log('🔔 [NotificationManager] Custom message toast shown with ID:', toastId);
+        console.log('[NotificationManager] showToast result:', result);
+        console.log('[NotificationManager] Custom message toast shown with ID:', toastId);
     }
 
     // Update existing toast with new message
     private updateExistingToast(conversation: ChatConversation, message: ChatMessage) {
-        console.log('🔔 [NotificationManager] Updating existing toast for conversation:', conversation.id);
+        console.log('[NotificationManager] Updating existing toast for conversation:', conversation.id);
 
         // Use conversation ID as toast ID
         const toastId = conversation.id;
 
-        console.log('🔔 [NotificationManager] updateExistingToast - Toast ID:', toastId);
-        console.log('🔔 [NotificationManager] updateExistingToast - Update data:', {
+        console.log('[NotificationManager] updateExistingToast - Toast ID:', toastId);
+        console.log('[NotificationManager] updateExistingToast - Update data:', {
             title: this.getConversationName(conversation),
             message: this.getMessagePreview(message),
             duration: 5000
@@ -158,7 +158,7 @@ class NotificationManager {
 
         // Update toast content using conversation ID as toast ID
         if (this.toastContext && this.toastContext.updateToast) {
-            console.log('🔔 [NotificationManager] Calling updateToast...');
+            console.log('[NotificationManager] Calling updateToast...');
             this.toastContext.updateToast(toastId, {
                 title: this.getConversationName(conversation),
                 message: this.getMessagePreview(message),
@@ -168,9 +168,9 @@ class NotificationManager {
                 duration: 5000,
             });
 
-            console.log('🔔 [NotificationManager] Toast updated with new message, ID:', toastId);
+            console.log('[NotificationManager] Toast updated with new message, ID:', toastId);
         } else {
-            console.warn('❌ [NotificationManager] Toast context does not support updateToast');
+            console.warn('[NotificationManager] Toast context does not support updateToast');
         }
     }
 
@@ -187,7 +187,7 @@ class NotificationManager {
         }
 
         try {
-            console.log('🔔 [NotificationManager] Navigating to conversation:', conversationId);
+            console.log('[NotificationManager] Navigating to conversation:', conversationId);
 
             // Best Practice: Use replace instead of dismissAll + push for better UX
             // This prevents back button issues and creates cleaner navigation stack
@@ -198,13 +198,13 @@ class NotificationManager {
                 try {
                     this.router.push(`/chat/${conversationId}`);
                 } catch (pushError) {
-                    console.error('❌ [NotificationManager] Failed to push to conversation:', pushError);
+                    console.error('[NotificationManager] Failed to push to conversation:', pushError);
                     // Fallback: try direct navigation
                     this.router.replace(`/chat/${conversationId}`);
                 }
             });
         } catch (error) {
-            console.error('❌ [NotificationManager] Failed to navigate to conversation:', error);
+            console.error('[NotificationManager] Failed to navigate to conversation:', error);
         }
     }
 
@@ -231,14 +231,14 @@ class NotificationManager {
     private playNotificationSound() {
         // TODO: Implement sound playing
         // This would typically use a sound library like expo-av
-        console.log('🔊 Playing notification sound');
+        console.log('[NotificationManager] Playing notification sound');
     }
 
     // Vibrate device
     private vibrate() {
         // TODO: Implement vibration
         // This would typically use Haptics.vibrateAsync() from expo-haptics
-        console.log('📳 Vibrating device');
+        console.log('[NotificationManager] Vibrating device');
     }
 
     // Mark conversation as read

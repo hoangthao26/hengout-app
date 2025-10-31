@@ -29,14 +29,14 @@ const LoginWithGoogle = () => {
 
     // CONFIG (log only when debugging)
     if (DEBUG_OAUTH) {
-        console.log('🔍 [Google OAuth] Config:', JSON.stringify(config, null, 2));
+        console.log('[Google OAuth] Config:', JSON.stringify(config, null, 2));
     }
 
     const [request, response, promptAsync] = Google.useAuthRequest(config);
 
     // REQUEST (log only when debugging)
     if (DEBUG_OAUTH && request) {
-        console.log('🔍 [Google OAuth] Request object:', JSON.stringify(request, null, 2));
+        console.log('[Google OAuth] Request object:', JSON.stringify(request, null, 2));
     }
 
     const handleToken = async () => {
@@ -47,32 +47,32 @@ const LoginWithGoogle = () => {
 
             // DETAILED LOGGING - Full response object (debug only)
             if (DEBUG_OAUTH) {
-                console.log('🔍 [Google OAuth] Full Response Object:', JSON.stringify(response, null, 2));
-                console.log('🔍 [Google OAuth] Authentication Object:', JSON.stringify(authentication, null, 2));
+                console.log('[Google OAuth] Full Response Object:', JSON.stringify(response, null, 2));
+                console.log('[Google OAuth] Authentication Object:', JSON.stringify(authentication, null, 2));
             }
 
             // TOKEN LOGGING (debug only)
             if (DEBUG_OAUTH) {
-                console.log('🔑 Google Access Token:', accessToken);
-                console.log('🔑 Google ID Token:', idToken);
+                console.log('[Google OAuth] Google Access Token:', accessToken);
+                console.log('[Google OAuth] Google ID Token:', idToken);
             }
 
-            // 🔍 TOKEN DETAILS
+            // TOKEN DETAILS
             if (idToken) {
                 try {
                     // Decode JWT payload (without verification)
                     const payload = JSON.parse(atob(idToken.split('.')[1]));
                     if (DEBUG_OAUTH) {
-                        console.log('🔍 [Google OAuth] ID Token Payload:', JSON.stringify(payload, null, 2));
-                        console.log('🔍 [Google OAuth] ID Token Audience (aud):', payload.aud);
-                        console.log('🔍 [Google OAuth] ID Token Authorized Party (azp):', payload.azp);
-                        console.log('🔍 [Google OAuth] ID Token Issuer (iss):', payload.iss);
-                        console.log('🔍 [Google OAuth] ID Token Subject (sub):', payload.sub);
-                        console.log('🔍 [Google OAuth] ID Token Email:', payload.email);
-                        console.log('🔍 [Google OAuth] ID Token Name:', payload.name);
+                        console.log('[Google OAuth] ID Token Payload:', JSON.stringify(payload, null, 2));
+                        console.log('[Google OAuth] ID Token Audience (aud):', payload.aud);
+                        console.log('[Google OAuth] ID Token Authorized Party (azp):', payload.azp);
+                        console.log('[Google OAuth] ID Token Issuer (iss):', payload.iss);
+                        console.log('[Google OAuth] ID Token Subject (sub):', payload.sub);
+                        console.log('[Google OAuth] ID Token Email:', payload.email);
+                        console.log('[Google OAuth] ID Token Name:', payload.name);
                     }
                 } catch (error) {
-                    console.error('❌ [Google OAuth] Failed to decode ID token:', error);
+                    console.error('[Google OAuth] Failed to decode ID token:', error);
                 }
             }
 
@@ -80,7 +80,7 @@ const LoginWithGoogle = () => {
                 setLoading(true);
                 try {
                     if (DEBUG_OAUTH) {
-                        console.log('🔄 Authenticating with backend...');
+                        console.log('[Google OAuth] Authenticating with backend...');
                     }
 
                     // Call backend API with ID token
@@ -88,7 +88,7 @@ const LoginWithGoogle = () => {
 
                     if (result.status === 'success' && result.data) {
                         if (DEBUG_OAUTH) {
-                            console.log('✅ Backend authentication successful:', result.data);
+                            console.log('[Google OAuth] Backend authentication successful:', result.data);
                         }
 
                         // Save tokens to secure storage
@@ -103,7 +103,7 @@ const LoginWithGoogle = () => {
                         });
 
                         if (DEBUG_OAUTH) {
-                            console.log('✅ Google login successful!');
+                            console.log('[Google OAuth] Google login successful!');
                         }
 
                         showSuccess('Đăng nhập Google thành công');
@@ -150,7 +150,7 @@ const LoginWithGoogle = () => {
 
                                 if (location) {
                                     if (DEBUG_OAUTH) {
-                                        console.log('📍 [Google Login] Smart location obtained:', {
+                                        console.log('[Google Login] Smart location obtained:', {
                                             lat: location.latitude,
                                             lng: location.longitude,
                                             accuracy: location.accuracy,
@@ -165,41 +165,41 @@ const LoginWithGoogle = () => {
                                     });
                                 } else {
                                     if (DEBUG_OAUTH) {
-                                        console.log('📍 [Google Login] No location available, navigating to discover for user choice');
+                                        console.log('[Google Login] No location available, navigating to discover for user choice');
                                     }
                                     NavigationService.secureNavigateToDiscover();
                                 }
                             } catch (error) {
                                 if (DEBUG_OAUTH) {
-                                    console.log('📍 [Google Login] Location error:', error);
+                                    console.log('[Google Login] Location error:', error);
                                 }
                                 NavigationService.secureNavigateToDiscover();
                             }
                         }
                     } else {
-                        console.error('❌ Backend authentication failed:', result);
+                        console.error('[Google OAuth] Backend authentication failed:', result);
                     }
                 } catch (error: any) {
-                    console.error('❌ Backend authentication error:', error);
+                    console.error('[Google OAuth] Backend authentication error:', error);
                 } finally {
                     setLoading(false);
                 }
             } else {
-                console.error('❌ No ID token received from Google');
+                console.error('[Google OAuth] No ID token received from Google');
             }
         } else if (response?.type === 'error') {
-            console.error('❌ [Google OAuth] Login failed:', response.error);
+            console.error('[Google OAuth] Login failed:', response.error);
             if (DEBUG_OAUTH) {
-                console.error('❌ [Google OAuth] Full error response:', JSON.stringify(response, null, 2));
+                console.error('[Google OAuth] Full error response:', JSON.stringify(response, null, 2));
             }
         } else if (response?.type === 'cancel') {
             if (DEBUG_OAUTH) {
-                console.log('ℹ️ [Google OAuth] User cancelled login');
+                console.log('[Google OAuth] User cancelled login');
             }
         } else {
             if (DEBUG_OAUTH) {
-                console.log('ℹ️ [Google OAuth] Unknown response type:', response?.type);
-                console.log('ℹ️ [Google OAuth] Full response:', JSON.stringify(response, null, 2));
+                console.log('[Google OAuth] Unknown response type:', response?.type);
+                console.log('[Google OAuth] Full response:', JSON.stringify(response, null, 2));
             }
         }
     };

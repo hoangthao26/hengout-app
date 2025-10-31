@@ -17,14 +17,14 @@ export default function DatabaseResetButton() {
                     onPress: async () => {
                         try {
                             setIsResetting(true);
-                            console.log('🔄 [DatabaseResetButton] Starting database reset...');
+                            console.log('[DatabaseResetButton] Starting database reset...');
 
                             await chatSyncService.resetDatabase();
 
-                            console.log('✅ [DatabaseResetButton] Database reset completed');
+                            console.log('[DatabaseResetButton] Database reset completed');
                             Alert.alert('Success', 'Database reset completed successfully!');
                         } catch (error) {
-                            console.error('❌ [DatabaseResetButton] Database reset failed:', error);
+                            console.error('[DatabaseResetButton] Database reset failed:', error);
                             Alert.alert('Error', 'Failed to reset database');
                         } finally {
                             setIsResetting(false);

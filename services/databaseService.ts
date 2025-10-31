@@ -15,9 +15,9 @@ class DatabaseService {
             this.db = await SQLite.openDatabaseAsync('chat.db');
             await this.createTables();
             this.isInitialized = true;
-            console.log('✅ Database initialized successfully');
+            console.log('[DatabaseService] Database initialized successfully');
         } catch (error) {
-            console.error('❌ Failed to initialize database:', error);
+            console.error('[DatabaseService] Failed to initialize database:', error);
             throw error;
         }
     }
@@ -132,7 +132,7 @@ class DatabaseService {
         // DATABASE MIGRATION: Add last_message_sender_name column if not exists
         await this.migrateDatabase();
 
-        console.log('✅ Database tables created successfully');
+        console.log('[DatabaseService] Database tables created successfully');
     }
 
     /**
@@ -151,12 +151,12 @@ class DatabaseService {
 
             // Add last_message_sender_name column if not exists
             if (!existingColumns.includes('last_message_sender_name')) {
-                console.log('🔄 [DatabaseMigration] Adding last_message_sender_name column...');
+                console.log('[DatabaseMigration] Adding last_message_sender_name column...');
                 await this.db.execAsync(`
                     ALTER TABLE conversations 
                     ADD COLUMN last_message_sender_name TEXT
                 `);
-                console.log('✅ [DatabaseMigration] Added last_message_sender_name column successfully');
+                console.log('[DatabaseMigration] Added last_message_sender_name column successfully');
             }
 
             // Add Activity message columns if not exist
@@ -169,19 +169,19 @@ class DatabaseService {
 
             for (const columnName of activityColumns) {
                 if (!existingColumns.includes(columnName)) {
-                    console.log(`🔄 [DatabaseMigration] Adding ${columnName} column...`);
+                    console.log(`[DatabaseMigration] Adding ${columnName} column...`);
                     const columnType = columnName === 'last_message_type' ? 'TEXT DEFAULT "TEXT"' : 'TEXT';
                     await this.db.execAsync(`
                         ALTER TABLE conversations 
                         ADD COLUMN ${columnName} ${columnType}
                     `);
-                    console.log(`✅ [DatabaseMigration] Added ${columnName} column successfully`);
+                    console.log(`[DatabaseMigration] Added ${columnName} column successfully`);
                 }
             }
 
-            console.log('ℹ️ [DatabaseMigration] All columns are up to date');
+            console.log('[DatabaseMigration] All columns are up to date');
         } catch (error) {
-            console.error('❌ [DatabaseMigration] Migration failed:', error);
+            console.error('[DatabaseMigration] Migration failed:', error);
             // Don't throw error - app should still work
         }
     }
@@ -268,7 +268,7 @@ class DatabaseService {
             conversationId
         ]);
 
-        console.log('✅ [DatabaseService] Updated conversation last message:', {
+        console.log('[DatabaseService] Updated conversation last message:', {
             conversationId,
             messageId,
             messageTimestamp,
@@ -356,14 +356,14 @@ class DatabaseService {
     async deleteConversation(conversationId: string): Promise<void> {
         if (!this.db) throw new Error('Database not initialized');
 
-        console.log(`🗑️ [DatabaseService] Deleting conversation ${conversationId} from database`);
+        console.log(`[DatabaseService] Deleting conversation ${conversationId} from database`);
 
         // Delete in order: messages, members, then conversation (foreign key constraints)
         await this.db.runAsync(`DELETE FROM messages WHERE conversation_id = ?`, [conversationId]);
         await this.db.runAsync(`DELETE FROM members WHERE conversation_id = ?`, [conversationId]);
         await this.db.runAsync(`DELETE FROM conversations WHERE id = ?`, [conversationId]);
 
-        console.log(`✅ [DatabaseService] Conversation ${conversationId} deleted successfully`);
+        console.log(`[DatabaseService] Conversation ${conversationId} deleted successfully`);
     }
 
     /**
@@ -585,11 +585,11 @@ class DatabaseService {
     async clearAllData(): Promise<void> {
         // If database not initialized, nothing to clear
         if (!this.isInitialized || !this.db) {
-            console.log('⚠️ [DatabaseService] Database not initialized, skipping clear');
+            console.log('[DatabaseService] Database not initialized, skipping clear');
             return;
         }
 
-        console.log('🧹 [DatabaseService] Clearing all user data...');
+        console.log('[DatabaseService] Clearing all user data...');
 
         try {
             await this.db.execAsync(`
@@ -598,9 +598,9 @@ class DatabaseService {
                 DELETE FROM conversations;
             `);
 
-            console.log('✅ [DatabaseService] All user data cleared successfully');
+            console.log('[DatabaseService] All user data cleared successfully');
         } catch (error) {
-            console.error('❌ [DatabaseService] Failed to clear data:', error);
+            console.error('[DatabaseService] Failed to clear data:', error);
             // Don't throw - allow logout to proceed even if clear fails
         }
     }
@@ -618,7 +618,7 @@ class DatabaseService {
         `);
 
         await this.createTables();
-        console.log('✅ Database reset completed');
+        console.log('[DatabaseService] Database reset completed');
     }
 
     /**

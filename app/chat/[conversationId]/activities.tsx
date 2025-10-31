@@ -247,11 +247,11 @@ export default function ConversationActivitiesScreen() {
     // WebSocket subscription for real-time activity updates
     useEffect(() => {
         if (conversationId) {
-            console.log('🔌 [Activities] Subscribing to WebSocket for conversation:', conversationId);
+            console.log('[Activities] Subscribing to WebSocket for conversation:', conversationId);
             subscribe(conversationId);
 
             return () => {
-                console.log('🔌 [Activities] Unsubscribing from WebSocket');
+                console.log('[Activities] Unsubscribing from WebSocket');
                 unsubscribe(conversationId);
             };
         }

@@ -19,7 +19,7 @@ interface AuthErrorBoundaryProps {
 
 export const AuthErrorBoundary: React.FC<AuthErrorBoundaryProps> = ({ children, onError }) => {
     const handleError = (error: AppError) => {
-        console.log('🔐 Auth Error Boundary caught error:', error);
+        console.log('[AuthErrorBoundary] Auth Error Boundary caught error:', error);
         onError?.(error);
     };
 
@@ -36,8 +36,8 @@ export const AuthErrorBoundary: React.FC<AuthErrorBoundaryProps> = ({ children, 
                         <Text style={styles.buttonText}>Try Again</Text>
                     </TouchableOpacity>
                 )}
-                <TouchableOpacity 
-                    style={[styles.button, styles.loginButton]} 
+                <TouchableOpacity
+                    style={[styles.button, styles.loginButton]}
                     onPress={() => NavigationService.logoutToLogin()}
                 >
                     <Text style={styles.buttonText}>Go to Login</Text>

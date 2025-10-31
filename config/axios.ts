@@ -96,7 +96,7 @@ axiosInstance.interceptors.request.use(
         return config;
     },
     (error) => {
-        console.warn('❌ Request Error:', error);
+        console.warn('[Axios] Request Error:', error);
         return Promise.reject(error);
     }
 );
@@ -115,17 +115,17 @@ axiosInstance.interceptors.response.use(
         if (error.response?.status === 401) {
             // STOP INFINITE LOOP: Don't try to refresh if user is logged out
             if (isLoggingOut || isUserLoggedOut) {
-                console.log('🚫 [Axios] User is logged out, silently ignoring 401 error');
+                console.log('[Axios] User is logged out, silently ignoring 401 error');
                 // Return a silent rejection - don't log as error
                 return Promise.reject(new Error('User logged out - request cancelled'));
             }
 
             // Silent log for 401 - don't show error to user
-            console.log('🔐 401 Unauthorized - Attempting token refresh');
+            console.log('[Axios] 401 Unauthorized - Attempting token refresh');
 
             // If already logging out, skip all processing
             if (isLoggingOut) {
-                console.log('🚫 [Axios] Already logging out, skipping 401 processing');
+                console.log('[Axios] Already logging out, skipping 401 processing');
                 return Promise.reject(error);
             }
 
@@ -139,7 +139,7 @@ axiosInstance.interceptors.response.use(
 
             if (originalRequest.url?.includes('/session/refresh')) {
                 // Silent log for refresh token failure - don't show error to user
-                console.log('🔄 Refresh token expired - redirecting to login');
+                console.log('[Axios] Refresh token expired - redirecting to login');
                 if (!isLoggingOut) {
                     isLoggingOut = true;
                     await AuthHelper.logoutAndNavigate();
@@ -171,7 +171,7 @@ axiosInstance.interceptors.response.use(
                     }
                 } catch (refreshError) {
                     // Silent log for token refresh error - don't show error to user
-                    console.log('🔄 Token refresh failed:', (refreshError as any)?.message || 'Unknown error');
+                    console.log('[Axios] Token refresh failed:', (refreshError as any)?.message || 'Unknown error');
                     processQueue(refreshError, null);
 
                     const isAuthError = (refreshError as any)?.response?.status === 401 || (refreshError as any)?.message?.includes('401');
@@ -203,11 +203,11 @@ axiosInstance.interceptors.response.use(
                 });
             }
         } else if (error.response?.status === 400) {
-            console.warn('📝 400 Bad Request - Check request data format');
+            console.warn('[Axios] 400 Bad Request - Check request data format');
         } else if (error.response?.status === 404) {
-            console.warn('🔍 404 Not Found - Check API endpoint');
+            console.warn('[Axios] 404 Not Found - Check API endpoint');
         } else if (error.response?.status === 500) {
-            console.warn('💥 500 Server Error - Server issue');
+            console.warn('[Axios] 500 Server Error - Server issue');
         }
 
         return Promise.reject(error);

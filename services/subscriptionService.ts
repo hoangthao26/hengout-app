@@ -298,7 +298,7 @@ class SubscriptionService {
             const response = await axiosInstance.get<GroupStatusResponse | GroupStatus>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error(`❌ [SubscriptionService] Failed to get group status for ${groupId}:`, error?.message || error);
+            console.error(`[SubscriptionService] Failed to get group status for ${groupId}:`, error?.message || error);
             throw error;
         }
     }
@@ -318,7 +318,7 @@ class SubscriptionService {
             });
             return response.data;
         } catch (error: any) {
-            console.error(`❌ [SubscriptionService] Failed to apply group boost for ${groupId}:`, error?.response?.data?.message || error?.message || error);
+            console.error(`[SubscriptionService] Failed to apply group boost for ${groupId}:`, error?.response?.data?.message || error?.message || error);
             throw error;
         }
     }

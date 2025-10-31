@@ -94,7 +94,7 @@ class SmartSyncManager {
             // Completed sync for conversations
 
         } catch (error) {
-            console.error('❌ [SmartSync] Sync failed:', error);
+            console.error('[SmartSync] Sync failed:', error);
         } finally {
             this.syncInProgress = false;
         }
@@ -200,7 +200,7 @@ class SmartSyncManager {
 
                 // Synced conversation
             } catch (error) {
-                console.error(`❌ [SmartSync] Failed to sync conversation ${conversationId}:`, error);
+                console.error(`[SmartSync] Failed to sync conversation ${conversationId}:`, error);
             }
         });
 
@@ -218,7 +218,7 @@ class SmartSyncManager {
             this.lastSyncTime[conversationId] = Date.now();
             // Force sync completed
         } catch (error) {
-            console.error(`❌ [SmartSync] Force sync failed for ${conversationId}:`, error);
+            console.error(`[SmartSync] Force sync failed for ${conversationId}:`, error);
             throw error;
         }
     }

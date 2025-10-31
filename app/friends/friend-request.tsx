@@ -97,16 +97,16 @@ export default function FriendRequestScreen() {
     // Function to refresh conversations after friend request acceptance
     const refreshConversations = useCallback(async () => {
         try {
-            console.log('🔄 [Friend Request] Refreshing conversations after friend request acceptance...');
+            console.log('[Friend Request] Refreshing conversations after friend request acceptance...');
             const response = await chatService.getConversations();
             if (response.status === 'success') {
                 setConversations(response.data);
-                console.log('✅ [Friend Request] Conversations refreshed successfully');
+                console.log('[Friend Request] Conversations refreshed successfully');
             } else {
-                console.warn('⚠️ [Friend Request] Failed to refresh conversations:', response.message);
+                console.warn('[Friend Request] Failed to refresh conversations:', response.message);
             }
         } catch (error) {
-            console.error('❌ [Friend Request] Error refreshing conversations:', error);
+            console.error('[Friend Request] Error refreshing conversations:', error);
         }
     }, [setConversations]);
 
@@ -155,7 +155,7 @@ export default function FriendRequestScreen() {
 
         try {
             setSearchLoading(true);
-            console.log('🔍 Friend Request - Starting search for:', query);
+            console.log('[Friend Request] Starting search for:', query);
 
             const response = await userSearchService.searchUsers({
                 query,
@@ -163,14 +163,14 @@ export default function FriendRequestScreen() {
                 size: 10
             });
 
-            console.log('📋 Friend Request - Search response:', response);
-            console.log('📋 Friend Request - Search results content:', response.data.content);
+            console.log('[Friend Request] Search response:', response);
+            console.log('[Friend Request] Search results content:', response.data.content);
 
             setSearchResults(response.data.content);
 
-            console.log('✅ Friend Request - Search results set:', response.data.content.length, 'users');
+            console.log('[Friend Request] Search results set:', response.data.content.length, 'users');
         } catch (error: any) {
-            console.error('❌ Friend Request - Failed to search users:', error);
+            console.error('[Friend Request] Failed to search users:', error);
             showError(`Failed to search users: ${error.message}`);
         } finally {
             setSearchLoading(false);
@@ -184,8 +184,8 @@ export default function FriendRequestScreen() {
         }
         try {
             setProcessingRequest(requestId);
-            console.log('🔗 [Friend Request] Accept URL:', `PUT /api/social/friend-requests/${requestId}?status=ACCEPTED`);
-            console.log('📝 [Friend Request] Accept Request ID:', requestId);
+            console.log('[Friend Request] Accept URL:', `PUT /api/social/friend-requests/${requestId}?status=ACCEPTED`);
+            console.log('[Friend Request] Accept Request ID:', requestId);
             await socialService.handleFriendRequest(requestId, 'ACCEPTED');
             showSuccess('Friend request accepted!',);
 
@@ -205,8 +205,8 @@ export default function FriendRequestScreen() {
     const handleRejectRequest = async (requestId: string) => {
         try {
             setProcessingRequest(requestId);
-            console.log('🔗 [Friend Request] Reject URL:', `PUT /api/social/friend-requests/${requestId}?status=REJECTED`);
-            console.log('📝 [Friend Request] Reject Request ID:', requestId);
+            console.log('[Friend Request] Reject URL:', `PUT /api/social/friend-requests/${requestId}?status=REJECTED`);
+            console.log('[Friend Request] Reject Request ID:', requestId);
             await socialService.handleFriendRequest(requestId, 'REJECTED');
             showSuccess('Friend request rejected',);
 

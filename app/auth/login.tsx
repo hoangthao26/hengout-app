@@ -73,7 +73,7 @@ export default function LoginScreen() {
                         const location = await Location.getCurrentPositionAsync({
                             accuracy: Location.Accuracy.Balanced,
                         });
-                        console.log('📍 [Login] GPS location obtained:', {
+                        console.log('[Login] GPS location obtained:', {
                             lat: location.coords.latitude,
                             lng: location.coords.longitude,
                             accuracy: location.coords.accuracy
@@ -84,11 +84,11 @@ export default function LoginScreen() {
                             accuracy: location.coords.accuracy || 0
                         });
                     } else {
-                        console.log('📍 [Login] Location permission denied, using fallback');
+                        console.log('[Login] Location permission denied, using fallback');
                         NavigationService.secureNavigateToDiscover();
                     }
                 } catch (error) {
-                    console.log('📍 [Login] GPS error, using fallback:', error);
+                    console.log('[Login] GPS error, using fallback:', error);
                     NavigationService.secureNavigateToDiscover();
                 }
             }

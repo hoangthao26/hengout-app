@@ -44,26 +44,26 @@ export const useNLPRecommendations = ({ onError }: UseNLPRecommendationsProps = 
                 longitude: lng,
             };
 
-            console.log('🔍 [useNLPRecommendations] Request:', requestData);
+            console.log('[useNLPRecommendations] Request:', requestData);
 
             const response = await locationService.getNLPRecommendations(requestData);
 
-            console.log('📋 [useNLPRecommendations] Response:', response);
+            console.log('[useNLPRecommendations] Response:', response);
 
             if (response.status === 'success') {
                 setResults(response.data);
-                console.log('✅ [useNLPRecommendations] Search results:', response.data.length, 'locations');
+                console.log('[useNLPRecommendations] Search results:', response.data.length, 'locations');
                 return response.data;
             } else {
                 const errorMessage = response.message || 'Failed to get NLP recommendations';
-                console.log('❌ [useNLPRecommendations] API Error:', errorMessage);
+                console.log('[useNLPRecommendations] API Error:', errorMessage);
                 setError(errorMessage);
                 onError?.(errorMessage);
                 return [];
             }
         } catch (err: any) {
             const errorMessage = err.message || 'Network error occurred';
-            console.log('💥 [useNLPRecommendations] Network Error:', {
+            console.log('[useNLPRecommendations] Network Error:', {
                 message: errorMessage,
                 status: err.response?.status,
                 data: err.response?.data,

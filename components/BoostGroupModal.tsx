@@ -213,7 +213,7 @@ const BoostGroupModal: React.FC<BoostGroupModalProps> = ({
                     successMessage = boostRes.message || `Boost nhóm thành công trong ${monthsNum} tháng!`;
                 } else {
                     const errorMsg = boostRes.message || 'Không thể boost nhóm';
-                    console.error('❌ [BoostGroupModal] applyGroupBoost failed:', errorMsg);
+                    console.error('[BoostGroupModal] applyGroupBoost failed:', errorMsg);
                     showError(errorMsg);
                     return;
                 }
@@ -235,12 +235,12 @@ const BoostGroupModal: React.FC<BoostGroupModalProps> = ({
                 setMonths('1');
             } else {
                 const errorMsg = 'Không thể boost nhóm';
-                console.error('❌ [BoostGroupModal] applyGroupBoost failed:', errorMsg);
+                console.error('[BoostGroupModal] applyGroupBoost failed:', errorMsg);
                 showError(errorMsg);
             }
         } catch (e: any) {
             const errorMsg = e?.response?.data?.message || e?.message || 'Không thể boost nhóm';
-            console.error('❌ [BoostGroupModal] Boost failed:', errorMsg);
+            console.error('[BoostGroupModal] Boost failed:', errorMsg);
             showError(errorMsg);
         } finally {
             setBoosting(false);
