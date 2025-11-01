@@ -16,6 +16,8 @@ import {
     useColorScheme,
     View
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import MaskedView from '@react-native-masked-view/masked-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackButton from '../../components/BackButton';
 import { ChatErrorBoundary } from '../../components/errorBoundaries';
@@ -85,7 +87,78 @@ export default function ChatConversationScreen() {
     const [showActivityDetailsModal, setShowActivityDetailsModal] = useState(false);
     const [selectedActivityId, setSelectedActivityId] = useState<string>('');
 
+    // State for native modules (gradient)
+    const [LinearGradientComponent, setLinearGradientComponent] = useState<any>(null);
+    const [MaskedViewComponent, setMaskedViewComponent] = useState<any>(null);
+    const [isGradientLoading, setIsGradientLoading] = useState(true);
 
+    // Load native modules for gradient
+    useEffect(() => {
+        const loadNativeModules = async () => {
+            try {
+                if (Platform.OS === 'web') {
+                    setIsGradientLoading(false);
+                    return;
+                }
+
+                const [LinearGradientModule, MaskedViewModule] = await Promise.all([
+                    import('expo-linear-gradient'),
+                    import('@react-native-masked-view/masked-view')
+                ]);
+
+                setLinearGradientComponent(() => LinearGradientModule.LinearGradient);
+                setMaskedViewComponent(() => MaskedViewModule.default);
+            } catch (error) {
+                console.log('Native modules not available, using fallback:', error);
+            } finally {
+                setIsGradientLoading(false);
+            }
+        };
+
+        loadNativeModules();
+    }, []);
+
+    // Gradient colors matching bottom tabs
+    const GRADIENT_COLORS = ["#FAA307", "#F48C06", "#DC2F02", "#9D0208"];
+    const GRADIENT_LOCATIONS = [0, 0.31, 0.69, 1];
+    const GRADIENT_START = { x: 0, y: 1 };
+    const GRADIENT_END = { x: 1, y: 0 };
+
+    // Render compass icon with gradient
+    const renderGradientCompass = () => {
+        const iconSize = 32;
+
+        // Fallback for web or when native modules are not available
+        if (Platform.OS === 'web' || isGradientLoading || !LinearGradientComponent || !MaskedViewComponent) {
+            return <Compass size={iconSize} color="#FAA307" />;
+        }
+
+        // Native gradient implementation
+        try {
+            return (
+                <MaskedViewComponent
+                    style={{ width: iconSize, height: iconSize }}
+                    maskElement={
+                        <Compass
+                            size={iconSize}
+                            color="white"
+                        />
+                    }
+                >
+                    <LinearGradientComponent
+                        colors={GRADIENT_COLORS}
+                        locations={GRADIENT_LOCATIONS}
+                        start={GRADIENT_START}
+                        end={GRADIENT_END}
+                        style={{ flex: 1 }}
+                    />
+                </MaskedViewComponent>
+            );
+        } catch (error) {
+            console.log('Error rendering gradient compass, using fallback:', error);
+            return <Compass size={iconSize} color="#FAA307" />;
+        }
+    };
 
     const flatListRef = useRef<FlatList>(null);
 
@@ -784,10 +857,7 @@ export default function ChatConversationScreen() {
                         onPress={() => setShowActivityModal(true)}
                         activeOpacity={0.7}
                     >
-                        <Compass
-                            size={32}
-                            color={isDark ? '#FFFFFF' : '#000000'}
-                        />
+                        {renderGradientCompass()}
                     </TouchableOpacity>
 
                 </View>

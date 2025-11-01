@@ -263,8 +263,8 @@ export default function FriendsListScreen() {
                     onBackPress={() => NavigationService.goBack()}
                     rightContent={(
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Users size={14} color={isDark ? '#9CA3AF' : '#6B7280'} />
-                            <Text style={{ marginLeft: 6, color: isDark ? '#9CA3AF' : '#6B7280', fontSize: 12, fontWeight: '600' }}>
+                            <Users size={20} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                            <Text style={{ marginLeft: 6, color: isDark ? '#9CA3AF' : '#6B7280', fontSize: 16, fontWeight: '600' }}>
                                 {friendsLabel}
                             </Text>
                         </View>
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingVertical: 12,
         paddingHorizontal: 16,
-        borderRadius: 12,
+        borderRadius: 24,
         marginBottom: 8,
         marginHorizontal: 16,
         shadowColor: '#000',

@@ -69,7 +69,6 @@ export default function ConversationDetailsScreen() {
         deleteConversation: deleteConversationFromDB
     } = useChatSync();
 
-    const [loading, setLoading] = useState(true);
 
     // Get conversation from store or local state
     const conversation = conversations.find(c => c.id === conversationId) || currentConversation;
@@ -86,7 +85,6 @@ export default function ConversationDetailsScreen() {
         if (!conversationId) return;
 
         try {
-            setLoading(true);
 
             // Check if conversation still exists in store (might have been removed)
             const conversationExists = conversations.find(c => c.id === conversationId);
@@ -143,8 +141,6 @@ export default function ConversationDetailsScreen() {
                 return;
             }
             console.error('Failed to load conversation:', error);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -375,19 +371,6 @@ export default function ConversationDetailsScreen() {
             ]
         );
     };
-
-    if (loading) {
-        return (
-            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-                <StatusBar barStyle="light-content" backgroundColor="#000000" />
-                <Header
-                    title="Đang tải..."
-                    showBackButton={true}
-                    onBackPress={handleBack}
-                />
-            </View>
-        );
-    }
 
     if (!conversation) {
         return (

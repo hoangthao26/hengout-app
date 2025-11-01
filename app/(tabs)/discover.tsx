@@ -599,54 +599,56 @@ export default function DiscoverScreen() {
                         </View>
                     )}
 
-                    {/* Floating Filter Button - always on the right of search area */}
-                    <TouchableOpacity
-                        style={styles.filterFloating}
-                        onPress={() => {
-                            if (!location) return;
-                            openFilterVibesModal(async ({ categories, purposes, tags }) => {
-                                const isEmpty = (!categories || categories.length === 0) && (!purposes || purposes.length === 0) && (!tags || tags.length === 0);
+                    {/* Floating Filter Button - only show when search is open */}
+                    {isSearchOpen && (
+                        <TouchableOpacity
+                            style={styles.filterFloating}
+                            onPress={() => {
+                                if (!location) return;
+                                openFilterVibesModal(async ({ categories, purposes, tags }) => {
+                                    const isEmpty = (!categories || categories.length === 0) && (!purposes || purposes.length === 0) && (!tags || tags.length === 0);
 
-                                if (isEmpty) {
-                                    // Clear filter results and reload random recommendations
-                                    clearFilter();
-                                    clearNLPSearch();
+                                    if (isEmpty) {
+                                        // Clear filter results and reload random recommendations
+                                        clearFilter();
+                                        clearNLPSearch();
+                                        clearRecommendations();
+                                        await refreshRecommendations(location.latitude, location.longitude);
+                                        console.log('[Filter] Cleared filters -> reload random recommendations');
+                                        return;
+                                    }
+
+                                    // Hide random results while filter is active
                                     clearRecommendations();
-                                    await refreshRecommendations(location.latitude, location.longitude);
-                                    console.log('[Filter] Cleared filters -> reload random recommendations');
-                                    return;
-                                }
 
-                                // Hide random results while filter is active
-                                clearRecommendations();
-
-                                try {
-                                    const res = await fetchByFilter({
-                                        categories,
-                                        purposes,
-                                        tags,
-                                        latitude: location.latitude,
-                                        longitude: location.longitude,
-                                        address: ''
-                                    });
-                                    console.log('[Filter] API response:', JSON.stringify(res, null, 2));
-                                } catch (err) {
-                                    console.log('[Filter] API error:', err);
-                                }
-                            });
-                        }}
-                        activeOpacity={0.85}
-                    >
-                        <LinearGradient
-                            colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
-                            locations={[0, 0.31, 0.69, 1]}
-                            start={{ x: 0, y: 1 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.gradientButton}
+                                    try {
+                                        const res = await fetchByFilter({
+                                            categories,
+                                            purposes,
+                                            tags,
+                                            latitude: location.latitude,
+                                            longitude: location.longitude,
+                                            address: ''
+                                        });
+                                        console.log('[Filter] API response:', JSON.stringify(res, null, 2));
+                                    } catch (err) {
+                                        console.log('[Filter] API error:', err);
+                                    }
+                                });
+                            }}
+                            activeOpacity={0.85}
                         >
-                            <Filter size={28} color="#FFFFFF" />
-                        </LinearGradient>
-                    </TouchableOpacity>
+                            <LinearGradient
+                                colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
+                                locations={[0, 0.31, 0.69, 1]}
+                                start={{ x: 0, y: 1 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.gradientButton}
+                            >
+                                <Filter size={28} color="#FFFFFF" />
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    )}
 
                     {/* Bottom Container - Buttons + LocationCard */}
                     <View style={styles.bottomContainer}>

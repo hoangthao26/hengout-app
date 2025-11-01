@@ -62,6 +62,25 @@ export default function ChatScreen() {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchLoading, setSearchLoading] = useState(false);
 
+    // Filter conversations based on search query
+    const filterConversations = useCallback((query: string) => {
+        if (!query.trim()) {
+            setFilteredConversations(conversations);
+            return;
+        }
+
+        const filtered = conversations.filter(conversation => {
+            const name = chatService.getConversationDisplayName(conversation).toLowerCase();
+            const lastMessage = conversation.lastMessage ?
+                chatService.formatMessageContent(conversation.lastMessage).toLowerCase() : '';
+
+            return name.includes(query.toLowerCase()) ||
+                lastMessage.includes(query.toLowerCase());
+        });
+
+        setFilteredConversations(filtered);
+    }, [conversations]);
+
     // Subscribe to store changes for real-time updates
     // This ensures new conversations appear immediately without pull-to-refresh
     useEffect(() => {
@@ -113,25 +132,6 @@ export default function ChatScreen() {
             setRefreshing(false);
         }
     }, [chatSyncInitialized, getConversationsFromDB, getMessagesFromDB, error, setConversations, setConversationsLoading, setConversationMessages, setMessageSnapshot]);
-
-    // Filter conversations based on search query
-    const filterConversations = useCallback((query: string) => {
-        if (!query.trim()) {
-            setFilteredConversations(conversations);
-            return;
-        }
-
-        const filtered = conversations.filter(conversation => {
-            const name = chatService.getConversationDisplayName(conversation).toLowerCase();
-            const lastMessage = conversation.lastMessage ?
-                chatService.formatMessageContent(conversation.lastMessage).toLowerCase() : '';
-
-            return name.includes(query.toLowerCase()) ||
-                lastMessage.includes(query.toLowerCase());
-        });
-
-        setFilteredConversations(filtered);
-    }, [conversations]);
 
     // Debounce search
     useEffect(() => {
@@ -253,9 +253,9 @@ export default function ChatScreen() {
                             }
                         ]}>
                             {item.type === 'GROUP' ? (
-                                <Users size={30} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                                <Users size={32} color={isDark ? '#9CA3AF' : '#6B7280'} />
                             ) : (
-                                <User size={30} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                                <User size={34} color={isDark ? '#9CA3AF' : '#6B7280'} />
                             )}
                         </View>
                     )}

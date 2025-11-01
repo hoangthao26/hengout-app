@@ -35,6 +35,7 @@ import { locationService } from '../../services/locationService';
 import { useCollectionStore } from '../../store/collectionStore';
 import { LocationInFolder } from '../../types/locationFolder';
 import { LocationDetails } from '../../types/location';
+import { useSubscriptionStore } from '../../store/subscriptionStore';
 
 export default function CollectionDetailScreen() {
     const router = useRouter();
@@ -66,6 +67,10 @@ export default function CollectionDetailScreen() {
         updateCollection,
         resetCurrentCollection
     } = useCollectionStore();
+
+    // Get collection items limit from subscription
+    const activeSubscription = useSubscriptionStore(state => state.activeSubscription);
+    const maxItems = activeSubscription?.plan?.maxFolderItem;
 
 
     useEffect(() => {
@@ -444,7 +449,15 @@ export default function CollectionDetailScreen() {
             }}>
                 <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
                     <Header
-                        title={currentCollection?.name || 'Collection'}
+                        title={(() => {
+                            const collectionName = currentCollection?.name || 'Collection';
+                            if (maxItems !== undefined && maxItems >= 0) {
+                                return `${collectionName} (${locations.length}/${maxItems})`;
+                            } else if (maxItems !== undefined && maxItems < 0) {
+                                return `${collectionName} (${locations.length})`;
+                            }
+                            return `${collectionName} (${locations.length} địa điểm)`;
+                        })()}
                         showBackButton
                         onBackPress={handleBackPress}
                         rightIcon={{

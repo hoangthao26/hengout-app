@@ -562,18 +562,24 @@ export default function ProfileScreen() {
                     {/* Profile Info Section - Avatar Left, Name/Bio Below, Edit Icon Right */}
                     <View style={styles.profileInfoSection}>
                         {/* Avatar */}
-                        <View style={styles.avatarContainer}>
+                        <View style={[
+                            styles.avatarContainer,
+                            !profile?.avatarUrl && styles.avatarContainerEmpty,
+                            !profile?.avatarUrl && { backgroundColor: isDark ? '#374151' : '#E5E7EB' }
+                        ]}>
                             {profile?.avatarUrl ? (
                                 <Image
                                     source={{ uri: profile.avatarUrl }}
                                     style={styles.avatarImage}
-                                    resizeMode="contain"
+                                    resizeMode="cover"
                                 />
                             ) : (
-                                <User
-                                    size={90}
-                                    color={isDark ? '#9CA3AF' : '#6B7280'}
-                                />
+                                <View style={styles.avatarIconContainer}>
+                                    <User
+                                        size={62}
+                                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                                    />
+                                </View>
                             )}
                         </View>
 
@@ -755,6 +761,20 @@ const styles = StyleSheet.create({
     },
     avatarContainer: {
         // Avatar stays on the left
+    },
+    avatarContainerEmpty: {
+        width: 90,
+        height: 90,
+        borderRadius: 45,
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden',
+    },
+    avatarIconContainer: {
+        width: 90,
+        height: 90,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     avatarImage: {
         width: 90,

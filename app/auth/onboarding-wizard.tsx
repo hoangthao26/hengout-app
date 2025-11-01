@@ -216,7 +216,7 @@ export default function OnboardingWizardScreen() {
                     NavigationService.secureNavigateToDiscover();
                 }
             } catch {
-            NavigationService.secureNavigateToDiscover();
+                NavigationService.secureNavigateToDiscover();
             }
         } catch (error: any) {
             console.error('[OnboardingWizard] Onboarding failed:', error);
@@ -390,12 +390,12 @@ export default function OnboardingWizardScreen() {
                     {/* Back Button - Only show if not first step */}
                     {!isFirstStep && <AuthBackButton onPress={handleBack} />}
 
-                    {/* TEMP Test Logout Button - comment out after testing */}
+                    {/* TEMP Test Logout Button - comment out after testing
                     <View style={styles.logoutContainer}>
                         <TouchableOpacity onPress={handleTestLogout} style={styles.logoutButton}>
                             <Text style={[styles.logoutText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>Đăng xuất (test)</Text>
                         </TouchableOpacity>
-                    </View>
+                    </View> */}
 
                     {/* Header */}
                     <View style={styles.header}>
