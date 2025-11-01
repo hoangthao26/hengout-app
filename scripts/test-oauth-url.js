@@ -9,8 +9,22 @@ const crypto = require('crypto');
 
 console.log('🔍 Testing Google OAuth URL Generation...\n');
 
-// Configuration - Updated with Web Application Client ID
-const GOOGLE_CLIENT_ID = '117615834699-ilg9u8qk5k86usb1ko3q0mcdmbedvt8f.apps.googleusercontent.com';
+// Load environment variables (if dotenv is available)
+try {
+    require('dotenv').config({ path: '.env.local' });
+} catch (e) {
+    console.warn('⚠️  dotenv not found. Install it with: npm install dotenv');
+    console.warn('   Or set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID as environment variable.\n');
+}
+
+// Configuration - Use environment variable instead of hardcoded value
+const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID_HERE';
+
+if (GOOGLE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID_HERE') {
+    console.error('❌ ERROR: EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is not set!');
+    console.error('   Please create .env.local file with your Google OAuth Client ID.\n');
+    process.exit(1);
+}
 const REDIRECT_URI = 'https://auth.expo.io/@hoangthao2222/project-exe101';
 const SCOPES = ['openid', 'profile', 'email'];
 
