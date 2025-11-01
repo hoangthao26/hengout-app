@@ -9,9 +9,13 @@ import NavigationService from '../services/navigationService';
 import * as Location from 'expo-location';
 
 // Google OAuth Client IDs from environment variables
-// Fallback to hardcoded values if env vars not set (for development)
-const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '481945533208-i48ed7onp65ks43qkekg72ion2lr5tgb.apps.googleusercontent.com';
-const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '481945533208-35u68ikm7dn5gv99me66b612i5uek4ms.apps.googleusercontent.com';
+// These must be set in your .env.local file
+const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+
+if (!webClientId || !iosClientId) {
+  throw new Error('Missing required Google OAuth Client IDs. Please set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID and EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID in your .env.local file');
+}
 
 // Debug flag to control verbose OAuth logging
 const DEBUG_OAUTH = __DEV__ && process.env.EXPO_PUBLIC_DEBUG_OAUTH === '1';
