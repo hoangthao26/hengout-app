@@ -14,7 +14,7 @@ const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 
 if (!webClientId || !iosClientId) {
-    throw new Error('Missing required Google OAuth Client IDs. Please set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID and EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID in your .env.local file');
+  throw new Error('Missing required Google OAuth Client IDs. Please set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID and EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID in your .env.local file');
 }
 
 // Debug flag to control verbose OAuth logging
