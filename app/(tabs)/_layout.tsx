@@ -70,7 +70,7 @@ function TabLayoutContent() {
                 setLinearGradient(() => LinearGradientModule.LinearGradient);
                 setMaskedView(() => MaskedViewModule.default);
             } catch (error) {
-                console.log('Native modules not available for tabs, using fallback:', error);
+                // Native modules not available, fallback to regular icons
             } finally {
                 setIsLoading(false);
             }
@@ -133,7 +133,7 @@ function TabLayoutContent() {
                 </MaskedView>
             );
         } catch (error) {
-            console.log('Error rendering gradient icon, using fallback:', error);
+            // Error rendering gradient, fallback to regular icon
             return <IconComponent size={size} color="#FAA307" />;
         }
     };

@@ -76,7 +76,7 @@ export const useSubscription = () => {
         try {
             return await subscriptionService.checkPayment(orderCode);
         } catch (error: any) {
-            console.error('Failed to check payment:', error);
+            console.error('[useSubscription] Failed to check payment:', error);
             throw error;
         }
     }, []);
@@ -85,7 +85,7 @@ export const useSubscription = () => {
         try {
             return await subscriptionService.createPayment(planId);
         } catch (error: any) {
-            console.error('Failed to create payment:', error);
+            console.error('[useSubscription] Failed to create payment:', error);
             throw error;
         }
     }, []);
@@ -94,7 +94,7 @@ export const useSubscription = () => {
         try {
             return await subscriptionService.confirmWebhook(webhookUrl);
         } catch (error: any) {
-            console.error('Failed to confirm webhook:', error);
+            console.error('[useSubscription] Failed to confirm webhook:', error);
             throw error;
         }
     }, []);
@@ -103,7 +103,7 @@ export const useSubscription = () => {
         try {
             return await subscriptionService.cancelPayment(orderCode);
         } catch (error: any) {
-            console.error('Failed to cancel payment:', error);
+            console.error('[useSubscription] Failed to cancel payment:', error);
             throw error;
         }
     }, []);

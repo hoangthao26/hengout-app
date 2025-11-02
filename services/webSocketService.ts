@@ -50,16 +50,7 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
     ws.onclose = (event) => {
         // WebSocket closed
 
-        // Handle different close codes
-        if (event.code === 1001) {
-            console.log('[WebSocket] Stream end encountered - connection lost unexpectedly');
-        } else if (event.code === 1006) {
-            console.log('[WebSocket] Connection closed abnormally - network issue');
-        } else if (event.code === 1000) {
-            console.log('[WebSocket] Connection closed normally');
-        } else {
-            console.log(`[WebSocket] Connection closed with code: ${event.code}`);
-        }
+        // Handle different close codes silently
 
         // Notify close callbacks
         closeCallbacks.forEach(callback => callback(event));
@@ -68,16 +59,12 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
     ws.onmessage = (event) => {
         try {
             const message: WebSocketMessage = JSON.parse(event.data);
-            console.log('[WebSocket] Received:', message.type);
 
-            // Handle different message types
             switch (message.type) {
                 case 'CONNECTION_SUCCESS':
-                    console.log('[WebSocket] Connected as user:', message.data.userId);
                     break;
 
                 case 'SUBSCRIBE_SUCCESS':
-                    // Subscribed to conversation
                     break;
 
                 case 'NEW_MESSAGE':
@@ -89,20 +76,10 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
                     break;
 
                 case 'ACTIVITY_UPDATE':
-                    console.log('[WebSocket] Activity update - FULL STRUCTURE:', {
-                        allMessageKeys: Object.keys(message),
-                        conversationId: message.data?.conversationId,
-                        fullMessage: message,
-                        activityData: message.data?.activity,
-                        messageType: 'ACTIVITY_UPDATE'
-                    });
-
                     const activityConversationId = message.data.conversationId;
                     const activityHandler = messageHandlers.get(`activity_${activityConversationId}`);
                     if (activityHandler) {
                         activityHandler(message);
-                    } else {
-                        console.log('[WebSocket] No handler found for activity update:', activityConversationId);
                     }
                     break;
 
@@ -123,7 +100,6 @@ export async function createWebSocketConnection(url: string): Promise<WebSocketC
                     break;
 
                 case 'PONG':
-                    console.log('Pong received');
                     break;
 
                 case 'ERROR':

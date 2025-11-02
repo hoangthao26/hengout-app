@@ -36,24 +36,40 @@ class AuthStateManager {
     }
 
     /**
-     * Set new auth state and notify listeners
+     * Set new auth state with observer pattern notification
+     * 
+     * State transition logic:
+     * 1. Validates state change (no-op if same state)
+     * 2. Updates current state
+     * 3. Notifies all registered listeners of state change
+     * 
+     * Observer pattern: All listeners are notified synchronously when state changes.
+     * Listener errors are caught and logged individually (don't block other listeners).
+     * 
+     * State transitions:
+     * - UNKNOWN → LOGGING_IN → AUTHENTICATED (login flow)
+     * - AUTHENTICATED → LOGGING_OUT → UNAUTHENTICATED (logout flow)
+     * - Any state → UNAUTHENTICATED (forced logout)
+     * 
+     * @param newState - New authentication state to transition to
      */
     setState(newState: AuthState): void {
         const oldState = this.currentState;
 
+        // No-op if state hasn't changed (prevents unnecessary notifications)
         if (oldState === newState) {
-            console.log(`[AuthStateManager] State unchanged: ${newState}`);
             return;
         }
 
-        console.log(`[AuthStateManager] State transition: ${oldState} → ${newState}`);
+        // Update current state
         this.currentState = newState;
 
-        // Notify all listeners
+        // Notify all registered listeners (observer pattern)
         this.listeners.forEach(listener => {
             try {
                 listener(newState, oldState);
             } catch (error) {
+                // Individual listener errors don't block other listeners
                 console.error('[AuthStateManager] Listener error:', error);
             }
         });
@@ -64,12 +80,10 @@ class AuthStateManager {
      */
     addListener(listener: AuthStateChangeListener): () => void {
         this.listeners.add(listener);
-        console.log(`[AuthStateManager] Added listener (${this.listeners.size} total)`);
 
         // Return unsubscribe function
         return () => {
             this.listeners.delete(listener);
-            console.log(`[AuthStateManager] Removed listener (${this.listeners.size} total)`);
         };
     }
 
@@ -78,7 +92,6 @@ class AuthStateManager {
      */
     clearListeners(): void {
         this.listeners.clear();
-        console.log('[AuthStateManager] Cleared all listeners');
     }
 
     /**
@@ -116,7 +129,6 @@ class AuthStateManager {
     reset(): void {
         this.setState(AuthState.UNKNOWN);
         this.clearListeners();
-        console.log('[AuthStateManager] Reset to initial state');
     }
 }
 

@@ -29,7 +29,7 @@ export default function PreferencesScreen() {
                 await fetchPreferences();
             }
         } catch (error: any) {
-            console.error('Failed to load preferences:', error);
+            console.error('[Preferences] Failed to load preferences:', error);
             showError('Failed to load preferences',);
         } finally {
             setLoading(false);

@@ -90,7 +90,6 @@ export default function ConversationDetailsScreen() {
             const conversationExists = conversations.find(c => c.id === conversationId);
             if (!conversationExists && !currentConversation) {
                 // Conversation was removed (e.g., after disband), don't try to load
-                console.log(`[Details] Conversation ${conversationId} no longer exists, skipping load`);
                 return;
             }
 
@@ -104,7 +103,8 @@ export default function ConversationDetailsScreen() {
                     try {
                         await syncMembers(conversationId);
                     } catch (syncError) {
-                        console.error('Background member sync failed:', syncError);
+                        // Background member sync failed - non-critical, continue without blocking UI
+                        console.error('[Details] Background member sync failed:', syncError);
                     }
                 }
             } else {
@@ -128,19 +128,19 @@ export default function ConversationDetailsScreen() {
                     try {
                         await fetchGroupStatus(conversationId);
                     } catch (statusError) {
-                        console.error('Failed to fetch group status:', statusError);
+                        // Failed to fetch group status - non-critical, continue without blocking UI
+                        console.error('[Details] Failed to fetch group status:', statusError);
                     }
                 }
             }
         } catch (error: any) {
             // If 403 or 404, conversation was likely deleted/disbanded
             if (error?.response?.status === 403 || error?.response?.status === 404) {
-                console.log(`[Details] Conversation ${conversationId} not accessible (403/404), likely disbanded`);
                 // Navigate back if we're on a deleted conversation
                 router.replace('/(tabs)/chat');
                 return;
             }
-            console.error('Failed to load conversation:', error);
+            console.error('[Details] Failed to load conversation:', error);
         }
     };
 
@@ -181,12 +181,10 @@ export default function ConversationDetailsScreen() {
 
     const handleViewMedia = () => {
         // TODO: Implement view media
-        console.log('View media');
     };
 
     const handlePinnedMessages = () => {
         // TODO: Implement pinned messages
-        console.log('Pinned messages');
     };
 
     const handleCreateGroup = () => {
@@ -219,42 +217,34 @@ export default function ConversationDetailsScreen() {
     const handleCreateGroupSuccess = () => {
         setShowCreateGroupModal(false);
         // Có thể navigate đến group chat mới tạo hoặc reload data
-        console.log('Group created successfully');
     };
 
     const handleSearch = () => {
         // TODO: Implement search
-        console.log('Search');
     };
 
     const handleMute = () => {
         // TODO: Implement mute
-        console.log('Mute');
     };
 
     const handleOptions = () => {
         // TODO: Implement options
-        console.log('Options');
     };
 
     const handleTheme = () => {
         // TODO: Implement theme
-        console.log('Theme');
     };
 
     const handleInviteLink = () => {
         // TODO: Implement invite link
-        console.log('Invite link');
     };
 
     const handleNickname = () => {
         // TODO: Implement nickname
-        console.log('Nickname');
     };
 
     const handlePrivacy = () => {
         // TODO: Implement privacy
-        console.log('Privacy');
     };
 
     const handleLeaveGroup = () => {
@@ -286,7 +276,6 @@ export default function ConversationDetailsScreen() {
                                 try {
                                     const { chatWebSocketManager } = await import('../../../services/chatWebSocketManager');
                                     chatWebSocketManager.unsubscribeFromConversation(conversation.id);
-                                    console.log('[Details] Unsubscribed WebSocket from disbanded conversation');
                                 } catch (wsErr) {
                                     console.error('[Details] Failed to unsubscribe WebSocket:', wsErr);
                                 }
@@ -298,7 +287,7 @@ export default function ConversationDetailsScreen() {
                                         // Also sync to ensure consistency
                                         await syncConversationsToDB();
                                     } catch (dbError) {
-                                        console.error('Failed to delete conversation from database:', dbError);
+                                        console.error('[Details] Failed to delete conversation from database:', dbError);
                                         // Don't block user, just log error
                                     }
                                 }
@@ -342,7 +331,6 @@ export default function ConversationDetailsScreen() {
                                 try {
                                     const { chatWebSocketManager } = await import('../../../services/chatWebSocketManager');
                                     chatWebSocketManager.unsubscribeFromConversation(conversation.id);
-                                    console.log('[Details] Unsubscribed WebSocket from left conversation');
                                 } catch (wsErr) {
                                     console.error('[Details] Failed to unsubscribe WebSocket:', wsErr);
                                 }
@@ -354,7 +342,7 @@ export default function ConversationDetailsScreen() {
                                         // Also sync to ensure consistency
                                         await syncConversationsToDB();
                                     } catch (dbError) {
-                                        console.error('Failed to delete conversation from database:', dbError);
+                                        console.error('[Details] Failed to delete conversation from database:', dbError);
                                         // Don't block user, just log error
                                     }
                                 }

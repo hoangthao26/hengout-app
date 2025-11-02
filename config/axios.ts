@@ -83,7 +83,8 @@ axiosInstance.interceptors.request.use(
                     }
                 }
             } catch (error) {
-                console.warn('Failed to add auth token to request:', error);
+                // Failed to add auth token - request will proceed without auth (may fail if auth required)
+                console.warn('[Axios] Failed to add auth token to request:', error);
             }
         }
 
@@ -115,17 +116,12 @@ axiosInstance.interceptors.response.use(
         if (error.response?.status === 401) {
             // STOP INFINITE LOOP: Don't try to refresh if user is logged out
             if (isLoggingOut || isUserLoggedOut) {
-                console.log('[Axios] User is logged out, silently ignoring 401 error');
                 // Return a silent rejection - don't log as error
                 return Promise.reject(new Error('User logged out - request cancelled'));
             }
 
-            // Silent log for 401 - don't show error to user
-            console.log('[Axios] 401 Unauthorized - Attempting token refresh');
-
             // If already logging out, skip all processing
             if (isLoggingOut) {
-                console.log('[Axios] Already logging out, skipping 401 processing');
                 return Promise.reject(error);
             }
 
@@ -138,8 +134,6 @@ axiosInstance.interceptors.response.use(
             }
 
             if (originalRequest.url?.includes('/session/refresh')) {
-                // Silent log for refresh token failure - don't show error to user
-                console.log('[Axios] Refresh token expired - redirecting to login');
                 if (!isLoggingOut) {
                     isLoggingOut = true;
                     await AuthHelper.logoutAndNavigate();
@@ -170,8 +164,6 @@ axiosInstance.interceptors.response.use(
                         return Promise.reject(new Error('Token refresh failed'));
                     }
                 } catch (refreshError) {
-                    // Silent log for token refresh error - don't show error to user
-                    console.log('[Axios] Token refresh failed:', (refreshError as any)?.message || 'Unknown error');
                     processQueue(refreshError, null);
 
                     const isAuthError = (refreshError as any)?.response?.status === 401 || (refreshError as any)?.message?.includes('401');

@@ -51,13 +51,13 @@ export default function SettingsScreen() {
                                     // BACKGROUND LOGOUT: Clear data without blocking UI
                                     await fastLogout();
                                 } catch (error: any) {
-                                    console.error('Background logout failed:', error);
-                                    // Don't show error to user since they're already logged out
+                                    // Background logout failed - user already logged out, no need to show error
+                                    console.error('[Settings] Background logout failed:', error);
                                 }
                             }, 100); // Small delay to ensure navigation completes
 
                         } catch (error: any) {
-                            console.error('Logout navigation failed:', error);
+                            console.error('[Settings] Logout navigation failed:', error);
                             error('Đăng xuất thất bại');
                             setIsLoggingOut(false);
                         }
@@ -148,7 +148,7 @@ export default function SettingsScreen() {
                                 presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
                             });
                         } catch (err) {
-                            console.error('Failed to open Privacy Policy:', err);
+                            console.error('[Settings] Failed to open Privacy Policy:', err);
                             error('Không thể mở Privacy Policy. Vui lòng thử lại sau.');
                         }
                     }}

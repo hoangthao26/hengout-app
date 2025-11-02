@@ -99,12 +99,9 @@ export default function DiscoverScreen() {
     });
 
     const handleLocationSelect = useCallback((location: { lat: number; lng: number }) => {
-        console.log('handleLocationSelect called - closing modal');
         setSelectedLocation(location);
-        // Close LocationCard when clicking on map
         setIsDetailSheetVisible(false);
         setSelectedLocationForDetail(null);
-        // Remove debug logs in production
     }, []);
 
     // Handle MapPin selection
@@ -120,10 +117,7 @@ export default function DiscoverScreen() {
                 lng: locationDetails.longitude
             });
 
-            // Show LocationCard
             setSelectedLocationForDetail(locationDetails);
-            console.log('LocationCard should be visible now');
-
         }, 0);
     }, []);
 
@@ -139,7 +133,8 @@ export default function DiscoverScreen() {
 
             await getRandomRecommendations(lat, lng, address || undefined);
         } catch (error) {
-            console.error('Failed to load random recommendations:', error);
+            // Silently fail - recommendations will load when location is available
+            console.error('[Discover] Failed to load random recommendations:', error);
         }
     }, [tokens.accessToken, getRandomRecommendations, getAddressFromCoordinates]);
 
@@ -222,10 +217,7 @@ export default function DiscoverScreen() {
     const handleOpenDetailModal = useCallback((locationDetails: LocationDetails) => {
         // Keep the LocationCard visible when opening modal
         setSelectedLocationForDetail(locationDetails);
-        openLocationDetailModal(locationDetails, () => {
-            // Keep LocationCard visible after modal closes
-            console.log('LocationDetailModal closed, keeping LocationCard visible');
-        });
+        openLocationDetailModal(locationDetails);
     }, [openLocationDetailModal]);
 
     // Handle navigation to location
@@ -245,8 +237,7 @@ export default function DiscoverScreen() {
                 { text: 'Hủy', style: 'cancel' },
                 {
                     text: 'Mở bản đồ', onPress: () => {
-                        // Add logic to open external maps app
-                        console.log('Opening maps app for:', locationDetails.name);
+                        // Logic to open external maps app
                     }
                 }
             ]
@@ -298,8 +289,7 @@ export default function DiscoverScreen() {
                 { text: 'Hủy', style: 'cancel' },
                 {
                     text: 'Gọi', onPress: () => {
-                        // Add logic to make phone call
-                        console.log('Calling:', phoneNumber);
+                        // Logic to make phone call
                     }
                 }
             ]
@@ -315,8 +305,7 @@ export default function DiscoverScreen() {
                 { text: 'Hủy', style: 'cancel' },
                 {
                     text: 'Lưu', onPress: () => {
-                        // Add logic to save location
-                        console.log('Saving location:', locationDetails.name);
+                        // Logic to save location
                     }
                 }
             ]
@@ -332,8 +321,7 @@ export default function DiscoverScreen() {
                 { text: 'Hủy', style: 'cancel' },
                 {
                     text: 'Chia sẻ', onPress: () => {
-                        // Add logic to share location
-                        console.log('Sharing location:', locationDetails.name);
+                        // Logic to share location
                     }
                 }
             ]
@@ -383,8 +371,6 @@ export default function DiscoverScreen() {
             try {
                 // Check if we have location data from splash screen
                 if (lat && lng) {
-                    console.log('[Discover] Using location from splash screen');
-
                     setInitialLocation({
                         lat: parseFloat(lat),
                         lng: parseFloat(lng)
@@ -400,7 +386,6 @@ export default function DiscoverScreen() {
                 }
 
                 // Try to get better location using smart location service
-                console.log('[Discover] Getting location with smart service...');
                 const { smartLocationService } = await import('../../services/smartLocationService');
 
                 const smartLocation = await smartLocationService.getCurrentLocation({
@@ -411,13 +396,6 @@ export default function DiscoverScreen() {
                 });
 
                 if (smartLocation && isMounted) {
-                    console.log('[Discover] Smart location obtained:', {
-                        lat: smartLocation.latitude,
-                        lng: smartLocation.longitude,
-                        accuracy: smartLocation.accuracy,
-                        source: smartLocation.source
-                    });
-
                     setInitialLocation({
                         lat: smartLocation.latitude,
                         lng: smartLocation.longitude
@@ -431,7 +409,6 @@ export default function DiscoverScreen() {
                     await loadRandomRecommendations(smartLocation.latitude, smartLocation.longitude);
                 } else {
                     // Fallback: Use existing useLocation hook
-                    console.log('[Discover] Smart location failed, trying fallback...');
                     const hasPermission = await requestLocationPermission();
 
                     if (hasPermission && isMounted) {
@@ -447,23 +424,17 @@ export default function DiscoverScreen() {
                             setIsInitialized(true);
                             await loadRandomRecommendations(currentLocation.latitude, currentLocation.longitude);
                         } else {
-                            // No location available - show location picker
-                            console.log('[Discover] No location available, showing location picker');
                             setIsInitialized(true);
-                            // TODO: Show location picker component
                         }
                     } else {
-                        // No permission - show location picker
-                        console.log('[Discover] No location permission, showing location picker');
                         setIsInitialized(true);
-                        // TODO: Show location picker component
                     }
                 }
             } catch (error) {
-                console.log('[Discover] Location initialization error:', error);
+                console.error('[Discover] Location initialization error:', error);
                 if (isMounted) {
                     setIsInitialized(true);
-                    // TODO: Show location picker component
+                    // Fallback: Show map with default location (Ho Chi Minh City)
                 }
             }
         };
@@ -495,69 +466,50 @@ export default function DiscoverScreen() {
     // Handle auto-open location card from collection detail
     useEffect(() => {
         if (locationId && latitude && longitude && autoOpenCard === 'true') {
-            console.log('[Discover] Auto-opening location card from collection:', { locationId, latitude, longitude });
-
             const lat = parseFloat(latitude);
             const lng = parseFloat(longitude);
 
-            // Set map center to location coordinates
-            const newLocation = {
-                lat: lat,
-                lng: lng,
-            };
-            setSelectedLocation(newLocation);
+            setSelectedLocation({ lat, lng });
 
-            // Move map center to the location (with delay to ensure map is ready)
+            // Move map center to the location
             setTimeout(() => {
                 if (mapController) {
-                    console.log('[Discover] Moving map to location');
                     mapController.centerMapOnLocation(lat, lng, 0.005);
                 } else {
-                    console.log('[Discover] Map controller not ready yet, retrying...');
-                    // Retry after a longer delay
                     setTimeout(() => {
                         if (mapController) {
-                            console.log('[Discover] Moving map to location (retry)');
                             (mapController as any).centerMapOnLocation(lat, lng, 0.005);
                         }
                     }, 1000);
                 }
             }, 500);
 
-            // Fetch full location details and open card (fallback)
+            // Fetch full location details and open card
             const fetchLocationDetails = async () => {
                 try {
-                    console.log('[Discover] Fetching location details for auto-open');
                     const response = await locationService.getLocationDetails(locationId);
-
                     if (response.status === 'success') {
-                        console.log('[Discover] Location details fetched, opening card');
                         setSelectedLocationDetails(response.data);
                         setSelectedLocationForDetail(response.data);
-                    } else {
-                        console.error('[Discover] Failed to fetch location details:', response.message);
-                        // showError('Không thể tải thông tin địa điểm');
                     }
                 } catch (error) {
+                    // Silently fail - location card won't show details
                     console.error('[Discover] Error fetching location details:', error);
-                    // showError('Lỗi khi tải thông tin địa điểm');
                 }
             };
 
             // Use location data if available, otherwise fetch from API
             if (locationData) {
                 try {
-                    console.log('[Discover] Using location data from params');
                     const locationDetails = JSON.parse(locationData);
                     setSelectedLocationDetails(locationDetails);
                     setSelectedLocationForDetail(locationDetails);
                 } catch (error) {
+                    // Failed to parse location data - fetch from API instead
                     console.error('[Discover] Failed to parse location data:', error);
-                    // Fallback to API call
                     fetchLocationDetails();
                 }
             } else {
-                // Fallback: Fetch from API if no data provided
                 fetchLocationDetails();
             }
         }
@@ -609,20 +561,17 @@ export default function DiscoverScreen() {
                                     const isEmpty = (!categories || categories.length === 0) && (!purposes || purposes.length === 0) && (!tags || tags.length === 0);
 
                                     if (isEmpty) {
-                                        // Clear filter results and reload random recommendations
                                         clearFilter();
                                         clearNLPSearch();
                                         clearRecommendations();
                                         await refreshRecommendations(location.latitude, location.longitude);
-                                        console.log('[Filter] Cleared filters -> reload random recommendations');
                                         return;
                                     }
 
-                                    // Hide random results while filter is active
                                     clearRecommendations();
 
                                     try {
-                                        const res = await fetchByFilter({
+                                        await fetchByFilter({
                                             categories,
                                             purposes,
                                             tags,
@@ -630,9 +579,8 @@ export default function DiscoverScreen() {
                                             longitude: location.longitude,
                                             address: ''
                                         });
-                                        console.log('[Filter] API response:', JSON.stringify(res, null, 2));
                                     } catch (err) {
-                                        console.log('[Filter] API error:', err);
+                                        console.error('[Discover] Filter API error:', err);
                                     }
                                 });
                             }}

@@ -31,7 +31,7 @@ export default function EditNameScreen() {
             }
             setDisplayName(profile?.displayName || '');
         } catch (error: any) {
-            console.error('Failed to load profile:', error);
+            console.error('[EditName] Failed to load profile:', error);
             showError('Failed to load profile',);
         } finally {
             setLoading(false);
@@ -53,7 +53,7 @@ export default function EditNameScreen() {
             showSuccess('Tên đã được cập nhật!',);
             router.back();
         } catch (error: any) {
-            console.error('Failed to update name:', error);
+            console.error('[EditName] Failed to update name:', error);
             showError('Không thể cập nhật tên',);
         } finally {
             setSaving(false);

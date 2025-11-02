@@ -103,12 +103,7 @@ export default function ChatScreen() {
                 // setFilteredConversations sẽ được cập nhật tự động qua useEffect
 
                 // MVP OPTIMIZATION: Disabled preloading to reduce memory usage
-                // Preloading messages for top conversations is disabled for better performance
-                console.log('[MVP Chat] Conversations loaded without preloading messages');
-
                 // MVP OPTIMIZATION: Disabled background sync to reduce network calls
-                // Background sync is disabled for better performance, rely on WebSocket for real-time updates
-                console.log('[MVP Chat] Skipped background sync, using WebSocket for real-time updates');
             } else {
                 // Fallback to direct API call if SQLite not ready
                 const response = await chatService.getConversations();
@@ -122,10 +117,9 @@ export default function ChatScreen() {
         } catch (err: any) {
             // DEFENSIVE: Don't show error if user logged out
             if (err.message?.includes('User logged out')) {
-                console.log('[Chat] User logged out, skipping conversation load');
                 return;
             }
-            console.error('Failed to load conversations:', err);
+            console.error('[Chat] Failed to load conversations:', err);
             error('Lỗi khi tải cuộc trò chuyện');
         } finally {
             setConversationsLoading(false);
@@ -169,7 +163,7 @@ export default function ChatScreen() {
                 }
             }
         } catch (error) {
-            console.error('Refresh failed:', error);
+            console.error('[Chat] Refresh failed:', error);
         } finally {
             setRefreshing(false);
         }
@@ -184,7 +178,7 @@ export default function ChatScreen() {
     const handleCreateGroup = useCallback(() => {
         // Không cần reload toàn bộ danh sách nữa vì conversation đã được thêm vào store ngay lập tức
         setOnCreateGroupSuccess(() => {
-            console.log('[Chat] Group created successfully, conversation already added to store');
+            // Group created successfully, conversation already added to store
         });
         openCreateGroupModal();
     }, [setOnCreateGroupSuccess, openCreateGroupModal]);
@@ -200,31 +194,13 @@ export default function ChatScreen() {
     // 2. Store changes trigger UI re-render automatically
     // 3. Reloading from database can overwrite real-time updates
     // 4. This was causing the "old preview" issue
-
-    // useFocusEffect(
-    //     useCallback(() => {
-    //         console.log('[Chat] Screen focused, reloading conversations...');
-    //         loadConversations();
-    //     }, [loadConversations])
-    // );
+    // Note: Removed useFocusEffect reload to prevent overwriting real-time WebSocket updates
 
     // Note: This is now handled in the useEffect above (line 66)
     // Removed duplicate useEffect to avoid conflicts
 
     // Render conversation item
     const renderConversationItem = ({ item }: { item: ChatConversation }) => {
-        // Debug log to check lastMessage data
-        if (item.lastMessage?.type === 'ACTIVITY') {
-            console.log('[ConversationList] Activity lastMessage:', {
-                conversationId: item.id,
-                conversationName: item.name,
-                lastMessage: item.lastMessage,
-                content: item.lastMessage.content,
-                name: item.lastMessage.content?.name,
-                purpose: item.lastMessage.content?.purpose
-            });
-        }
-
         const lastMessage = chatService.formatLastMessage(item);
         const timestamp = item.lastMessage ? chatService.formatTimestamp(item.lastMessage.createdAt) : '';
 

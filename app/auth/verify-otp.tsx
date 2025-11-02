@@ -74,7 +74,6 @@ export default function VerifyOTPScreen() {
         setHasError(false);
         try {
             const response = await authService.registerVerifyOTP(sessionToken, otpValue);
-            console.log('OTP verification successful:', response);
 
             // Save tokens to secure storage (including onboardingComplete)
             await AuthHelper.saveTokens({
@@ -93,7 +92,6 @@ export default function VerifyOTPScreen() {
             try {
                 const { initializationService } = await import('../../services/initializationService');
                 await initializationService.reinitializeWebSocket();
-                console.log('[Register] WebSocket reinitialized after register');
             } catch (wsError) {
                 console.error('[Register] WebSocket reinitialization failed:', wsError);
                 // Don't block registration flow
@@ -101,14 +99,12 @@ export default function VerifyOTPScreen() {
 
             // Check onboarding status from auth response
             if (response.data.onboardingComplete === false) {
-                console.log('Onboarding not complete, redirecting to wizard');
                 NavigationService.goToOnboardingWizard();
             } else {
-                console.log('Onboarding complete, navigating to tabs');
                 NavigationService.secureNavigateToDiscover();
             }
         } catch (error: any) {
-            console.error('OTP verification failed:', error);
+            console.error('[Register] OTP verification failed:', error);
             showError(error.message || 'OTP verification failed. Please try again.',);
             setHasError(true); // Set error state to show red borders
             // DO NOT reset hasAutoSubmitted here - this prevents auto-submit loop
@@ -140,7 +136,7 @@ export default function VerifyOTPScreen() {
             setCanResend(false);
             setResendCountdown(60);
         } catch (error: any) {
-            console.error('Resend OTP failed:', error);
+            console.error('[VerifyOTP] Resend OTP failed:', error);
             showError(error.message || 'Failed to resend OTP. Please try again.',);
         } finally {
             setLoading(false);

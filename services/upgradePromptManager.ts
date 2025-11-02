@@ -67,7 +67,29 @@ class UpgradePromptManager {
     }
 
     /**
-     * Create upgrade prompt for a feature
+     * Create upgrade prompt with dynamic messaging and variant selection
+     * 
+     * Message generation strategy based on usage percentage:
+     * - >= 100%: URGENT variant - "You've reached your limit. Upgrade to continue."
+     * - >= 90%: WARNING variant - "You're using X% of your limit. Upgrade soon to avoid interruption."
+     * - < 90%: INFO variant (default) - "You're using X% of your limit. Upgrade for unlimited access."
+     * 
+     * Variant override logic:
+     * - Variant is automatically upgraded to 'urgent' if usage >= 100%
+     * - Variant is automatically upgraded to 'warning' if usage >= 90%
+     * - Input variant is preserved for < 90% usage
+     * 
+     * Prompt lifecycle:
+     * 1. Generates unique ID (feature_timestamp)
+     * 2. Creates prompt object with calculated message and variant
+     * 3. Stores in prompts map
+     * 4. Notifies all subscribers
+     * 
+     * @param feature - Feature name (e.g., 'folders', 'friends', 'groups')
+     * @param currentUsage - Current usage count
+     * @param limit - Maximum allowed limit
+     * @param variant - Base variant (auto-upgraded based on percentage)
+     * @returns Created upgrade prompt data
      */
     createPrompt(
         feature: string,
@@ -75,21 +97,28 @@ class UpgradePromptManager {
         limit: number,
         variant: 'warning' | 'info' | 'urgent' = 'info'
     ): UpgradePromptData {
+        // Calculate usage percentage for message generation
         const usagePercentage = (currentUsage / limit) * 100;
 
+        // Generate dynamic message based on usage threshold
         let message = '';
         if (usagePercentage >= 100) {
+            // At/over limit: URGENT - user cannot proceed
             message = `You've reached your ${feature} limit. Upgrade to continue using this feature.`;
-            variant = 'urgent';
+            variant = 'urgent'; // Override to urgent
         } else if (usagePercentage >= 90) {
+            // Near limit: WARNING - user should upgrade soon
             message = `You're using ${Math.round(usagePercentage)}% of your ${feature} limit. Upgrade soon to avoid interruption.`;
-            variant = 'warning';
+            variant = 'warning'; // Override to warning
         } else {
+            // Under 90%: INFO - informational suggestion
             message = `You're using ${Math.round(usagePercentage)}% of your ${feature} limit. Upgrade for unlimited access.`;
+            // Keep provided variant (default: 'info')
         }
 
+        // Create prompt object
         const prompt: UpgradePromptData = {
-            id: `${feature}_${Date.now()}`,
+            id: `${feature}_${Date.now()}`, // Unique ID with timestamp
             message,
             feature,
             currentLimit: currentUsage,
@@ -99,6 +128,7 @@ class UpgradePromptManager {
             createdAt: Date.now(),
         };
 
+        // Store and notify subscribers
         this.prompts.set(prompt.id, prompt);
         this.notifyListeners();
 

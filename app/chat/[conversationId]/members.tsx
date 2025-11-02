@@ -168,7 +168,7 @@ const GroupMembersScreen: React.FC = () => {
     const [currentUserRole, setCurrentUserRole] = useState<string>('');
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
     const [conversationName, setConversationName] = useState('');
-    
+
     // Get maxMember from store (fetched in details screen)
     const groupStatus = useSubscriptionStore(state => state.groupStatus[conversationId || '']);
 
@@ -188,23 +188,8 @@ const GroupMembersScreen: React.FC = () => {
 
             // Set current user role from conversation response
             setCurrentUserRole(conversationResponse.data.userRole);
-
-            // Debug logs
-            console.log('[Members] Conversation info:', {
-                id: conversationResponse.data.id,
-                name: conversationResponse.data.name,
-                type: conversationResponse.data.type,
-                userRole: conversationResponse.data.userRole
-            });
-            console.log('[Members] Current user role from conversation:', conversationResponse.data.userRole);
-            console.log('[Members] All members:', membersResponse.data.map(m => ({
-                userId: m.userId,
-                userName: m.userName,
-                role: m.role,
-                isCurrentUser: m.isCurrentUser
-            })));
         } catch (err: any) {
-            console.error('Failed to load group members:', err);
+            console.error('[Members] Failed to load group members:', err);
             showError('Lỗi khi tải danh sách thành viên');
         } finally {
             setLoading(false);
@@ -239,7 +224,7 @@ const GroupMembersScreen: React.FC = () => {
                             showSuccess(`Đã xóa ${member.userName} khỏi nhóm`);
                             loadMembers(); // Reload members
                         } catch (err: any) {
-                            console.error('Failed to remove member:', err);
+                            console.error('[Members] Failed to remove member:', err);
                             showError('Lỗi khi xóa thành viên');
                         }
                     },

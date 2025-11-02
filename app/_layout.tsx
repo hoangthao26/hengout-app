@@ -34,14 +34,11 @@ export default function RootLayout() {
     // Handle deep linking for payment redirects (PaymentScreen handles payment deep links)
     React.useEffect(() => {
         const handleDeepLink = async (url: string) => {
-            console.log('[DeepLink] Received URL:', url);
-
             // Payment deep links are handled by dedicated pages:
             // - hengout://payment-success -> payment-success.tsx
             // - hengout://payment-cancel -> payment-cancel.tsx
             // - hengout://payment-callback -> payment-callback.tsx
             // No need to handle them here as they have their own routes
-            console.log('[DeepLink] Deep link received, letting router handle it');
         };
 
         // Handle initial URL if app was opened via deep link
@@ -70,7 +67,6 @@ export default function RootLayout() {
             try {
                 const { appLifecycleManager } = await import('../services/appLifecycleManager');
                 appLifecycleManager.initialize();
-                console.log('[RootLayout] App lifecycle manager initialized');
             } catch (error) {
                 console.error('[RootLayout] Failed to initialize app lifecycle manager:', error);
             }
@@ -81,7 +77,6 @@ export default function RootLayout() {
             try {
                 const { notificationManager } = await import('../services/notificationManager');
                 // Note: Toast context and navigation will be initialized later when available
-                console.log('[RootLayout] Notification manager imported');
             } catch (error) {
                 console.error('[RootLayout] Failed to import notification manager:', error);
             }
@@ -96,7 +91,6 @@ export default function RootLayout() {
                 try {
                     const isAuthenticated = await AuthHelper.isAuthenticated();
                     if (!isAuthenticated) {
-                        console.log('[RootLayout] User not authenticated, redirecting to login');
                         // AuthHelper will handle navigation automatically
                     } else {
                         // Start token monitoring if user is authenticated

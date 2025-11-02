@@ -23,10 +23,6 @@ export default function EditDateOfBirthScreen() {
         loadCurrentDateOfBirth();
     }, []);
 
-    useEffect(() => {
-        console.log('📅 Modal visibility changed:', modal.isVisible);
-    }, [modal.isVisible]);
-
     const loadCurrentDateOfBirth = async () => {
         try {
             setLoading(true);
@@ -36,7 +32,7 @@ export default function EditDateOfBirthScreen() {
             }
             setDateOfBirth(profile?.dateOfBirth || '');
         } catch (error: any) {
-            console.error('Failed to load profile:', error);
+            console.error('[EditDateOfBirth] Failed to load profile:', error);
             showError('Failed to load profile',);
         } finally {
             setLoading(false);
@@ -56,7 +52,7 @@ export default function EditDateOfBirthScreen() {
             showSuccess('Ngày sinh đã được cập nhật!',);
             router.back();
         } catch (error: any) {
-            console.error('Failed to update date of birth:', error);
+            console.error('[EditDateOfBirth] Failed to update date of birth:', error);
             showError('Không thể cập nhật ngày sinh',);
         } finally {
             setSaving(false);
@@ -78,17 +74,14 @@ export default function EditDateOfBirthScreen() {
     };
 
     const showDatePicker = () => {
-        console.log('📅 Showing date picker...');
         showModal('datePicker');
     };
 
     const hideDatePicker = () => {
-        console.log('📅 Hiding date picker...');
         hideModal();
     };
 
     const handleConfirm = (date: Date) => {
-        console.log('📅 Date confirmed:', date);
         setDateOfBirth(date.toISOString().split('T')[0]);
         hideDatePicker();
     };

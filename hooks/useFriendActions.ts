@@ -38,19 +38,19 @@ export const useFriendActions = (
     const searchResultsRef = useRef<SearchUser[]>(searchResults);
     searchResultsRef.current = searchResults;
 
-    // Function to refresh conversations after friend request acceptance
+    /**
+     * Refresh conversations list after friend-related actions
+     * Called after accepting/removing friends to update conversation list
+     */
     const refreshConversations = useCallback(async () => {
         try {
-            console.log('[Friend Actions] Refreshing conversations after friend request acceptance...');
             const response = await chatService.getConversations();
             if (response.status === 'success') {
                 setConversations(response.data);
-                console.log('[Friend Actions] Conversations refreshed successfully');
-            } else {
-                console.warn('[Friend Actions] Failed to refresh conversations:', response.message);
             }
         } catch (error) {
-            console.error('[Friend Actions] Error refreshing conversations:', error);
+            // Silently fail - conversation list will refresh on next navigation
+            console.error('[useFriendActions] Error refreshing conversations:', error);
         }
     }, [setConversations]);
 
@@ -59,49 +59,64 @@ export const useFriendActions = (
 
     const promptUpgrade = () => showLimitReachedThenUpgrade(toastCtx, friendsLimit?.label || '', 4200, onUpgradeOpenModal);
 
+    /**
+     * Send friend request with optimistic updates and rollback mechanism
+     * 
+     * Complex multi-step process:
+     * 1. Validates friend limit (blocks if at limit)
+     * 2. Stores original state for potential rollback
+     * 3. Sends friend request to server
+     * 4. Optimistically updates UI (relationshipStatus → REQUEST_SENT)
+     * 5. Fetches friendRequestId via search API (for cancellation support)
+     * 6. Updates UI with friendRequestId
+     * 7. Rolls back on error (restores original state)
+     * 
+     * Optimistic update pattern: UI updates immediately, rollback on failure.
+     * Two-step update: relationshipStatus first, then friendRequestId separately.
+     * 
+     * @param userId - ID of user to send friend request to
+     */
     const handleSendFriendRequest = useCallback(async (userId: string) => {
-        // Guard: if at limit, only show toast and stop
+        // Guard: Block if friend limit reached (show upgrade prompt)
         if (friendsLimit && friendsLimit.isAtLimit) {
             promptUpgrade();
             return;
         }
-        // Store original state for rollback
+        
+        // Store original state for rollback on error
         let originalUser: SearchUser | undefined;
 
         try {
             setProcessingUser(userId);
 
-            // 1. Get original user state for rollback
+            // Step 1: Capture original user state for rollback
             originalUser = searchResultsRef.current.find(u => u.id === userId);
 
-            // 2. Send friend request to server with retry logic
-            console.log('[Friend Request] Send URL:', `POST /api/social/friend-requests`);
-            console.log('[Friend Request] Send User ID:', userId);
+            // Step 2: Send friend request to server
             const response = await socialService.sendFriendRequest(userId);
             showSuccess('Friend request sent!');
 
-            // 3. Update relationshipStatus first (optimistic)
+            // Step 3: Optimistic UI update - set relationshipStatus to REQUEST_SENT
             setSearchResults(prev => prev.map(user =>
                 user.id === userId
                     ? { ...user, relationshipStatus: "REQUEST_SENT" as const }
                     : user
             ));
 
-            // Also update global store
+            // Also update global friend store
             globalUpdateSearchUser(userId, { relationshipStatus: "REQUEST_SENT" });
 
-            // 4. Call search API to get updated friendRequestId
-            console.log('[Friend Actions] API response does not contain friendRequestId, calling search API...');
+            // Step 4: Fetch friendRequestId via search API (needed for cancellation)
+            // This is done separately because sendFriendRequest doesn't return friendRequestId
             try {
-                // Get the user's name to search for them specifically
                 const currentUser = searchResultsRef.current.find(u => u.id === userId);
                 if (currentUser?.name) {
                     const searchResponse = await socialService.searchUsersDetail(currentUser.name, 0, 10);
 
-                    // Find the user in search results and get their friendRequestId
+                    // Find updated user in search results with friendRequestId
                     const updatedUser = searchResponse.data.content.find((u: any) => u.id === userId);
                     if (updatedUser && updatedUser.friendRequestId) {
-                        console.log('[Friend Actions] Found friendRequestId from search:', updatedUser.friendRequestId);
+                        // Update UI with friendRequestId for cancellation support
                         setSearchResults(prev => prev.map(user =>
                             user.id === userId
                                 ? {
@@ -112,19 +127,19 @@ export const useFriendActions = (
                                 : user
                         ));
 
-                        // Also update global store with friendRequestId
+                        // Update global store with friendRequestId
                         globalSendFriendRequest(userId, updatedUser.friendRequestId);
                     }
                 }
             } catch (searchError) {
-                console.warn('[Friend Actions] Failed to get friendRequestId from search:', searchError);
-                // Keep the optimistic update without friendRequestId
+                // Non-critical: Keep optimistic update even if friendRequestId fetch fails
+                // User can still see request was sent, cancellation just won't work until refresh
             }
         } catch (error: any) {
-            console.error('Failed to send friend request:', error);
+            console.error('[Friend Actions] Failed to send friend request:', error);
             showError(`Failed to send friend request: ${error.message}`);
 
-            // 5. Rollback to original state on error
+            // Step 5: Rollback - restore original state on error
             if (originalUser) {
                 setSearchResults(prev => prev.map(user =>
                     user.id === userId ? originalUser! : user
@@ -146,13 +161,8 @@ export const useFriendActions = (
             // Get original user state and friendRequestId from current ref
             originalUser = searchResultsRef.current.find(u => u.id === userId);
             friendRequestId = originalUser?.friendRequestId;
-            console.log('[Friend Actions] Cancel Request - Current searchResults:', searchResultsRef.current);
-            console.log('[Friend Actions] Cancel Request - Original user:', originalUser);
-            console.log('[Friend Actions] Cancel Request - friendRequestId:', friendRequestId);
 
             if (!friendRequestId) {
-                console.error('[Friend Actions] Cannot find friend request ID for user:', userId);
-                console.error('[Friend Actions] Available users:', searchResultsRef.current.map(u => ({ id: u.id, name: u.name, friendRequestId: u.friendRequestId })));
                 showError('Cannot find friend request ID');
                 return;
             }
@@ -164,12 +174,10 @@ export const useFriendActions = (
                     : u
             ));
 
-            console.log('[Friend Actions] Cancel URL:', `DELETE /api/social/friend-requests/${friendRequestId}`);
-            console.log('[Friend Actions] Cancel Request ID:', friendRequestId);
             await socialService.cancelSentFriendRequest(friendRequestId!);
             showSuccess('Friend request cancelled!');
         } catch (error: any) {
-            console.error('Failed to cancel friend request:', error);
+            console.error('[Friend Actions] Failed to cancel friend request:', error);
             showError(`Failed to cancel friend request: ${error.message}`);
 
             // Rollback to original state
@@ -199,15 +207,13 @@ export const useFriendActions = (
                     : user
             ));
 
-            console.log('[Friend Actions] Remove Friend URL:', `DELETE /api/social/friends/${userId}`);
-            console.log('[Friend Actions] Remove Friend User ID:', userId);
             await socialService.removeFriend(userId);
             showSuccess('Friend removed successfully!');
 
-            // Refresh conversations to update conversation list (private conversation may be hidden/removed)
+            // Refresh conversations to update conversation list
             await refreshConversations();
         } catch (error: any) {
-            console.error('Failed to remove friend:', error);
+            console.error('[Friend Actions] Failed to remove friend:', error);
             showError(`Failed to remove friend: ${error.message}`);
 
             // Rollback to original state
@@ -251,8 +257,6 @@ export const useFriendActions = (
             // Also update global store
             globalUpdateSearchUser(userId, { relationshipStatus: "FRIEND" });
 
-            console.log('[Friend Actions] Accept from Search URL:', `PUT /api/social/friend-requests/${friendRequestId}?status=ACCEPTED`);
-            console.log('[Friend Actions] Accept from Search Request ID:', friendRequestId);
             await socialService.handleFriendRequest(friendRequestId, 'ACCEPTED');
             showSuccess('Friend request accepted!');
 
@@ -262,7 +266,7 @@ export const useFriendActions = (
             // Refresh conversations to show new conversation immediately
             await refreshConversations();
         } catch (error: any) {
-            console.error('Failed to accept friend request:', error);
+            console.error('[Friend Actions] Failed to accept friend request:', error);
             showError(`Failed to accept friend request: ${error.message}`);
 
             // Rollback to original state
@@ -302,15 +306,13 @@ export const useFriendActions = (
             // Also update global store
             globalUpdateSearchUser(userId, { relationshipStatus: "NONE" });
 
-            console.log('[Friend Actions] Reject from Search URL:', `PUT /api/social/friend-requests/${friendRequestId}?status=REJECTED`);
-            console.log('[Friend Actions] Reject from Search Request ID:', friendRequestId);
             await socialService.handleFriendRequest(friendRequestId, 'REJECTED');
             showSuccess('Friend request rejected');
 
             // Remove from pending requests in global store
             globalRejectRequest(friendRequestId);
         } catch (error: any) {
-            console.error('Failed to reject friend request:', error);
+            console.error('[Friend Actions] Failed to reject friend request:', error);
             showError(`Failed to reject friend request: ${error.message}`);
 
             // Rollback to original state
@@ -327,14 +329,12 @@ export const useFriendActions = (
     const handleBlockUser = useCallback(async (userId: string) => {
         try {
             setProcessingUser(userId);
-            console.log('[Friend Actions] Block User URL:', `PUT /api/social/friends/${userId}/block`);
-            console.log('[Friend Actions] Block User ID:', userId);
             await socialService.blockFriend(userId, 'BLOCKED');
             showSuccess('User blocked successfully!');
 
             setSearchResults(prev => prev.filter(user => user.id !== userId));
         } catch (error: any) {
-            console.error('Failed to block user:', error);
+            console.error('[Friend Actions] Failed to block user:', error);
             showError(`Failed to block user: ${error.message}`);
         } finally {
             setProcessingUser(null);

@@ -14,7 +14,6 @@ export class FirebaseAuthService {
     private static instance: FirebaseAuthService;
 
     constructor() {
-        console.log('Firebase Auth Service initialized');
     }
 
     /**
@@ -22,15 +21,11 @@ export class FirebaseAuthService {
      */
     async signInWithGoogle(): Promise<{ success: boolean; data?: any; error?: string }> {
         try {
-            console.log('Starting Firebase Google sign-in...');
-
             if (Platform.OS === 'web') {
                 // For web, use popup
                 const { signInWithPopup } = await import('firebase/auth');
                 const result = await signInWithPopup(auth, googleProvider);
                 const user = result.user;
-
-                console.log('Firebase sign-in successful:', user.email);
 
                 // Get ID token
                 const idToken = await user.getIdToken();
@@ -70,7 +65,7 @@ export class FirebaseAuthService {
             }
 
         } catch (error: any) {
-            console.error('Firebase sign-in error:', error);
+            console.error('[FirebaseAuth] Sign-in error:', error);
             return {
                 success: false,
                 error: error.message || 'Firebase authentication failed'
@@ -85,9 +80,8 @@ export class FirebaseAuthService {
         try {
             const { signOut } = await import('firebase/auth');
             await signOut(auth);
-            console.log('Firebase sign-out successful');
         } catch (error: any) {
-            console.error('Firebase sign-out error:', error);
+            console.error('[FirebaseAuth] Sign-out error:', error);
             throw new Error(`Firebase sign-out failed: ${error.message}`);
         }
     }
@@ -123,7 +117,7 @@ export class FirebaseAuthService {
                 idToken: idToken
             };
         } catch (error) {
-            console.error('Failed to get user info:', error);
+            console.error('[FirebaseAuth] Failed to get user info:', error);
             return null;
         }
     }
@@ -133,13 +127,8 @@ export class FirebaseAuthService {
      */
     private async authenticateWithBackend(userInfo: FirebaseUserInfo): Promise<{ success: boolean; data?: any; error?: string }> {
         try {
-            console.log('[FirebaseAuth] Authenticating with backend using Firebase...');
-
             const apiBaseUrl = process.env.API_BASE_URL || process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000';
             const apiUrl = `${apiBaseUrl}/api/v1/auth/user/oauth/google`;
-
-            console.log('[FirebaseAuth] API URL:', apiUrl);
-            console.log('[FirebaseAuth] Request payload:', { idToken: userInfo.idToken });
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -152,12 +141,10 @@ export class FirebaseAuthService {
             });
 
             const responseText = await response.text();
-            console.log('[FirebaseAuth] Backend response text:', responseText);
 
             let data;
             try {
                 data = JSON.parse(responseText);
-                console.log('[FirebaseAuth] Backend response JSON:', data);
             } catch (parseError) {
                 console.error('[FirebaseAuth] Failed to parse JSON response:', parseError);
                 console.error('[FirebaseAuth] Response was:', responseText);

@@ -73,11 +73,9 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
 
     // Handle sheet changes
     const handleSheetChanges = useCallback((index: number) => {
-        console.log('BottomSheet index changed:', index);
         if (index === -1) {
             // Only call onClose if modal is still visible
             if (isVisible) {
-                console.log('BottomSheet closed, calling onClose');
                 onClose();
             }
         }
@@ -85,15 +83,12 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
 
     // Open/close effect
     React.useEffect(() => {
-        console.log('LocationDetailModal visibility changed:', isVisible);
         if (isVisible) {
             // Small delay to ensure proper mounting
             setTimeout(() => {
-                console.log('Expanding BottomSheet');
                 bottomSheetRef.current?.expand();
             }, 50);
         } else {
-            console.log('Closing BottomSheet');
             bottomSheetRef.current?.close();
         }
     }, [isVisible]);
@@ -128,7 +123,7 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
                 setReviewsWithImages(reviewsWithImages);
             }
         } catch (error) {
-            console.log('Failed to load reviews:', error);
+            console.error('[LocationDetailModal] Failed to load reviews:', error);
             setReviewsWithImages([]);
         } finally {
             setLoadingReviews(false);
@@ -150,7 +145,6 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({
     );
 
     const handleClose = () => {
-        console.log('handleClose called');
         // Force close the sheet first
         bottomSheetRef.current?.close();
         // Call onClose immediately - no delay needed

@@ -23,14 +23,13 @@ export default function ResetPasswordScreen() {
         setLoading(true);
         try {
             const response = await authService.forgotPasswordReset(sessionToken, password, confirmPassword);
-            console.log('Password reset successful:', response);
 
             showSuccess('Password reset successfully! Please login with your new password.',);
 
             // Navigate to login screen with secure navigation
             NavigationService.logoutToLogin();
         } catch (error: any) {
-            console.error('Password reset failed:', error);
+            console.error('[ResetPassword] Password reset failed:', error);
             showError(error.message || 'Failed to reset password. Please try again.',);
         } finally {
             setLoading(false);

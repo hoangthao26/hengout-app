@@ -19,7 +19,7 @@ interface AuthErrorBoundaryProps {
 
 export const AuthErrorBoundary: React.FC<AuthErrorBoundaryProps> = ({ children, onError }) => {
     const handleError = (error: AppError) => {
-        console.log('[AuthErrorBoundary] Auth Error Boundary caught error:', error);
+        console.error('[AuthErrorBoundary] Error caught:', error);
         onError?.(error);
     };
 

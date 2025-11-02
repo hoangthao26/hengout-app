@@ -73,7 +73,6 @@ export default function ResetPasswordOTPScreen() {
         setHasError(false);
         try {
             const response = await authService.forgotPasswordVerifyOTP(sessionToken, otpValue);
-            console.log('Reset OTP verification successful:', response);
 
             showSuccess('OTP verified successfully!',);
 
@@ -83,7 +82,7 @@ export default function ResetPasswordOTPScreen() {
                 email: email
             });
         } catch (error: any) {
-            console.error('Reset OTP verification failed:', error);
+            console.error('[ResetPasswordOTP] OTP verification failed:', error);
             showError(error.message || 'OTP verification failed. Please try again.',);
             setHasError(true); // Set error state to show red borders
             // DO NOT reset hasAutoSubmitted here - this prevents auto-submit loop
@@ -106,7 +105,6 @@ export default function ResetPasswordOTPScreen() {
         setHasError(false);
         try {
             const response = await authService.forgotPasswordVerifyOTP(sessionToken, otp);
-            console.log('Reset OTP verification successful:', response);
 
             showSuccess('OTP verified successfully!',);
 
@@ -116,7 +114,7 @@ export default function ResetPasswordOTPScreen() {
                 email: email
             });
         } catch (error: any) {
-            console.error('Reset OTP verification failed:', error);
+            console.error('[ResetPasswordOTP] OTP verification failed:', error);
             showError(error.message || 'OTP verification failed. Please try again.',);
             setHasError(true); // Set error state to show red borders
             // DO NOT reset hasAutoSubmitted here - this prevents auto-submit loop
@@ -132,7 +130,6 @@ export default function ResetPasswordOTPScreen() {
         setResendLoading(true);
         try {
             const response = await authService.forgotPasswordSendOTP(email);
-            console.log('Reset OTP resent successfully:', response);
 
             showSuccess('Reset OTP resent to your email',);
 
@@ -148,7 +145,7 @@ export default function ResetPasswordOTPScreen() {
             setResendCountdown(60);
             setCanResend(false);
         } catch (error: any) {
-            console.error('Failed to resend reset OTP:', error);
+            console.error('[ResetPasswordOTP] Failed to resend reset OTP:', error);
             showError(error.message || 'Failed to resend OTP. Please try again.',);
         } finally {
             setResendLoading(false);

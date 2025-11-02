@@ -19,7 +19,6 @@ export default function ForgotPasswordScreen() {
         setLoading(true);
         try {
             const response = await authService.forgotPasswordSendOTP(email);
-            console.log('Reset OTP sent successfully:', response);
 
             showSuccess('Reset OTP sent to your email',);
 
@@ -29,7 +28,7 @@ export default function ForgotPasswordScreen() {
                 sessionToken: response.data.sessionToken
             });
         } catch (error: any) {
-            console.error('Failed to send reset OTP:', error);
+            console.error('[ForgotPassword] Failed to send reset OTP:', error);
             showError(error.message || 'Failed to send reset OTP. Please try again.',);
         } finally {
             setLoading(false);

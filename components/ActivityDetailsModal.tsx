@@ -84,7 +84,7 @@ export default function ActivityDetailsModal({
             const response = await activityService.getActivityById(activityId);
             setActivity((response as any).data);
         } catch (err: any) {
-            console.error('Failed to load activity details:', err);
+            console.error('[ActivityDetailsModal] Failed to load activity details:', err);
             error('Không thể tải chi tiết hoạt động');
         } finally {
             setLoading(false);

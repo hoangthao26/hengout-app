@@ -50,7 +50,7 @@ export default function ActivityResultModal({
             const response = await activityService.getActivityResult(activityId);
             setResultData(response.data);
         } catch (err: any) {
-            console.error('Failed to load activity result:', err);
+            console.error('[ActivityResultModal] Failed to load activity result:', err);
             error('Không thể tải kết quả hoạt động');
         } finally {
             setLoading(false);

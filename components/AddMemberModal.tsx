@@ -103,18 +103,28 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
         return `${currentMembersCount}/${maxMember}`;
     }, [currentMembersCount, maxMember]);
 
-    // Guard function: check if can add more members
+    /**
+     * Guard function: Validates if more members can be added to group
+     * 
+     * Business logic:
+     * - null limit: Unknown limit, allow operation (graceful degradation)
+     * - Negative limit (< 0): Unlimited, always allow
+     * - Positive limit: Check if current count < max
+     * - At/over limit: Show subscription modal to upgrade
+     * 
+     * @returns true if can add members, false if at limit (triggers subscription modal)
+     */
     const guardMembers = React.useCallback(() => {
         if (maxMember === null) {
-            // Unknown limit, allow for now
+            // Unknown limit - graceful degradation: allow operation
             return true;
         }
         if (maxMember < 0) {
-            // Unlimited
+            // Unlimited subscription (-1 typically means unlimited)
             return true;
         }
         if (currentMembersCount >= maxMember) {
-            // At limit, show subscription modal
+            // At limit - show upgrade modal
             setShowSubscriptionModal(true);
             return false;
         }
@@ -185,7 +195,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
             setFriends(availableFriends);
             setFilteredFriends(availableFriends);
         } catch (err: any) {
-            console.error('Failed to load friends:', err);
+            console.error('[AddMemberModal] Failed to load friends:', err);
             showError('Lỗi khi tải danh sách bạn bè');
         } finally {
             setLoading(false);
@@ -231,7 +241,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                 try {
                     await chatService.addMember(conversationId, friendId);
                 } catch (err) {
-                    console.error(`Failed to add friend ${friendId}:`, err);
+                    console.error(`[AddMemberModal] Failed to add friend ${friendId}:`, err);
                 }
             }
 
@@ -243,7 +253,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
             setSelectedFriends([]);
             setSearchQuery('');
         } catch (err: any) {
-            console.error('Failed to add members:', err);
+            console.error('[AddMemberModal] Failed to add members:', err);
             showError('Lỗi khi thêm thành viên');
         } finally {
             setAdding(false);
@@ -329,12 +339,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                                 Thêm thành viên
                             </Text>
                             <Text style={[styles.subtitle, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>Thành viên: {membersLabel}</Text>
-                            <Text style={[
-                                styles.subtitle,
-                                { color: isDark ? '#9CA3AF' : '#6B7280' }
-                            ]}>
-                                {conversationName}
-                            </Text>
+
                         </View>
 
                         <GradientButton
@@ -428,7 +433,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 16,
+        paddingVertical: 12,
         borderBottomWidth: 1,
         position: 'relative',
     },

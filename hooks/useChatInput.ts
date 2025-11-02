@@ -36,22 +36,55 @@ export const useChatInput = ({
     const characterCount = messageText.length;
     const remainingCharacters = maxLength - characterCount;
 
-    // Send message
+    /**
+     * Send message with validation and error handling
+     * 
+     * Message sending flow:
+     * 1. Validates message can be sent (non-empty, not already sending)
+     * 2. Trims whitespace from message content (cleans user input)
+     * 3. Sets sending state (prevents duplicate sends)
+     * 4. Calls parent's send handler (onSendMessage)
+     * 5. On success: Clears input field (ready for next message)
+     * 6. On failure: Shows error alert (user feedback)
+     * 7. Always resets sending state (ensures UI unblocks)
+     * 
+     * Validation checks:
+     * - canSend: Combines messageText.trim().length > 0 AND !isSending
+     * - Prevents sending empty messages or duplicate sends
+     * 
+     * Error handling:
+     * - Catches and logs errors for debugging
+     * - Shows user-friendly Vietnamese error message
+     * - Does not clear message text on error (allows retry)
+     * - Always resets isSending state (ensures UI unblocks)
+     * 
+     * State management:
+     * - Clearing message on success provides clean slate for next message
+     * - Preserving message on error allows user to retry without retyping
+     * 
+     * @throws Error if onSendMessage throws (error is caught and shown to user)
+     */
     const sendMessage = useCallback(async () => {
+        // Guard: Early exit if validation fails
         if (!canSend) return;
 
-        const content = messageText.trim();
-        setIsSending(true);
+        const content = messageText.trim(); // Clean whitespace
+        setIsSending(true); // Block duplicate sends
 
         try {
             const success = await onSendMessage(content);
+            
+            // Success: Clear input for next message
             if (success) {
                 setMessageText('');
             }
         } catch (error) {
-            console.error('Failed to send message:', error);
+            // Error: Log for debugging and show user-friendly message
+            console.error('[useChatInput] Failed to send message:', error);
             Alert.alert('Lỗi', 'Không thể gửi tin nhắn');
+            // Note: Message text preserved on error (allows retry)
         } finally {
+            // Always reset sending state (ensures UI unblocks even on error)
             setIsSending(false);
         }
     }, [canSend, messageText, onSendMessage]);

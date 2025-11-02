@@ -82,15 +82,11 @@ export default function ProfileScreen() {
     // Listen for payment flow changes
     useEffect(() => {
         const unsubscribe = paymentFlowManager.subscribe(() => {
-            console.log('[ProfileScreen] Payment flow state changed');
             const currentPayment = paymentFlowManager.getCurrentPayment();
-            console.log('[ProfileScreen] Current payment:', currentPayment);
             if (currentPayment) {
-                console.log('[ProfileScreen] Setting selectedPlan and showing PaymentScreen');
                 setSelectedPlan(currentPayment.plan);
                 setShowPaymentScreen(true);
             } else {
-                console.log('[ProfileScreen] Clearing selectedPlan and hiding PaymentScreen');
                 setShowPaymentScreen(false);
                 setSelectedPlan(null);
             }
@@ -148,7 +144,7 @@ export default function ProfileScreen() {
                 setCollections(response.data);
             }
         } catch (error: any) {
-            console.error('Failed to load collections:', error);
+            console.error('[Profile] Failed to load collections:', error);
         } finally {
             setCollectionsLoading(false);
         }
@@ -209,17 +205,13 @@ export default function ProfileScreen() {
                 try {
                     const tokenInfo = await AuthHelper.getTokenInfo();
                     if (tokenInfo?.isAuthenticated && isProfileInitialized) {
-                        // INSTANT DISPLAY: Always use cached data first
                         const currentProfile = profile;
-                        if (currentProfile) {
-                            console.log('[Profile] Using cached profile for instant display');
-                        } else {
-                            console.log('[Profile] No cached profile, fetching from server...');
+                        if (!currentProfile) {
                             fetchProfile();
                         }
                     }
                 } catch (error) {
-                    console.error('Failed to check auth status in useFocusEffect:', error);
+                    console.error('[Profile] Failed to check auth status:', error);
                 }
             };
 
@@ -229,37 +221,30 @@ export default function ProfileScreen() {
 
     const loadProfile = async () => {
         try {
-            // Check if user is authenticated first using AuthHelper (more reliable)
             const tokenInfo = await AuthHelper.getTokenInfo();
             if (!tokenInfo?.isAuthenticated) {
-                console.log('User not authenticated, redirecting to login');
                 NavigationService.logoutToLogin();
                 return;
             }
 
-            // INSTANT DISPLAY: Check if profile already exists in store
+            // Check if profile already exists in store
             const currentProfile = profile;
             if (currentProfile) {
-                console.log('[Profile] Profile already cached, displaying instantly');
                 setIsProfileInitialized(true);
                 return;
             }
 
-            // Check onboarding status from stored data (preferred method)
+            // Check onboarding status
             const onboardingComplete = await OnboardingService.isOnboardingComplete();
 
             if (onboardingComplete) {
-                // User has completed onboarding, load profile using Zustand
-                console.log('[Profile] No cached profile, fetching from server...');
                 await refreshProfile();
                 setIsProfileInitialized(true);
             } else {
-                // User hasn't completed onboarding, redirect to wizard
-                console.log('Onboarding not complete, redirecting to onboarding wizard');
                 NavigationService.goToOnboardingWizard();
             }
         } catch (error: any) {
-            console.error('Failed to load profile:', error);
+            console.error('[Profile] Failed to load profile:', error);
             showError('Failed to load profile',);
         }
     };
@@ -267,15 +252,11 @@ export default function ProfileScreen() {
     const handleRefresh = async () => {
         setRefreshing(true);
         try {
-            // SMART REFRESH: Only refresh if needed
             const currentProfile = profile;
             const refreshPromises = [];
 
             if (!currentProfile) {
-                console.log('[Profile] No profile data, refreshing...');
                 refreshPromises.push(refreshProfile());
-            } else {
-                console.log('[Profile] Profile exists, only refreshing collections');
             }
 
             // Always refresh collections as they change more frequently
@@ -283,7 +264,7 @@ export default function ProfileScreen() {
 
             await Promise.all(refreshPromises);
         } catch (error: any) {
-            console.error('Failed to refresh profile:', error);
+            console.error('[Profile] Failed to refresh profile:', error);
             showError('Failed to refresh profile',);
         } finally {
             setRefreshing(false);
@@ -300,7 +281,7 @@ export default function ProfileScreen() {
             // Use AuthHelper for immediate logout with navigation
             await AuthHelper.logoutAndNavigate();
         } catch (error: any) {
-            console.error('Logout failed:', error);
+            console.error('[Profile] Logout failed:', error);
             showError('Logout failed. Please try again.',);
 
             // Force navigation to login even if logout fails
@@ -400,14 +381,11 @@ export default function ProfileScreen() {
     );
 
     const handlePlanSelect = async (plan: any) => {
-        console.log('[ProfileScreen] Plan selected:', plan);
         setShowSubscriptionModal(false);
 
         try {
-            console.log('[ProfileScreen] Starting payment flow...');
             // Start payment flow
-            const paymentData = await paymentFlowManager.startPayment(plan);
-            console.log('[ProfileScreen] Payment flow started:', paymentData);
+            await paymentFlowManager.startPayment(plan);
             // PaymentScreen will be shown automatically via paymentFlowManager subscription
         } catch (error: any) {
             console.error('[ProfileScreen] Failed to start payment:', error);
@@ -416,7 +394,6 @@ export default function ProfileScreen() {
     };
 
     const handlePaymentSuccess = () => {
-        console.log('[ProfileScreen] Payment success, closing PaymentScreen');
         setShowPaymentScreen(false);
         setSelectedPlan(null);
         showSuccess('Subscription activated successfully!');
@@ -425,7 +402,6 @@ export default function ProfileScreen() {
     };
 
     const handlePaymentBack = () => {
-        console.log('[ProfileScreen] Payment back, closing PaymentScreen');
         setShowPaymentScreen(false);
         setSelectedPlan(null);
     };
@@ -441,16 +417,10 @@ export default function ProfileScreen() {
             const tokenInfo = await AuthHelper.getTokenInfo();
 
             if (tokenInfo) {
-                console.log('Current Auth Status:');
-                console.log('- Is Authenticated:', tokenInfo.isAuthenticated);
-                console.log('- Has Tokens:', tokenInfo.hasTokens);
-                console.log('- Token Expired:', tokenInfo.tokenExpired);
-                console.log('- Remaining Time:', Math.round(tokenInfo.remainingTime / 1000), 'seconds');
-                console.log('- Expiration Time:', tokenInfo.expirationTime);
-                console.log('- Refresh Time:', tokenInfo.refreshTime);
-                console.log('- Time Until Refresh:', Math.round(tokenInfo.timeUntilRefresh / 1000), 'seconds');
-                console.log('- Token Type:', tokenInfo.tokenType);
-                console.log('- Role:', tokenInfo.role);
+                // Debug info for development - useful for troubleshooting auth issues
+                if (__DEV__) {
+                    // Keep debug info for development troubleshooting
+                }
 
                 const refreshStatus = tokenInfo.timeUntilRefresh > 0
                     ? `Refresh in ${Math.round(tokenInfo.timeUntilRefresh / 60000)}m ${Math.round((tokenInfo.timeUntilRefresh % 60000) / 1000)}s`
@@ -460,8 +430,8 @@ export default function ProfileScreen() {
             } else {
                 showError('Failed to get token information',);
             }
-        } catch (error: any) {
-            console.error('Failed to check auth status:', error);
+            } catch (error: any) {
+                console.error('[Profile] Failed to check auth status:', error);
             showError('Failed to check authentication status',);
         }
     };

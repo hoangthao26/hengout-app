@@ -38,7 +38,7 @@ export default function CollectionsScreen() {
                 showError('Không thể tải danh sách collections');
             }
         } catch (error: any) {
-            console.error('Failed to load collections:', error);
+            console.error('[Collections] Failed to load collections:', error);
             showError(`Lỗi: ${error.message}`);
         }
     }, [showError]);
@@ -69,7 +69,6 @@ export default function CollectionsScreen() {
 
     const handleCreateCollection = () => {
         // TODO: Navigate to create collection screen
-        console.log('Create collection');
     };
 
     const renderCollection = ({ item }: { item: LocationFolder }) => (

@@ -40,42 +40,14 @@ class ActivityService {
     async createActivity(activityData: CreateActivityRequest): Promise<CreateActivityResponse> {
         try {
             const endpoint = buildEndpointUrl('ACTIVITIES_BASE_URL', 'CREATE_ACTIVITY');
-
-            // Log request body for debugging
-            console.log('[ActivityService] Creating activity with data:', {
-                endpoint,
-                baseUrl: this.baseUrl,
-                fullUrl: endpoint,
-                requestBody: activityData,
-                timestamp: new Date().toISOString()
-            });
-
             const response = await axiosInstance.post<CreateActivityResponse>(endpoint, activityData);
-
-            // Log response for debugging
-            console.log('[ActivityService] Activity created successfully:', {
-                status: response.status,
-                responseData: response.data,
-                timestamp: new Date().toISOString()
-            });
 
             return response.data;
         } catch (error: any) {
-            // Log error details for debugging
-            console.error('[ActivityService] Failed to create activity:', {
-                error: error.message,
-                status: error.response?.status,
-                statusText: error.response?.statusText,
-                responseData: error.response?.data,
-                requestData: activityData,
-                timestamp: new Date().toISOString()
-            });
-
-            //Don't throw error if user logged out
             if (error.message?.includes('User logged out')) {
-                console.log('[ActivityService] User logged out, skipping activity creation');
                 throw new Error('User logged out');
             }
+            console.error('[ActivityService] Failed to create activity:', error);
 
             throw new Error(error.response?.data?.message || 'Failed to create activity');
         }
@@ -93,10 +65,9 @@ class ActivityService {
         } catch (error: any) {
             // DEFENSIVE: Don't throw error if user logged out
             if (error.message?.includes('User logged out')) {
-                console.log('[ActivityService] User logged out, skipping activities fetch');
                 return [];
             }
-            console.error(`Failed to get activities for conversation ${conversationId}:`, error);
+            console.error(`[ActivityService] Failed to get activities for conversation ${conversationId}:`, error);
             throw new Error(error.response?.data?.message || 'Failed to fetch activities');
         }
     }
@@ -111,7 +82,7 @@ class ActivityService {
             const response = await axiosInstance.get<ActivityResponse>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to get activity ${activityId}:`, error);
+            console.error(`[ActivityService] Failed to get activity ${activityId}:`, error);
             throw new Error(error.response?.data?.message || 'Failed to fetch activity');
         }
     }
@@ -126,7 +97,7 @@ class ActivityService {
             const response = await axiosInstance.put<ActivityResponse>(endpoint, updateData);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to update activity ${activityId}:`, error);
+            console.error(`[ActivityService] Failed to update activity ${activityId}:`, error);
             throw new Error(error.response?.data?.message || 'Failed to update activity');
         }
     }
@@ -140,7 +111,7 @@ class ActivityService {
             const endpoint = buildEndpointUrl('ACTIVITIES_BASE_URL', 'DELETE_ACTIVITY', { activityId });
             await axiosInstance.delete(endpoint);
         } catch (error: any) {
-            console.error(`Failed to delete activity ${activityId}:`, error);
+            console.error(`[ActivityService] Failed to delete activity ${activityId}:`, error);
             throw new Error(error.response?.data?.message || 'Failed to delete activity');
         }
     }
@@ -156,37 +127,14 @@ class ActivityService {
     }): Promise<{ message: string }> {
         try {
             const endpoint = buildEndpointUrl('ACTIVITIES_BASE_URL', 'SUBMIT_ACTIVITY_PREFERENCE');
-
-            console.log('[ActivityService] Submitting activity preference:', {
-                endpoint,
-                preferenceData,
-                timestamp: new Date().toISOString()
-            });
-
             const response = await axiosInstance.post<{ message: string }>(endpoint, preferenceData);
-
-            console.log('[ActivityService] Activity preference submitted successfully:', {
-                status: response.status,
-                responseData: response.data,
-                timestamp: new Date().toISOString()
-            });
 
             return response.data;
         } catch (error: any) {
-            console.error('[ActivityService] Failed to submit activity preference:', {
-                error: error.message,
-                status: error.response?.status,
-                statusText: error.response?.statusText,
-                responseData: error.response?.data,
-                requestData: preferenceData,
-                timestamp: new Date().toISOString()
-            });
-
-            // DEFENSIVE: Don't throw error if user logged out
             if (error.message?.includes('User logged out')) {
-                console.log('[ActivityService] User logged out, skipping preference submission');
                 throw new Error('User logged out');
             }
+            console.error('[ActivityService] Failed to submit activity preference:', error);
 
             throw new Error(error.response?.data?.message || 'Failed to submit activity preference');
         }
@@ -221,27 +169,11 @@ class ActivityService {
     }> {
         try {
             const endpoint = buildEndpointUrl('ACTIVITIES_BASE_URL', 'GET_ACTIVITY_SUGGESTIONS', { activityId });
-
-            console.log('[ActivityService] Getting activity suggestions:', {
-                endpoint,
-                activityId,
-                timestamp: new Date().toISOString()
-            });
-
             const response = await axiosInstance.get(endpoint);
-
-            console.log('[ActivityService] Activity suggestions retrieved successfully:', {
-                response: response.data,
-                timestamp: new Date().toISOString()
-            });
 
             return response.data;
         } catch (error: any) {
-            console.error('[ActivityService] Failed to get activity suggestions:', {
-                error: error.response?.data || error.message,
-                activityId,
-                timestamp: new Date().toISOString()
-            });
+            console.error('[ActivityService] Failed to get activity suggestions:', error);
             throw error;
         }
     }
@@ -258,47 +190,20 @@ class ActivityService {
     }> {
         try {
             const endpoint = buildEndpointUrl('ACTIVITIES_BASE_URL', 'VOTE_FOR_SUGGESTION');
-
-            console.log('[ActivityService] Voting for suggestion:', {
-                endpoint,
-                activityId,
-                suggestionId,
-                voteType,
-                timestamp: new Date().toISOString()
-            });
-
             const response = await axiosInstance.post(endpoint, {
                 activityId,
                 suggestionId,
                 voteType
             });
 
-            console.log('[ActivityService] Vote submitted successfully:', {
-                response: response.data,
-                timestamp: new Date().toISOString()
-            });
-
             return response.data;
         } catch (error: any) {
-            console.error('[ActivityService] Failed to vote for suggestion:', {
-                error: error.response?.data || error.message,
-                activityId,
-                suggestionId,
-                voteType,
-                timestamp: new Date().toISOString()
-            });
-
-            // Don't throw 409 errors (already voted) - just log and return
-            if (error.response?.status === 409) {
-                console.log('[ActivityService] User already voted, treating as success');
-                return {
-                    status: 'success',
-                    data: 'Already voted',
-                    message: 'User already voted for this suggestion',
-                    errorCode: 0
-                };
+            // Handle case where user already voted
+            if (error.response?.status === 409 || error.response?.status === 400) {
+                // User already voted, treat as success
+                return { status: 'success', data: 'Vote already submitted', message: 'Already voted', errorCode: 0 };
             }
-
+            console.error('[ActivityService] Failed to vote for suggestion:', error);
             throw error;
         }
     }
@@ -313,30 +218,11 @@ class ActivityService {
         errorCode: number;
     }> {
         try {
-            console.log('[ActivityService] Getting activity result:', {
-                activityId,
-                timestamp: new Date().toISOString()
-            });
-
             const url = buildEndpointUrl('ACTIVITIES_BASE_URL', 'GET_ACTIVITY_RESULT', { activityId });
             const response = await axiosInstance.get(url);
-
-            console.log('[ActivityService] Activity result retrieved successfully:', {
-                activityId,
-                totalSuggestions: response.data.data?.suggestions?.length || 0,
-                totalParticipants: response.data.data?.totalParticipants || 0,
-                totalVotes: response.data.data?.totalVotes || 0,
-                timestamp: new Date().toISOString()
-            });
-
             return response.data;
         } catch (error: any) {
-            console.error('[ActivityService] Failed to get activity result:', {
-                error: error.response?.data || error.message,
-                activityId,
-                timestamp: new Date().toISOString()
-            });
-
+            console.error('[ActivityService] Failed to get activity result:', error);
             throw error;
         }
     }
@@ -376,7 +262,7 @@ class ActivityService {
 
             return response.data;
         } catch (error) {
-            console.error('Error getting conversation activities:', error);
+            console.error('[ActivityService] Error getting conversation activities:', error);
             throw error;
         }
     }

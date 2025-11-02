@@ -22,27 +22,61 @@ export const useCountdown = ({
     const [totalSeconds, setTotalSeconds] = useState<number>(0);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
+    /**
+     * Calculate remaining time until end time with formatted string output
+     * 
+     * Time calculation algorithm:
+     * 1. Gets current time and target end time
+     * 2. Calculates difference in milliseconds
+     * 3. Converts to total seconds (for programmatic use)
+     * 4. Extracts hours, minutes, seconds using modulo arithmetic
+     * 
+     * Time extraction (modulo-based):
+     * - Hours: diff / (1000ms * 60s * 60m) = total hours
+     * - Minutes: (diff % hourInMs) / (1000ms * 60s) = remaining minutes
+     * - Seconds: (diff % minuteInMs) / 1000ms = remaining seconds
+     * 
+     * Formatting strategy (adaptive display):
+     * - Hours > 0: "Xh Ym Zs" (shows all units)
+     * - Minutes > 0: "Ym Zs" (hides hours)
+     * - Seconds only: "Zs" (minimal display)
+     * 
+     * Adaptive formatting prevents cluttered display:
+     * - For long durations: Shows all units
+     * - For short durations: Shows only relevant units
+     * 
+     * Expiry detection:
+     * - If diff <= 0: Time has expired
+     * - Returns Vietnamese "Đã hết hạn" message
+     * - Sets totalSeconds to 0 (prevents negative values)
+     * 
+     * @param endTime - ISO string or Date parseable string for target time
+     * @returns Object with formatted time string, expiry status, and total seconds
+     */
     const calculateTimeRemaining = (endTime: string): { timeString: string; isExpired: boolean; totalSeconds: number } => {
         const now = new Date();
         const end = new Date(endTime);
         const diff = end.getTime() - now.getTime();
         const totalSeconds = Math.floor(diff / 1000);
 
+        // Early return if expired (prevents negative time display)
         if (diff <= 0) {
             return { timeString: 'Đã hết hạn', isExpired: true, totalSeconds: 0 };
         }
 
+        // Extract time components using modulo arithmetic
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
+        // Adaptive formatting: Show only relevant units
         let timeString = '';
         if (hours > 0) {
-            timeString = `${hours}h ${minutes}m ${seconds}s`;
+            timeString = `${hours}h ${minutes}m ${seconds}s`; // Full format
         } else if (minutes > 0) {
-            timeString = `${minutes}m ${seconds}s`;
+            timeString = `${minutes}m ${seconds}s`; // Hide hours
         } else {
-            timeString = `${seconds}s`;
+            timeString = `${seconds}s`; // Minimal format
         }
 
         return { timeString, isExpired: false, totalSeconds };

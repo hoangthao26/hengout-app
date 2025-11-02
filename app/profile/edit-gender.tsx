@@ -33,7 +33,7 @@ export default function EditGenderScreen() {
             }
             setSelectedGender(profile?.gender || 'MALE');
         } catch (error: any) {
-            console.error('Failed to load profile:', error);
+            console.error('[EditGender] Failed to load profile:', error);
             showError('Failed to load profile',);
         } finally {
             setLoading(false);
@@ -50,7 +50,7 @@ export default function EditGenderScreen() {
             showSuccess('Giới tính đã được cập nhật!',);
             router.back();
         } catch (error: any) {
-            console.error('Failed to update gender:', error);
+            console.error('[EditGender] Failed to update gender:', error);
             showError('Không thể cập nhật giới tính',);
         } finally {
             setSaving(false);

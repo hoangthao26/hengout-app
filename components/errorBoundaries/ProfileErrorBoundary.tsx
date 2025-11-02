@@ -18,7 +18,7 @@ interface ProfileErrorBoundaryProps {
 
 export const ProfileErrorBoundary: React.FC<ProfileErrorBoundaryProps> = ({ children, onError }) => {
     const handleError = (error: AppError) => {
-        console.log('👤 Profile Error Boundary caught error:', error);
+        console.error('[ProfileErrorBoundary] Error caught:', error);
         onError?.(error);
     };
 

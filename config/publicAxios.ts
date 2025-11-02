@@ -12,15 +12,9 @@ export const publicAxios = axios.create({
     }
 });
 
-// Request interceptor for logging
+// Request interceptor
 publicAxios.interceptors.request.use(
     (config) => {
-        console.log('[PublicAxios] Public API Request:', {
-            method: config.method?.toUpperCase(),
-            url: config.url,
-            data: config.data,
-            headers: config.headers
-        });
         return config;
     },
     (error) => {
@@ -29,14 +23,9 @@ publicAxios.interceptors.request.use(
     }
 );
 
-// Response interceptor for logging and error handling
+// Response interceptor for error handling
 publicAxios.interceptors.response.use(
     (response) => {
-        console.log('[PublicAxios] Public API Response:', {
-            status: response.status,
-            url: response.config.url,
-            data: response.data
-        });
         return response;
     },
     (error) => {
@@ -46,7 +35,9 @@ publicAxios.interceptors.response.use(
         const backendMessage = error.response?.data?.message || error.response?.data?.error;
         const message = backendMessage || error.message;
 
-        console.warn('[PublicAxios] Public API Response Error:', { status, url, message });
+        if (status >= 500) {
+            console.error('[PublicAxios] Public API Response Error:', { status, url, message });
+        }
 
         const normalizedError = new Error(message);
         (normalizedError as any).status = status;

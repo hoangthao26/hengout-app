@@ -97,11 +97,9 @@ export default function FriendRequestScreen() {
     // Function to refresh conversations after friend request acceptance
     const refreshConversations = useCallback(async () => {
         try {
-            console.log('[Friend Request] Refreshing conversations after friend request acceptance...');
             const response = await chatService.getConversations();
             if (response.status === 'success') {
                 setConversations(response.data);
-                console.log('[Friend Request] Conversations refreshed successfully');
             } else {
                 console.warn('[Friend Request] Failed to refresh conversations:', response.message);
             }
@@ -139,7 +137,7 @@ export default function FriendRequestScreen() {
             const response = await socialService.getPendingFriendRequests();
             setPendingRequests(response.data);
         } catch (error: any) {
-            console.error('Failed to load pending requests:', error);
+            console.error('[FriendRequest] Failed to load pending requests:', error);
             showError(`Failed to load friend requests: ${error.message}`,);
         } finally {
             setLoading(false);
@@ -155,7 +153,6 @@ export default function FriendRequestScreen() {
 
         try {
             setSearchLoading(true);
-            console.log('[Friend Request] Starting search for:', query);
 
             const response = await userSearchService.searchUsers({
                 query,
@@ -163,14 +160,9 @@ export default function FriendRequestScreen() {
                 size: 10
             });
 
-            console.log('[Friend Request] Search response:', response);
-            console.log('[Friend Request] Search results content:', response.data.content);
-
             setSearchResults(response.data.content);
-
-            console.log('[Friend Request] Search results set:', response.data.content.length, 'users');
         } catch (error: any) {
-            console.error('[Friend Request] Failed to search users:', error);
+            console.error('[FriendRequest] Failed to search users:', error);
             showError(`Failed to search users: ${error.message}`);
         } finally {
             setSearchLoading(false);
@@ -184,8 +176,6 @@ export default function FriendRequestScreen() {
         }
         try {
             setProcessingRequest(requestId);
-            console.log('[Friend Request] Accept URL:', `PUT /api/social/friend-requests/${requestId}?status=ACCEPTED`);
-            console.log('[Friend Request] Accept Request ID:', requestId);
             await socialService.handleFriendRequest(requestId, 'ACCEPTED');
             showSuccess('Friend request accepted!',);
 
@@ -195,7 +185,7 @@ export default function FriendRequestScreen() {
             // Refresh conversations to show new conversation immediately
             await refreshConversations();
         } catch (error: any) {
-            console.error('Failed to accept friend request:', error);
+            console.error('[FriendRequest] Failed to accept friend request:', error);
             showError(`Failed to accept friend request: ${error.message}`,);
         } finally {
             setProcessingRequest(null);
@@ -205,15 +195,13 @@ export default function FriendRequestScreen() {
     const handleRejectRequest = async (requestId: string) => {
         try {
             setProcessingRequest(requestId);
-            console.log('[Friend Request] Reject URL:', `PUT /api/social/friend-requests/${requestId}?status=REJECTED`);
-            console.log('[Friend Request] Reject Request ID:', requestId);
             await socialService.handleFriendRequest(requestId, 'REJECTED');
             showSuccess('Friend request rejected',);
 
             // Remove from pending requests immediately
             setPendingRequests(pendingRequests.filter((req: FriendRequest) => req.id !== requestId));
         } catch (error: any) {
-            console.error('Failed to reject friend request:', error);
+            console.error('[FriendRequest] Failed to reject friend request:', error);
             showError(`Failed to reject friend request: ${error.message}`,);
         } finally {
             setProcessingRequest(null);

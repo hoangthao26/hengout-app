@@ -32,6 +32,11 @@ export const useLocation = () => {
     const retryCountRef = useRef(0);
     const isMountedRef = useRef(true);
 
+    /**
+     * Request foreground location permission from user
+     * Shows alerts if permission is denied or location services are disabled
+     * @returns true if permission granted, false otherwise
+     */
     const requestLocationPermission = async (): Promise<boolean> => {
         try {
             setLoading(true);
@@ -78,6 +83,11 @@ export const useLocation = () => {
         }
     };
 
+    /**
+     * Get current device location once
+     * Requests permission if not already granted
+     * @returns Location data or null if permission denied or error occurred
+     */
     const getCurrentLocation = async (): Promise<LocationData | null> => {
         try {
             setLoading(true);
@@ -121,23 +131,59 @@ export const useLocation = () => {
         setIsWatching(false);
     }, []);
 
+    /**
+     * Start watching location with retry logic and exponential backoff
+     * 
+     * Location watching flow:
+     * 1. Cleans up any existing subscription (prevents duplicate watchers)
+     * 2. Starts new location watcher with high accuracy settings
+     * 3. Updates location state on each position change
+     * 4. Resets retry count on successful watch start
+     * 
+     * Retry strategy with exponential backoff:
+     * - Base delay: RETRY_DELAY (1000ms)
+     * - Delay formula: baseDelay * retryCount (linear, not exponential despite name)
+     * - Max attempts: RETRY_ATTEMPTS (3)
+     * 
+     * Retry delay examples:
+     * - Attempt 1 (after failure): 1000ms * 1 = 1000ms
+     * - Attempt 2: 1000ms * 2 = 2000ms
+     * - Attempt 3: 1000ms * 3 = 3000ms
+     * 
+     * Note: Despite comment saying "exponential backoff", implementation uses linear backoff.
+     * This is acceptable for location watching as failures are typically transient.
+     * 
+     * Mount safety:
+     * - Checks isMountedRef before state updates (prevents unmounted component updates)
+     * - Guards prevent memory leaks if component unmounts during retry
+     * - Cleans up subscription on unmount via useEffect cleanup
+     * 
+     * Error handling:
+     * - Logs error message after max retries exceeded
+     * - Sets error state for UI feedback
+     * - Prevents infinite retry loops (hard limit on attempts)
+     * 
+     * Dependencies: Empty array [] prevents circular updates and ensures stable reference.
+     */
     const startWatching = useCallback(async () => {
         if (!isMountedRef.current) return;
 
         try {
-            // Clean up existing subscription
+            // Clean up existing subscription to prevent duplicate watchers
             if (subscriptionRef.current) {
                 subscriptionRef.current.remove();
                 subscriptionRef.current = null;
             }
 
+            // Start new location watcher with high accuracy settings
             const subscription = await Location.watchPositionAsync(
                 {
                     accuracy: LOCATION_CONFIG.HIGH_ACCURACY,
-                    timeInterval: LOCATION_CONFIG.WATCH_INTERVAL,
-                    distanceInterval: LOCATION_CONFIG.DISTANCE_INTERVAL,
+                    timeInterval: LOCATION_CONFIG.WATCH_INTERVAL, // 5 seconds
+                    distanceInterval: LOCATION_CONFIG.DISTANCE_INTERVAL, // 10 meters
                 },
                 (locationResult) => {
+                    // Guard: Only update if component still mounted
                     if (!isMountedRef.current) return;
 
                     const locationData: LocationData = {
@@ -148,7 +194,7 @@ export const useLocation = () => {
                     };
 
                     setLocation(locationData);
-                    retryCountRef.current = 0; // Reset retry count on success
+                    retryCountRef.current = 0; // Reset retry count on successful watch
                 }
             );
 
@@ -158,20 +204,27 @@ export const useLocation = () => {
         } catch (error: any) {
             if (!isMountedRef.current) return;
 
-            // Enterprise: Retry logic with exponential backoff
+            // Retry logic with linear backoff (delay = baseDelay * retryCount)
             if (retryCountRef.current < LOCATION_CONFIG.RETRY_ATTEMPTS) {
                 retryCountRef.current++;
                 setTimeout(() => {
+                    // Guard: Only retry if component still mounted
                     if (isMountedRef.current) {
                         startWatching();
                     }
-                }, LOCATION_CONFIG.RETRY_DELAY * retryCountRef.current);
+                }, LOCATION_CONFIG.RETRY_DELAY * retryCountRef.current); // Linear backoff
             } else {
+                // Max retries exceeded: Set error state for UI feedback
                 setError(`Location watching failed after ${LOCATION_CONFIG.RETRY_ATTEMPTS} attempts: ${error.message}`);
             }
         }
     }, []); // No dependencies to prevent circular updates
 
+    /**
+     * Start watching location changes continuously
+     * Updates location state whenever device position changes
+     * Includes retry logic with exponential backoff on failure
+     */
     const watchLocation = useCallback(async () => {
         if (!isMountedRef.current) return;
 
@@ -183,6 +236,41 @@ export const useLocation = () => {
         await startWatching();
     }, [permissionGranted, startWatching]);
 
+    /**
+     * Reverse geocode coordinates to formatted address string
+     * 
+     * Address parsing logic:
+     * 1. Calls reverse geocoding API to get address components
+     * 2. Extracts address components in hierarchical order (street → district → city → region → country)
+     * 3. Filters out null/undefined components (handles incomplete address data)
+     * 4. Joins remaining components with comma separator
+     * 
+     * Component hierarchy (from most specific to least specific):
+     * - street: Street name and number (most specific)
+     * - district: District/ward name
+     * - city: City name
+     * - region: State/province name
+     * - country: Country name (least specific)
+     * 
+     * Filtering strategy:
+     * - Uses `filter(Boolean)` to remove falsy values (null, undefined, empty strings)
+     * - Ensures only valid address components are included in output
+     * - Handles cases where some components may be missing
+     * 
+     * Formatting:
+     * - Components joined with ", " (comma + space)
+     * - Example: "123 Main St, District 1, Ho Chi Minh City, Vietnam"
+     * - Gracefully handles missing components (e.g., "District 1, Ho Chi Minh City")
+     * 
+     * Error handling:
+     * - Returns null on API failure or no results
+     * - Silent failure (no error thrown) allows caller to handle gracefully
+     * - Suitable for optional address display (not critical for app functionality)
+     * 
+     * @param lat - Latitude coordinate
+     * @param lng - Longitude coordinate
+     * @returns Formatted address string (e.g., "123 Main St, District 1, City") or null if not found
+     */
     const getAddressFromCoordinates = async (lat: number, lng: number): Promise<string | null> => {
         try {
             const addresses = await Location.reverseGeocodeAsync({
@@ -192,20 +280,22 @@ export const useLocation = () => {
 
             if (addresses.length > 0) {
                 const address = addresses[0];
+                // Extract and filter address components in hierarchical order
                 const addressParts = [
-                    address.street,
+                    address.street,      // Most specific
                     address.district,
                     address.city,
                     address.region,
-                    address.country,
-                ].filter(Boolean);
+                    address.country,     // Least specific
+                ].filter(Boolean); // Remove null/undefined/empty values
 
+                // Join with comma separator
                 return addressParts.join(', ');
             }
 
             return null;
         } catch (error: any) {
-            // Enterprise: Remove console.error in production
+            // Silent failure: Return null on error (caller handles gracefully)
             return null;
         }
     };

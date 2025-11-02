@@ -47,7 +47,7 @@ const GradientText: React.FC<GradientTextProps> = ({
                 setLinearGradient(() => LinearGradientModule.LinearGradient);
                 setMaskedView(() => MaskedViewModule.default);
             } catch (error) {
-                console.log('Native modules not available, using fallback:', error);
+                // Native modules not available, fallback to regular text
                 setHasError(true);
             } finally {
                 setIsLoading(false);
@@ -109,7 +109,7 @@ const GradientText: React.FC<GradientTextProps> = ({
             </View>
         );
     } catch (error) {
-        console.log('Error rendering gradient text, using fallback:', error);
+        // Error rendering gradient, fallback to regular text
         return <FallbackText />;
     }
 };

@@ -52,18 +52,44 @@ export function getLimitFor(entity: LimitEntity): number | null {
     }
 }
 
+/**
+ * Check if entity usage is within limits and determine limit status
+ * 
+ * Complex limit checking logic:
+ * 1. Handles null limits (unlimited, returns early)
+ * 2. Handles negative limits (< 0 means unlimited)
+ * 3. Calculates "near limit" using dual threshold strategy:
+ *    - Percentage-based: 85% of limit (works for high limits like 200)
+ *    - Remaining slots: <= 1 slot remaining (works for low limits like 3)
+ * 
+ * Dual threshold ensures proper warnings for both scenarios:
+ * - High limits: Warn at 85% (e.g., 170/200 friends)
+ * - Low limits: Warn when 1 slot left (e.g., 2/3 groups)
+ * 
+ * @param entity - Type of limit to check
+ * @param count - Current usage count
+ * @returns Limit check result with unlimited flag, at-limit flag, and near-limit flag
+ */
 export function checkLimit(entity: LimitEntity, count: number): LimitCheckResult {
     const limit = getLimitFor(entity);
+    
+    // Case 1: Unknown limit (null) - treat as unlimited
     if (limit == null) {
         return { limit: -1, count, isUnlimited: true, isAtLimit: false, isNearLimit: false };
     }
+    
+    // Case 2: Explicitly unlimited (negative value)
     if (limit < 0) {
         return { limit, count, isUnlimited: true, isAtLimit: false, isNearLimit: false };
     }
+    
+    // Case 3: Check against positive limit
     const isAtLimit = count >= limit;
 
-    // Calculate near limit: either percentage-based OR remaining slots threshold
-    // This ensures low limits (e.g., 3) still get proper warnings
+    // Dual threshold strategy for "near limit" calculation:
+    // Strategy A: Percentage-based threshold (85% of limit)
+    // Strategy B: Remaining slots threshold (<= 1 slot remaining)
+    // Use OR logic to catch both high-limit and low-limit scenarios
     const remainingSlots = limit - count;
     const percentageThreshold = Math.floor(limit * NEAR_THRESHOLD_RATIO);
     const isNearLimitByPercentage = !isAtLimit && count >= percentageThreshold;

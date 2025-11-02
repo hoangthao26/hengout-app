@@ -9,7 +9,6 @@ export class OnboardingService {
     static async setOnboardingStatus(onboardingComplete: boolean): Promise<void> {
         try {
             await AsyncStorage.setItem(ONBOARDING_STATUS_KEY, JSON.stringify(onboardingComplete));
-            console.log('[OnboardingService] Onboarding status saved:', onboardingComplete);
         } catch (error) {
             console.error('[OnboardingService] Failed to save onboarding status:', error);
         }
@@ -23,7 +22,6 @@ export class OnboardingService {
             const status = await AsyncStorage.getItem(ONBOARDING_STATUS_KEY);
             if (status !== null) {
                 const onboardingComplete = JSON.parse(status);
-                console.log('[OnboardingService] Retrieved onboarding status:', onboardingComplete);
                 return onboardingComplete;
             }
             return null;
@@ -39,7 +37,6 @@ export class OnboardingService {
     static async clearOnboardingStatus(): Promise<void> {
         try {
             await AsyncStorage.removeItem(ONBOARDING_STATUS_KEY);
-            console.log('[OnboardingService] Onboarding status cleared');
         } catch (error) {
             console.error('[OnboardingService] Failed to clear onboarding status:', error);
         }

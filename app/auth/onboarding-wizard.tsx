@@ -161,11 +161,12 @@ export default function OnboardingWizardScreen() {
                     setUserLoggedOut(true);
                     await fastLogout();
                 } catch (e) {
-                    console.error('Background test logout failed:', e);
+                    // Background test logout failed - silent fail as user is already logged out
+                    console.error('[OnboardingWizard] Background test logout failed:', e);
                 }
             }, 100);
         } catch (e: any) {
-            console.error('Test logout failed:', e);
+            console.error('[OnboardingWizard] Test logout failed:', e);
             showError('Đăng xuất thất bại');
         }
     };
@@ -173,8 +174,6 @@ export default function OnboardingWizardScreen() {
     const handleComplete = async () => {
         setLoading(true);
         try {
-            console.log('[OnboardingWizard] Completing onboarding...', data);
-
             const profileData: InitializeProfileRequest = {
                 displayName: data.displayName,
                 gender: data.gender,

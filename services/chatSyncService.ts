@@ -51,7 +51,7 @@ class ChatSyncService {
             await this.syncConversations();
             await this.syncUnsyncedMessages();
         } catch (error) {
-            console.error('Background sync failed:', error);
+            console.error('[ChatSyncService] Background sync failed:', error);
         } finally {
             this.isSyncing = false;
         }
@@ -69,7 +69,7 @@ class ChatSyncService {
             await this.syncUnsyncedMessages();
             // Force sync completed
         } catch (error) {
-            console.error('Force sync failed:', error);
+            console.error('[ChatSyncService] Force sync failed:', error);
             throw error;
         } finally {
             this.isSyncing = false;
@@ -79,35 +79,49 @@ class ChatSyncService {
     // ==================== CONVERSATIONS SYNC ====================
 
     /**
-     * Sync conversations from server to local DB - PROACTIVE approach
+     * Sync conversations from server to local DB with merge/delete logic
+     * 
+     * Sync strategy:
+     * 1. PROACTIVE: Validates authentication before API call
+     * 2. PROACTIVE: Refreshes token if expiring soon (< 5 min)
+     * 3. Fetches conversations from server
+     * 4. DEFENSIVE: Validates authentication after API call (logout detection)
+     * 5. Merges server data: Saves/updates conversations from server
+     * 6. Deletes local conversations not in server response (cleanup)
+     * 
+     * Merge logic:
+     * - Server data is source of truth
+     * - Local conversations not on server are deleted (user left, group disbanded)
+     * - All server conversations are saved/updated locally
+     * 
+     * Error handling:
+     * - 401 errors trigger logout (token invalid/expired)
+     * - Logout during sync aborts gracefully (doesn't throw)
+     * - Other errors are logged and rethrown
+     * 
+     * @throws Error if sync fails (except logout cases which abort silently)
      */
     async syncConversations(): Promise<void> {
         try {
             // Ensure database is initialized before sync
             await databaseService.initialize();
 
-            // Syncing conversations
-
-            // PROACTIVE: Check auth first
+            // PROACTIVE: Check auth first (before making API call)
             const { AuthHelper } = await import('./authHelper');
             const isAuthenticated = await AuthHelper.isAuthenticated();
 
             if (!isAuthenticated) {
-                // User not authenticated, skipping conversation sync
-                return;
+                return; // User not authenticated, skipping sync
             }
 
             // PROACTIVE: Check token expiry and refresh if needed
             const tokens = await AuthHelper.getTokens();
-            if (tokens && tokens.expiresIn < 5 * 60 * 1000) { // 5 minutes - consistent with other services
-                // Token expiring soon, refreshing proactively
+            if (tokens && tokens.expiresIn < 5 * 60 * 1000) { // 5 minutes
                 try {
                     // Use RefreshTokenManager for consistent refresh logic
                     const { refreshTokenManager } = await import('./refreshTokenManager');
                     await refreshTokenManager.performRefresh();
-                    // Token refreshed successfully
                 } catch (error) {
-                    // Token refresh failed, will retry later
                     return; // Don't make API call with expired token
                 }
             }
@@ -115,38 +129,33 @@ class ChatSyncService {
             // Fetch conversations from server
             const response = await chatService.getConversations();
 
-            // DEFENSIVE: Check if user is still authenticated after API call
+            // DEFENSIVE: Check if user logged out during API call
             const stillAuthenticated = await AuthHelper.isAuthenticated();
-
             if (!stillAuthenticated) {
-                // User logged out during sync, aborting
-                return;
+                return; // User logged out, abort gracefully
             }
 
             if (response.status === 'success') {
-                // Get current conversations from database to compare
+                // Get current local conversations for comparison
                 const currentConversations = await databaseService.getConversations();
                 const serverConversationIds = new Set(response.data.map(c => c.id));
 
-                // Save/update conversations from server
+                // Merge: Save/update all conversations from server (server is source of truth)
                 for (const conversation of response.data) {
                     await databaseService.saveConversation(conversation);
                 }
 
-                // Delete conversations that are no longer in server response (user left/disbanded)
+                // Cleanup: Delete local conversations not in server response
+                // (User left group, conversation deleted, etc.)
                 for (const currentConv of currentConversations) {
                     if (!serverConversationIds.has(currentConv.id)) {
-                        console.log(`[ChatSyncService] Removing conversation ${currentConv.id} (no longer accessible)`);
                         await databaseService.deleteConversation(currentConv.id);
                     }
                 }
-
-                // Synced conversations
             }
         } catch (error: any) {
-            // PROACTIVE: Handle 401 specifically
+            // PROACTIVE: Handle 401 specifically (token invalid/expired)
             if (error.response?.status === 401) {
-                // 401 error - user needs to login
                 try {
                     const { AuthHelper } = await import('./authHelper');
                     await AuthHelper.logoutAndNavigate();
@@ -156,12 +165,11 @@ class ChatSyncService {
                 }
             }
 
-            // DEFENSIVE: Don't throw error if user logged out
+            // DEFENSIVE: Don't throw error if user logged out (graceful abort)
             if (error.message?.includes('User logged out')) {
-                // User logged out during conversation sync, aborting gracefully
-                return;
+                return; // Abort silently
             }
-            console.error('Failed to sync conversations:', error);
+            console.error('[ChatSyncService] Failed to sync conversations:', error);
             throw error;
         }
     }
@@ -228,7 +236,7 @@ class ChatSyncService {
                 // User logged out during message sync, aborting gracefully
                 return [];
             }
-            console.error(`Failed to sync messages for conversation ${conversationId}:`, error);
+            console.error(`[ChatSyncService] Failed to sync messages for conversation ${conversationId}:`, error);
             throw error;
         }
     }
@@ -242,14 +250,33 @@ class ChatSyncService {
     }
 
     /**
-     * Send message with optimistic update
+     * Send message with optimistic update pattern
+     * 
+     * Optimistic update flow:
+     * 1. Creates temporary message with temp ID (instant UI update)
+     * 2. Saves optimistic message to local DB (offline support)
+     * 3. Sends message to server (async)
+     * 4. On success: Deletes temp message, saves real message from server
+     * 5. On failure: Marks temp message as failed (for retry)
+     * 
+     * Benefits:
+     * - Instant UI feedback (message appears immediately)
+     * - Works offline (message saved locally, synced later)
+     * - Handles failures gracefully (marks as failed for retry)
+     * - Prevents duplicate messages (temp ID replaced with real ID)
+     * 
+     * Temp ID format: `temp_${timestamp}_${random}` ensures uniqueness.
+     * Real message from server replaces temp message to prevent duplicates.
+     * 
+     * @param messageData - Message data (conversationId, type, content)
+     * @returns Real message from server (replaces optimistic message)
+     * @throws Error if server send fails (optimistic message marked as failed)
      */
     async sendMessage(messageData: {
         conversationId: string;
         type: 'TEXT' | 'ACTIVITY';
         content: {
             text?: string;
-            // ACTIVITY content
             activityId?: string;
             name?: string;
             purpose?: string;
@@ -257,11 +284,11 @@ class ChatSyncService {
     }): Promise<ChatMessage> {
         await databaseService.initialize();
 
-        // Create optimistic message
+        // Step 1: Create optimistic message with temp ID (instant UI update)
         const optimisticMessage: ChatMessage = {
             id: `temp_${Date.now()}_${Math.random()}`,
             conversationId: messageData.conversationId,
-            senderId: 'current_user', // This should be actual user ID
+            senderId: 'current_user', // Should be actual user ID
             senderName: 'Bạn',
             senderAvatar: '',
             type: messageData.type,
@@ -270,15 +297,15 @@ class ChatSyncService {
             mine: true
         };
 
-        // Save optimistic message to local DB
+        // Step 2: Save optimistic message to local DB (offline support)
         await databaseService.saveMessage(optimisticMessage);
 
         try {
-            // Send to server
+            // Step 3: Send to server (async)
             const response = await chatService.sendMessage(messageData);
 
             if (response.status === 'success') {
-                // Replace optimistic message with real message
+                // Step 4: Replace optimistic message with real message from server
                 await databaseService.deleteMessage(optimisticMessage.id);
                 await databaseService.saveMessage(response.data);
 
@@ -287,7 +314,7 @@ class ChatSyncService {
                 throw new Error(response.message || 'Failed to send message');
             }
         } catch (error) {
-            // Mark optimistic message as failed
+            // Step 5: Mark optimistic message as failed (for retry later)
             await databaseService.updateMessageStatus(optimisticMessage.id, 'failed');
             throw error;
         }
@@ -324,7 +351,7 @@ class ChatSyncService {
 
             return [];
         } catch (error) {
-            console.error(`Failed to sync members for conversation ${conversationId}:`, error);
+            console.error(`[ChatSyncService] Failed to sync members for conversation ${conversationId}:`, error);
             throw error;
         }
     }
@@ -340,7 +367,26 @@ class ChatSyncService {
     // ==================== UNSYNCED MESSAGES SYNC ====================
 
     /**
-     * Sync unsynced messages to server
+     * Sync unsynced messages to server with retry logic and temp message filtering
+     * 
+     * Offline message sync strategy:
+     * 1. Fetches all unsynced messages from local database (failed sends, offline messages)
+     * 2. Filters out temporary messages (temp_* IDs) - these are optimistic messages, not real failures
+     * 3. Retries sending each message to server individually
+     * 4. Marks successful messages as synced (prevents duplicate sends)
+     * 5. Continues on individual failures (one failure doesn't block others)
+     * 
+     * Temp message handling:
+     * - Temp messages (temp_*) are optimistic messages created during offline sends
+     * - These are handled by optimistic update flow, not retry flow
+     * - Skipping prevents duplicate sends (temp messages replaced by real messages on reconnect)
+     * 
+     * Error resilience:
+     * - Individual message failures are logged but don't stop other messages
+     * - Failed messages remain unsynced for next retry attempt
+     * - Silent failures allow app to continue functioning
+     * 
+     * Use case: Periodic background sync to retry failed message sends after network recovery.
      */
     private async syncUnsyncedMessages(): Promise<void> {
         try {
@@ -348,28 +394,31 @@ class ChatSyncService {
 
             if (unsyncedMessages.length === 0) return;
 
-            // Syncing unsynced messages
-
+            // Process each unsynced message individually (parallel could overwhelm server)
             for (const message of unsyncedMessages) {
                 try {
-                    // Skip if it's a temporary message
+                    // Filter: Skip temporary messages (handled by optimistic update flow)
                     if (message.id.startsWith('temp_')) continue;
 
+                    // Retry: Send message to server
                     const response = await chatService.sendMessage({
                         conversationId: message.conversationId,
                         type: message.type as 'TEXT' | 'ACTIVITY',
                         content: message.content
                     });
 
+                    // Success: Mark as synced to prevent duplicate sends
                     if (response.status === 'success') {
                         await databaseService.markMessageAsSynced(message.id);
                     }
                 } catch (error) {
-                    console.error(`Failed to sync message ${message.id}:`, error);
+                    // Individual failure: Log but continue with other messages
+                    console.error(`[ChatSyncService] Failed to sync message ${message.id}:`, error);
                 }
             }
         } catch (error) {
-            console.error('Failed to sync unsynced messages:', error);
+            // Overall failure: Log but don't throw (allows app to continue)
+            console.error('[ChatSyncService] Failed to sync unsynced messages:', error);
         }
     }
 

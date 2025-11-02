@@ -261,13 +261,10 @@ const Card: React.FC<CardProps> = ({ card, index, isTop, onSwipe, topCardTransla
                         source={{ uri: card.location.imageUrls[0] || 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=400' }}
                         style={styles.cardImage}
                         onError={(error) => {
-                            console.log('Image load error:', error.nativeEvent.error);
-                            console.log('Failed URL:', card.location.imageUrls[0]);
                             setImageError(true);
                             setImageLoading(false);
                         }}
                         onLoad={() => {
-                            console.log('Image loaded successfully:', card.location.imageUrls[0]);
                             setImageLoading(false);
                             setImageError(false);
                         }}
@@ -351,7 +348,6 @@ const CustomSwipeScreen: React.FC = () => {
     const voteCountdown = useCountdown({
         endTime: voteEndTime || '',
         onExpired: () => {
-            console.log('Vote time expired!');
             setIsVoteTimeExpired(true);
 
             // Auto back after 3 seconds
@@ -372,22 +368,16 @@ const CustomSwipeScreen: React.FC = () => {
         try {
             setLoading(true);
             const response = await activityService.getActivitySuggestions(activityId!);
-            console.log('[CustomSwipe] Activity suggestions loaded:', response.data);
 
             // Store all suggestions
             setAllSuggestions(response.data);
 
             // Filter only suggestions that user hasn't voted yet
             const unvotedSuggestions = response.data.filter((suggestion: ActivitySuggestion) => !suggestion.hasUserVoted);
-            console.log('[CustomSwipe] Unvoted suggestions:', unvotedSuggestions.length, 'out of', response.data.length);
-
-            if (unvotedSuggestions[0]?.location?.imageUrls) {
-                console.log('[CustomSwipe] First unvoted image URL:', unvotedSuggestions[0].location.imageUrls[0]);
-            }
 
             setCards(unvotedSuggestions);
         } catch (err: any) {
-            console.error('Failed to load activity suggestions:', err);
+            console.error('[CustomSwipe] Failed to load activity suggestions:', err);
             error(err.message || 'Không thể tải danh sách đề xuất');
         } finally {
             setLoading(false);
@@ -431,7 +421,7 @@ const CustomSwipeScreen: React.FC = () => {
 
             // No toast notification - silent vote
         } catch (err: any) {
-            console.error('Failed to submit vote:', err);
+            console.error('[CustomSwipe] Failed to submit vote:', err);
             error(err.message || 'Không thể gửi bình chọn');
             return; // Don't proceed with UI update if API call failed
         }

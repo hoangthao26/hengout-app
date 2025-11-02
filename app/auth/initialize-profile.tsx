@@ -37,8 +37,6 @@ export default function InitializeProfileScreen() {
 
         setLoading(true);
         try {
-            console.log('[InitializeProfile] Initializing profile with data:', formData);
-
             // Use Zustand store instead of direct API call
             await initializeProfile(formData);
 
