@@ -23,7 +23,6 @@ import { chatService } from '../../services/chatService';
 import { useChatStore } from '../../store/chatStore';
 import { useChatSync } from '../../hooks/useChatSync';
 import { ChatConversation } from '../../types/chat';
-import DatabaseResetButton from '../../components/DatabaseResetButton';
 import Badge from '../../components/Badge';
 import { useNotificationStore } from '../../store/notificationStore';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -361,8 +360,6 @@ export default function ChatScreen() {
                     }
                 />
 
-                {/* Database Reset Button - Commented out after one-time reset */}
-                {/* <DatabaseResetButton /> */}
 
             </View>
         </ChatErrorBoundary>
