@@ -1,6 +1,5 @@
 
 
-import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React from 'react';
@@ -19,11 +18,18 @@ import { globalErrorHandler, networkErrorHandler } from '../services/globalError
 import { paymentFlowManager } from '../services/paymentFlowManager';
 
 export default function RootLayout() {
-    const [fontsLoaded] = useFonts({
-        'Dongle': require('../assets/fonts/Dongle-Regular.ttf'),
-        'Dongle-Bold': require('../assets/fonts/Dongle-Bold.ttf'),
-        'Dongle-Light': require('../assets/fonts/Dongle-Light.ttf'),
-    });
+    // Pre-load gradient modules early to prevent flash of non-gradient text
+    React.useEffect(() => {
+        // Importing GradientText will trigger auto-preload of native modules
+        import('../components/GradientText').then((module) => {
+            // Explicitly trigger loading if auto-load didn't work
+            if (module.loadNativeModules) {
+                module.loadNativeModules();
+            }
+        }).catch(() => {
+            // Silent fail - GradientText will handle its own loading
+        });
+    }, []);
 
     // Complete OAuth session when app returns from browser
     React.useEffect(() => {
@@ -163,7 +169,6 @@ export default function RootLayout() {
         };
     }, []);
 
-    if (!fontsLoaded) return null;
 
     return (
         <ToastProvider>

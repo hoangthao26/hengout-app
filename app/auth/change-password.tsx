@@ -44,7 +44,7 @@ export default function ChangePasswordScreen() {
                 <View style={{ width: '100%', marginTop: 86, paddingHorizontal: 10 }}>
                     <GradientText
                         colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
-                        style={{ fontSize: 72, fontWeight: 'bold', fontFamily: 'Dongle', textAlign: 'left', marginBottom: -10 }}
+                        style={{ fontSize: 72, fontWeight: 'bold', textAlign: 'left' }}
                     >
                         Đổi mật khẩu
                     </GradientText>

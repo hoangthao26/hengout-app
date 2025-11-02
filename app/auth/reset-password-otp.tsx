@@ -182,7 +182,6 @@ export default function ResetPasswordOTPScreen() {
                                 fontSize: 64,
                                 fontWeight: 'bold',
                                 textAlign: 'center',
-                                fontFamily: 'Dongle',
                             }}
                             colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
                         >

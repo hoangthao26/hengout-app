@@ -50,16 +50,6 @@
         }
       ],
       [
-        "expo-font",
-        {
-          "fonts": [
-            "./assets/fonts/Dongle-Regular.ttf",
-            "./assets/fonts/Dongle-Light.ttf",
-            "./assets/fonts/Dongle-Bold.ttf"
-          ]
-        }
-      ],
-      [
         "expo-image-picker",
         {
           "photosPermission": "The app accesses your photos to let you share them with your friends.",

@@ -171,10 +171,11 @@ export default function VerifyOTPScreen() {
                         <View style={{ alignItems: 'center', marginBottom: 40 }}>
                             <GradientText
                                 style={{
-                                    fontSize: 64,
+                                    fontSize: 56,
                                     fontWeight: 'bold',
                                     textAlign: 'center',
-                                    fontFamily: 'Dongle',
+                                    marginTop: 20,
+                                    marginBottom: 20,
                                 }}
                                 colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
                             >
@@ -187,7 +188,8 @@ export default function VerifyOTPScreen() {
                                 paddingVertical: 10,
                                 borderRadius: 20,
                                 borderWidth: 1,
-                                borderColor: isDark ? '#374151' : '#E5E7EB'
+                                borderColor: isDark ? '#374151' : '#E5E7EB',
+                                marginTop: 12
                             }}>
                                 <Text style={{
                                     fontSize: 16,
@@ -285,10 +287,10 @@ export default function VerifyOTPScreen() {
                                     color: isDark ? '#9CA3AF' : '#6B7280',
                                     fontFamily: 'System',
                                     fontWeight: '400',
-                                    marginBottom: 8,
+                                    marginBottom: 16,
                                     textAlign: 'center'
                                 }}>
-                                    Didn&apos;t receive the code?
+                                    Không nhận được mã?
                                 </Text>
 
                                 <TouchableOpacity

@@ -1,0 +1,57 @@
+═══════════════════════════════════════════════════════
+  THÔNG TIN CẦN LẤY ĐỂ CẤU HÌNH TESTFLIGHT
+═══════════════════════════════════════════════════════
+
+Bạn cần điền các thông tin sau:
+
+1. APPLE ID (Email):
+   ───────────────────────────────────────────────────
+   Email bạn dùng để đăng nhập App Store Connect:
+   
+   [                     ] 
+   
+   Ví dụ: your-name@example.com
+
+
+2. TEAM ID:
+   ───────────────────────────────────────────────────
+   Cách lấy:
+   a) Vào: https://appstoreconnect.apple.com
+   b) Users and Access → Xem Team ID ở trên cùng
+   
+   Hoặc:
+   c) Vào: https://developer.apple.com/account
+   d) Membership → Xem Team ID
+   
+   Team ID của bạn:
+   
+   [                     ]
+   
+   Ví dụ: ABC123DEF4 (10 ký tự, chữ và số)
+
+
+3. APP STORE CONNECT APP ID (ASC App ID):
+   ───────────────────────────────────────────────────
+   Cách lấy:
+   a) Đăng nhập App Store Connect
+   b) My Apps → Chọn app "Hengout" (hoặc tạo mới)
+   c) Ở trang App Information, xem số App ID
+   d) Hoặc xem trong URL: .../apps/1234567890/...
+   
+   Nếu chưa có app, tạo mới:
+   - My Apps → + (nút tạo app mới)
+   - Name: Hengout
+   - Bundle ID: com.hengout.app
+   - SKU: hengout-001 (hoặc tên bất kỳ)
+   
+   App ID của bạn:
+   
+   [                     ]
+   
+   Ví dụ: 1234567890 (số có nhiều chữ số)
+
+
+═══════════════════════════════════════════════════════
+  SAU KHI CÓ ĐỦ THÔNG TIN, GỬI LẠI CHO TÔI!
+═══════════════════════════════════════════════════════
+

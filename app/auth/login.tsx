@@ -117,13 +117,12 @@ export default function LoginScreen() {
                     {/* REMOVED: No back button on login screen */}
 
                     {/* Logo Section - Reduced spacing */}
-                    <View style={{ alignItems: 'center', marginTop: 20, marginBottom: 20 }}>
+                    <View style={{ alignItems: 'center', marginTop: 64, marginBottom: 32 }}>
                         <GradientText
                             style={{
-                                fontSize: 120,
+                                fontSize: 90,
                                 fontWeight: 'bold',
                                 textAlign: 'center',
-                                fontFamily: 'Dongle',
                             }}
                             colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
                         >

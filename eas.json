@@ -22,9 +22,29 @@
       "ios": {
         "simulator": false
       }
+    },
+    "testflight": {
+      "distribution": "store",
+      "ios": {
+        "simulator": false,
+        "autoIncrement": true
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "hoangthao2222@icloud.com",
+        "ascAppId": "6754825310",
+        "appleTeamId": "GXS6HWJPFS"
+      }
+    },
+    "testflight": {
+      "ios": {
+        "appleId": "hoangthao2222@icloud.com",
+        "ascAppId": "6754825310",
+        "appleTeamId": "GXS6HWJPFS"
+      }
+    }
   }
 }

@@ -70,12 +70,33 @@ export default function SplashScreen() {
             accuracy: location.accuracy || 0
           });
         } else {
-          setLocationData(null);
+          // Use fallback location (HCMC) if location not available
+          const fallback = smartLocationService.getFallbackLocation();
+          setLocationData({
+            latitude: fallback.latitude,
+            longitude: fallback.longitude,
+            accuracy: 0
+          });
         }
       } catch (error) {
-        // Location not available - app will use default location or show picker
+        // Location not available - use fallback location
         console.error('[SplashScreen] Location error:', error);
-        setLocationData(null);
+        try {
+          const { smartLocationService } = await import('../services/smartLocationService');
+          const fallback = smartLocationService.getFallbackLocation();
+          setLocationData({
+            latitude: fallback.latitude,
+            longitude: fallback.longitude,
+            accuracy: 0
+          });
+        } catch (fallbackError) {
+          // Ultimate fallback: HCMC coordinates
+          setLocationData({
+            latitude: 10.8231,
+            longitude: 106.6297,
+            accuracy: 0
+          });
+        }
       }
     };
 
@@ -96,7 +117,16 @@ export default function SplashScreen() {
 
   // Handle navigation based on app readiness
   useEffect(() => {
-    if (!isLoading && isAppReady && isChatDataPreloaded && locationData) {
+    // Don't wait for locationData - use fallback if needed
+    // App should always be able to navigate even without location
+    if (!isLoading && isAppReady && isChatDataPreloaded) {
+      // Use locationData if available, otherwise use fallback
+      const locationToUse = locationData || {
+        latitude: 10.8231, // HCMC fallback
+        longitude: 106.6297,
+        accuracy: 0
+      };
+
       const navigate = () => {
         Animated.timing(fadeAnim, {
           toValue: 0,
@@ -104,14 +134,16 @@ export default function SplashScreen() {
           useNativeDriver: true,
         }).start(() => {
           if (isAuthenticated) {
-            NavigationService.secureNavigateToDiscover(locationData);
+            NavigationService.secureNavigateToDiscover(locationToUse);
           } else {
             NavigationService.goToLogin();
           }
         });
       };
 
-      const timer = setTimeout(navigate, 1000);
+      // Add small delay to ensure location service has time to respond
+      // But don't wait forever if location fails
+      const timer = setTimeout(navigate, locationData ? 500 : 1500);
       return () => clearTimeout(timer);
     }
   }, [isLoading, isAuthenticated, isAppReady, isChatDataPreloaded, locationData, router, fadeAnim]);

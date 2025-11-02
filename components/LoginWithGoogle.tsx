@@ -222,7 +222,7 @@ const LoginWithGoogle = () => {
                     backgroundColor: '#FFFFFF',
                     borderWidth: 1,
                     borderColor: '#DADCE0',
-                    borderRadius: 8,
+                    borderRadius: 16,
                     paddingVertical: 12,
                     paddingHorizontal: 16,
                     flexDirection: 'row',
@@ -234,8 +234,8 @@ const LoginWithGoogle = () => {
                     shadowRadius: 2,
                     elevation: 2,
                     width: '100%',
-                    maxWidth: 300,
-                    minHeight: 48,
+                    maxWidth: 360,
+                    minHeight: 52,
                 }}
             >
                 {loading ? (
@@ -257,8 +257,8 @@ const LoginWithGoogle = () => {
                         <Image
                             source={require('../assets/images/Google__G__logo.svg.png')}
                             style={{
-                                width: 20,
-                                height: 20,
+                                width: 30,
+                                height: 30,
                                 marginRight: 12,
                             }}
                             resizeMode="contain"
@@ -267,8 +267,8 @@ const LoginWithGoogle = () => {
                         <Text style={{
                             color: '#3C4043',
                             fontSize: 16,
-                            fontWeight: '500',
-                            fontFamily: 'Roboto, sans-serif'
+                            fontWeight: '600',
+
                         }}>
                             Đăng nhập với Google
                         </Text>

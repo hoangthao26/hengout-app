@@ -184,7 +184,6 @@ const styles = StyleSheet.create({
         fontSize: 80,
         fontWeight: 'bold',
         textAlign: 'center',
-        fontFamily: 'Dongle',
         marginBottom: 16,
     },
     title: {
