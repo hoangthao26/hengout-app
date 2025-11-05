@@ -25,6 +25,7 @@ interface LocationOptions {
     timeout?: number;
     retries?: number;
     useCache?: boolean;
+    requestPermission?: boolean; // If false, only check permission status, don't request
 }
 
 class SmartLocationService {
@@ -50,7 +51,8 @@ class SmartLocationService {
      * Each tier is only attempted if previous tiers fail.
      * Successful locations are cached for future requests.
      * 
-     * @param options - Location options (accuracy, timeout, retries, useCache)
+     * @param options - Location options (accuracy, timeout, retries, useCache, requestPermission)
+     * @param requestPermission - If false, only check permission status, don't request (best practice)
      * @returns LocationData with source indicator, or null if all strategies fail
      */
     async getCurrentLocation(options: LocationOptions = {}): Promise<LocationData | null> {
@@ -58,7 +60,8 @@ class SmartLocationService {
             accuracy = LOCATION_CONFIG.HIGH_ACCURACY,
             timeout = 10000,
             retries = LOCATION_CONFIG.RETRY_ATTEMPTS,
-            useCache = true
+            useCache = true,
+            requestPermission = false // Default: don't request permission (best practice)
         } = options;
 
         // Tier 1: Check cache first (fastest, no permission/network needed)
@@ -69,8 +72,8 @@ class SmartLocationService {
             }
         }
 
-        // Tier 2: Try GPS with exponential backoff retry
-        const gpsLocation = await this.getLocationWithRetry(accuracy, timeout, retries);
+        // Tier 2: Try GPS with exponential backoff retry (only if permission exists or requestPermission=true)
+        const gpsLocation = await this.getLocationWithRetry(accuracy, timeout, retries, requestPermission);
         if (gpsLocation) {
             await this.cacheLocation(gpsLocation);
             return gpsLocation;
@@ -96,7 +99,7 @@ class SmartLocationService {
      * 
      * Retry strategy:
      * 1. Validates location services enabled (one-time check)
-     * 2. Requests permission (required before getting location)
+     * 2. Checks/Requests permission based on requestPermission flag
      * 3. Attempts location acquisition with timeout race condition
      * 4. Uses exponential backoff between retries: delay = baseDelay * 2^(attempt-1)
      * 
@@ -111,12 +114,14 @@ class SmartLocationService {
      * @param accuracy - Location accuracy level (High, Balanced, Low)
      * @param timeout - Max time to wait for location (ms)
      * @param retries - Number of retry attempts
+     * @param requestPermission - If false, only check permission status, don't request (best practice)
      * @returns LocationData if successful, null if all attempts fail
      */
     private async getLocationWithRetry(
         accuracy: Location.Accuracy,
         timeout: number,
-        retries: number
+        retries: number,
+        requestPermission: boolean = false
     ): Promise<LocationData | null> {
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
@@ -126,10 +131,20 @@ class SmartLocationService {
                     return null; // Location services disabled, no point retrying
                 }
 
-                // Request permission (required before getting location)
-                const { status } = await Location.requestForegroundPermissionsAsync();
+                // Check or request permission based on requestPermission flag
+                let status: Location.PermissionStatus;
+                if (requestPermission) {
+                    // Request permission (user explicitly needs location)
+                    const result = await Location.requestForegroundPermissionsAsync();
+                    status = result.status;
+                } else {
+                    // Only check permission status (best practice - don't request on app launch)
+                    const result = await Location.getForegroundPermissionsAsync();
+                    status = result.status;
+                }
+
                 if (status !== 'granted') {
-                    return null; // Permission denied, no point retrying
+                    return null; // Permission not granted, no point retrying
                 }
 
                 // Get current position with timeout enforcement

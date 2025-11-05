@@ -94,7 +94,7 @@ const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({
                 <View style={{ width: '100%', marginTop: 86, paddingHorizontal: 10 }}>
                     <GradientText
                         colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
-                        style={{ fontSize: 64, fontWeight: 'bold', textAlign: 'left', marginBottom: -20, marginTop: 0 }}
+                        style={{ fontSize: 64, fontWeight: 'bold', textAlign: 'left', marginTop: 0 }}
                     >
                         {t('reset_password')}
                     </GradientText>

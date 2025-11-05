@@ -55,22 +55,31 @@ export default function LoginScreen() {
             if (response.data.onboardingComplete === false) {
                 NavigationService.goToOnboardingWizard();
             } else {
-                // Get current location before navigating
+                // Best Practice: Don't request location permission after login
+                // Let user request it when they need it in Discover screen
+                // Just check if permission already exists, if yes try to get location
                 try {
-                    const { status } = await Location.requestForegroundPermissionsAsync();
+                    const { status } = await Location.getForegroundPermissionsAsync();
                     if (status === 'granted') {
-                        const location = await Location.getCurrentPositionAsync({
-                            accuracy: Location.Accuracy.Balanced,
-                        });
-                        NavigationService.secureNavigateToDiscover({
-                            latitude: location.coords.latitude,
-                            longitude: location.coords.longitude,
-                            accuracy: location.coords.accuracy || 0
-                        });
-                    } else {
-                        NavigationService.secureNavigateToDiscover();
+                        // Permission already granted, try to get location (no request)
+                        try {
+                            const location = await Location.getCurrentPositionAsync({
+                                accuracy: Location.Accuracy.Balanced,
+                            });
+                            NavigationService.secureNavigateToDiscover({
+                                latitude: location.coords.latitude,
+                                longitude: location.coords.longitude,
+                                accuracy: location.coords.accuracy || 0
+                            });
+                            return;
+                        } catch (locationError) {
+                            // Location unavailable, navigate without location
+                        }
                     }
+                    // No permission or location unavailable - navigate without location
+                    NavigationService.secureNavigateToDiscover();
                 } catch (error) {
+                    // Navigate without location
                     NavigationService.secureNavigateToDiscover();
                 }
             }

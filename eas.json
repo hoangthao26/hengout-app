@@ -27,7 +27,8 @@
       "distribution": "store",
       "ios": {
         "simulator": false,
-        "autoIncrement": true
+        "autoIncrement": true,
+        "buildConfiguration": "Release"
       }
     }
   },

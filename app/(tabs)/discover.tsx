@@ -244,17 +244,33 @@ export default function DiscoverScreen() {
         );
     }, [mapController]);
 
-    // Handle go to initial location
-    const handleGoToInitialLocation = useCallback(() => {
+    // Handle go to initial location - Best Practice: Request permission when user needs it
+    const handleGoToInitialLocation = useCallback(async () => {
         if (mapController) {
-            // Use current GPS location if available, otherwise use initial location
+            // If we have location, use it
             if (location) {
                 mapController.centerMapOnLocation(location.latitude, location.longitude, 0.01);
-            } else {
-                mapController.goToInitialLocation();
+                return;
             }
+
+            // No location - request permission when user explicitly needs it (best practice)
+            const hasPermission = await requestLocationPermission();
+            if (hasPermission) {
+                const currentLocation = await getCurrentLocation();
+                if (currentLocation) {
+                    mapController.centerMapOnLocation(
+                        currentLocation.latitude,
+                        currentLocation.longitude,
+                        0.01
+                    );
+                    return;
+                }
+            }
+
+            // Fallback: Go to initial/fallback location
+                mapController.goToInitialLocation();
         }
-    }, [mapController, location]);
+    }, [mapController, location, requestLocationPermission, getCurrentLocation]);
 
     // Stable callback for centering map
     const handleCenterMap = useCallback((latitude: number, longitude: number, delta?: number) => {
@@ -361,7 +377,8 @@ export default function DiscoverScreen() {
 
     // Remove duplicate initializeLocation function
 
-    // Initialize location on mount - use splash data if available
+    // Initialize location on mount - Best Practice: Don't request permission on mount
+    // Only use location if already granted or from splash screen
     useEffect(() => {
         let isMounted = true;
 
@@ -376,65 +393,68 @@ export default function DiscoverScreen() {
                         lng: parseFloat(lng)
                     });
 
-                    // Start watching location for real-time updates
+                    // Check permission status (don't request)
+                    const { status } = await Location.getForegroundPermissionsAsync();
+                    if (status === 'granted') {
+                        // Permission already granted, start watching location
                     await watchLocation();
-                    setIsInitialized(true);
+                    }
 
+                    setIsInitialized(true);
                     // Load random recommendations
                     await loadRandomRecommendations(parseFloat(lat), parseFloat(lng));
                     return;
                 }
 
-                // Try to get better location using smart location service
+                // Try to get location using smart location service (only if permission exists)
+                // Don't request permission here - best practice
                 const { smartLocationService } = await import('../../services/smartLocationService');
 
                 const smartLocation = await smartLocationService.getCurrentLocation({
                     accuracy: Location.Accuracy.High,
-                    timeout: 10000,
-                    retries: 3,
-                    useCache: true
+                    timeout: 5000,
+                    retries: 1,
+                    useCache: true,
+                    requestPermission: false // Don't request permission on mount
                 });
 
-                if (smartLocation && isMounted) {
+                if (smartLocation && smartLocation.source !== 'fallback' && isMounted) {
                     setInitialLocation({
                         lat: smartLocation.latitude,
                         lng: smartLocation.longitude
                     });
 
-                    // Start watching location for real-time updates
+                    // Check permission status (don't request)
+                    const { status } = await Location.getForegroundPermissionsAsync();
+                    if (status === 'granted') {
+                        // Permission already granted, start watching location
                     await watchLocation();
-                    setIsInitialized(true);
+                    }
 
+                    setIsInitialized(true);
                     // Load random recommendations
                     await loadRandomRecommendations(smartLocation.latitude, smartLocation.longitude);
                 } else {
-                    // Fallback: Use existing useLocation hook
-                    const hasPermission = await requestLocationPermission();
-
-                    if (hasPermission && isMounted) {
-                        const currentLocation = await getCurrentLocation();
-
-                        if (currentLocation && isMounted) {
+                    // No location available - use fallback location (HCMC)
+                    // Don't request permission here - let user request it when needed
+                    const fallback = smartLocationService.getFallbackLocation();
                             setInitialLocation({
-                                lat: currentLocation.latitude,
-                                lng: currentLocation.longitude
+                        lat: fallback.latitude,
+                        lng: fallback.longitude
                             });
-
-                            await watchLocation();
-                            setIsInitialized(true);
-                            await loadRandomRecommendations(currentLocation.latitude, currentLocation.longitude);
-                        } else {
-                            setIsInitialized(true);
-                        }
-                    } else {
                         setIsInitialized(true);
-                    }
                 }
             } catch (error) {
                 console.error('[Discover] Location initialization error:', error);
                 if (isMounted) {
-                    setIsInitialized(true);
                     // Fallback: Show map with default location (Ho Chi Minh City)
+                    const { smartLocationService } = await import('../../services/smartLocationService');
+                    const fallback = smartLocationService.getFallbackLocation();
+                    setInitialLocation({
+                        lat: fallback.latitude,
+                        lng: fallback.longitude
+                    });
+                    setIsInitialized(true);
                 }
             }
         };
@@ -450,7 +470,7 @@ export default function DiscoverScreen() {
                 clearTimeout(searchTimeout);
             }
         };
-    }, [lat, lng, accuracy]); // Dependencies include splash location data
+    }, [lat, lng, accuracy, watchLocation]); // Dependencies include splash location data
 
     // Center map on GPS location when initialLocation is set and mapController is ready
     useEffect(() => {

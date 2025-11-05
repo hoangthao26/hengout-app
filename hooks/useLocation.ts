@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as Location from 'expo-location';
-import { Alert } from 'react-native';
+import { Alert, Linking } from 'react-native';
 
 // Enterprise Configuration
 const LOCATION_CONFIG = {
@@ -46,25 +46,37 @@ export const useLocation = () => {
             const isEnabled = await Location.hasServicesEnabledAsync();
             if (!isEnabled) {
                 Alert.alert(
-                    'Location Services Disabled',
-                    'Please enable location services in your device settings.',
+                    'Dịch vụ định vị đã tắt',
+                    'Vui lòng bật dịch vụ định vị trong cài đặt thiết bị để Hengout có thể hiển thị địa điểm gần bạn.',
                     [{ text: 'OK' }]
                 );
                 return false;
             }
 
-            // Request foreground location permission
+            // Request foreground location permission with context
             const { status } = await Location.requestForegroundPermissionsAsync();
 
             if (status !== 'granted') {
                 Alert.alert(
-                    'Location Permission Required',
-                    'This app needs location permission to show your current location on the map.',
+                    'Cần quyền truy cập vị trí',
+                    'Hengout cần quyền truy cập vị trí của bạn để hiển thị bản đồ và tìm các địa điểm gần bạn.',
                     [
-                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Hủy', style: 'cancel' },
                         {
-                            text: 'Settings',
-                            onPress: () => Location.requestForegroundPermissionsAsync()
+                            text: 'Cài đặt',
+                            onPress: async () => {
+                                try {
+                                    // Open device settings app
+                                    await Linking.openSettings();
+                                } catch (error) {
+                                    console.error('[useLocation] Failed to open settings:', error);
+                                    // Fallback: Try to request permission again
+                                    Alert.alert(
+                                        'Lỗi',
+                                        'Không thể mở cài đặt. Vui lòng mở cài đặt thủ công và bật quyền truy cập vị trí cho Hengout.'
+                                    );
+                                }
+                            }
                         }
                     ]
                 );

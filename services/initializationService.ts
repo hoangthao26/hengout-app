@@ -198,18 +198,22 @@ class InitializationService {
 
     /**
      * Initialize location services
+     * Best Practice: Only check permission status, don't request permission during initialization
+     * Permission should be requested when user actually needs it (e.g., in Discover screen)
      */
     private async initializeLocation(): Promise<void> {
         try {
+            // Only check if location services are enabled and permission status
+            // Don't request permission here - let user request it when needed
             const isLocationEnabled = await Location.hasServicesEnabledAsync();
             if (!isLocationEnabled) {
                 return;
             }
 
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                return;
-            }
+            // Check permission status without requesting
+            const { status } = await Location.getForegroundPermissionsAsync();
+            // Just check status, don't request - permission will be requested when user needs it
+            // Location ready means we can check status, not that permission is granted
         } catch (error) {
             console.error('[InitializationService] Location initialization failed:', error);
         }
