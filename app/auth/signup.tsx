@@ -19,7 +19,6 @@ export default function SignupScreen() {
         setLoading(true);
         try {
             const response = await authService.registerSendOTP(email, password, confirmPassword);
-            console.log('OTP sent successfully:', response);
 
             showSuccess('OTP sent successfully! Please check your email.',);
 
@@ -30,7 +29,7 @@ export default function SignupScreen() {
                 isRegistration: 'true'
             });
         } catch (error: any) {
-            console.error('Signup failed:', error);
+            console.error('[Signup] Signup failed:', error);
             showError(error.message || 'Please check your information and try again.',);
         } finally {
             setLoading(false);

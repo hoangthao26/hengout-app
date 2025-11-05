@@ -40,7 +40,7 @@ class LocationService {
             const response = await axiosInstance.get<LocationDetailsResponse>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to get location details ${locationId}:`, error);
+            console.error(`[LocationService] Failed to get location details ${locationId}:`, error);
             throw error;
         }
     }
@@ -62,7 +62,7 @@ class LocationService {
             });
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to get location reviews ${locationId}:`, error);
+            console.error(`[LocationService] Failed to get location reviews ${locationId}:`, error);
             throw error;
         }
     }
@@ -83,7 +83,7 @@ class LocationService {
             const response = await axiosInstance.post<LocationRecommendationsResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to get random recommendations');
+            console.error('[LocationService] Failed to get random recommendations:', error);
             throw error;
         }
     }
@@ -100,7 +100,7 @@ class LocationService {
             const response = await axiosInstance.post<LocationRecommendationsResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to get NLP recommendations:', error);
+            console.error('[LocationService] Failed to get NLP recommendations:', error);
             throw error;
         }
     }
@@ -117,7 +117,7 @@ class LocationService {
             const response = await axiosInstance.post<LocationRecommendationsResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to get filtered recommendations:', error);
+            console.error('[LocationService] Failed to get filtered recommendations:', error);
             throw error;
         }
     }
@@ -136,7 +136,7 @@ class LocationService {
             const response = await axiosInstance.get<UserVibesResponse>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to get current vibes:', error);
+            console.error('[LocationService] Failed to get current vibes:', error);
             throw error;
         }
     }
@@ -149,12 +149,9 @@ class LocationService {
         try {
             const endpoint = buildEndpointUrl('LOCATION_SERVICE', 'INIT_CURRENT_VIBES');
             const response = await axiosInstance.post<InitVibesResponse>(endpoint);
-            try {
-                console.log('[LocationService] initCurrentVibes success:', response.data?.status || 'unknown');
-            } catch { }
             return response.data;
         } catch (error: any) {
-            console.error('Failed to initialize current vibes:', error);
+            console.error('[LocationService] Failed to initialize current vibes:', error);
             throw error;
         }
     }
@@ -169,7 +166,7 @@ class LocationService {
             const response = await axiosInstance.post<UserVibesResponse>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to generate new vibes:', error);
+            console.error('[LocationService] Failed to generate new vibes:', error);
             throw error;
         }
     }

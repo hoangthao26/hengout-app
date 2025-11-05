@@ -29,17 +29,6 @@ const SearchUserItem: React.FC<SearchUserItemProps> = ({
 }) => {
     const isDark = useColorScheme() === 'dark';
 
-    // Log user data for debugging
-    console.log('[SearchUserItem] Rendering user:', {
-        id: user.id,
-        name: user.name,
-        avatarUrl: user.avatarUrl,
-        relationshipStatus: user.relationshipStatus,
-        friendRequestId: user.friendRequestId,
-        loading,
-        disabled
-    });
-
     return (
         <View style={[styles.friendItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}>
             <View style={styles.friendInfo}>
@@ -77,7 +66,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingVertical: 12,
         paddingHorizontal: 16,
-        borderRadius: 12,
+        borderRadius: 24,
         marginBottom: 8,
         marginHorizontal: 16,
         shadowColor: '#000',

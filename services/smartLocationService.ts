@@ -25,6 +25,7 @@ interface LocationOptions {
     timeout?: number;
     retries?: number;
     useCache?: boolean;
+    requestPermission?: boolean; // If false, only check permission status, don't request
 }
 
 class SmartLocationService {
@@ -39,78 +40,115 @@ class SmartLocationService {
     }
 
     /**
-     * Get location with smart retry and caching
+     * Get location with multi-tier fallback strategy
+     * 
+     * Location acquisition strategy (priority order):
+     * 1. Cached location (if valid and not stale) - fastest, no permission needed
+     * 2. GPS location with retry (high accuracy, requires permission)
+     * 3. Network-based location (IP geolocation, lower accuracy)
+     * 4. Stale cache as last resort (better than nothing)
+     * 
+     * Each tier is only attempted if previous tiers fail.
+     * Successful locations are cached for future requests.
+     * 
+     * @param options - Location options (accuracy, timeout, retries, useCache, requestPermission)
+     * @param requestPermission - If false, only check permission status, don't request (best practice)
+     * @returns LocationData with source indicator, or null if all strategies fail
      */
     async getCurrentLocation(options: LocationOptions = {}): Promise<LocationData | null> {
         const {
             accuracy = LOCATION_CONFIG.HIGH_ACCURACY,
             timeout = 10000,
             retries = LOCATION_CONFIG.RETRY_ATTEMPTS,
-            useCache = true
+            useCache = true,
+            requestPermission = false // Default: don't request permission (best practice)
         } = options;
 
-        console.log('[SmartLocation] Getting current location...');
-
-        // 1. Check cache first if enabled
+        // Tier 1: Check cache first (fastest, no permission/network needed)
         if (useCache) {
             const cachedLocation = await this.getCachedLocation();
             if (cachedLocation && !this.isLocationStale(cachedLocation)) {
-                console.log('[SmartLocation] Using cached location');
                 return cachedLocation;
             }
         }
 
-        // 2. Try GPS with retry
-        const gpsLocation = await this.getLocationWithRetry(accuracy, timeout, retries);
+        // Tier 2: Try GPS with exponential backoff retry (only if permission exists or requestPermission=true)
+        const gpsLocation = await this.getLocationWithRetry(accuracy, timeout, retries, requestPermission);
         if (gpsLocation) {
             await this.cacheLocation(gpsLocation);
             return gpsLocation;
         }
 
-        // 3. Try network location
+        // Tier 3: Try network-based location (IP geolocation)
         const networkLocation = await this.getNetworkLocation();
         if (networkLocation) {
             await this.cacheLocation(networkLocation);
             return networkLocation;
         }
 
-        // 4. Return stale cache if available
+        // Tier 4: Return stale cache as last resort (better than nothing)
         if (useCache && this.cache) {
-            console.log('[SmartLocation] Using stale cached location');
             return this.cache;
         }
 
-        console.log('[SmartLocation] No location available');
         return null;
     }
 
     /**
-     * Get location with retry mechanism
+     * Get GPS location with exponential backoff retry mechanism
+     * 
+     * Retry strategy:
+     * 1. Validates location services enabled (one-time check)
+     * 2. Checks/Requests permission based on requestPermission flag
+     * 3. Attempts location acquisition with timeout race condition
+     * 4. Uses exponential backoff between retries: delay = baseDelay * 2^(attempt-1)
+     * 
+     * Exponential backoff examples (baseDelay=1000ms):
+     * - Attempt 1: immediate
+     * - Attempt 2: wait 1000ms
+     * - Attempt 3: wait 2000ms
+     * - Attempt 4: wait 4000ms
+     * 
+     * Timeout handling: Uses Promise.race to enforce timeout even if GPS takes too long.
+     * 
+     * @param accuracy - Location accuracy level (High, Balanced, Low)
+     * @param timeout - Max time to wait for location (ms)
+     * @param retries - Number of retry attempts
+     * @param requestPermission - If false, only check permission status, don't request (best practice)
+     * @returns LocationData if successful, null if all attempts fail
      */
     private async getLocationWithRetry(
         accuracy: Location.Accuracy,
         timeout: number,
-        retries: number
+        retries: number,
+        requestPermission: boolean = false
     ): Promise<LocationData | null> {
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
-                console.log(`[SmartLocation] GPS attempt ${attempt}/${retries}`);
-
-                // Check if location services are enabled
+                // Check if location services are enabled (one-time validation)
                 const isLocationEnabled = await Location.hasServicesEnabledAsync();
                 if (!isLocationEnabled) {
-                    console.log('[SmartLocation] Location services disabled');
-                    return null;
+                    return null; // Location services disabled, no point retrying
                 }
 
-                // Request permission
-                const { status } = await Location.requestForegroundPermissionsAsync();
+                // Check or request permission based on requestPermission flag
+                let status: Location.PermissionStatus;
+                if (requestPermission) {
+                    // Request permission (user explicitly needs location)
+                    const result = await Location.requestForegroundPermissionsAsync();
+                    status = result.status;
+                } else {
+                    // Only check permission status (best practice - don't request on app launch)
+                    const result = await Location.getForegroundPermissionsAsync();
+                    status = result.status;
+                }
+
                 if (status !== 'granted') {
-                    console.log('[SmartLocation] Location permission denied');
-                    return null;
+                    return null; // Permission not granted, no point retrying
                 }
 
-                // Get current position with timeout
+                // Get current position with timeout enforcement
+                // Uses Promise.race to enforce timeout even if GPS hangs
                 const location = await Promise.race([
                     Location.getCurrentPositionAsync({
                         accuracy,
@@ -130,20 +168,12 @@ class SmartLocationService {
                         source: 'gps'
                     };
 
-                    console.log('[SmartLocation] GPS location obtained:', {
-                        lat: locationData.latitude,
-                        lng: locationData.longitude,
-                        accuracy: locationData.accuracy,
-                        source: locationData.source
-                    });
-
                     return locationData;
                 }
             } catch (error) {
-                console.log(`[SmartLocation] GPS attempt ${attempt} failed:`, error);
-
+                // Retry with exponential backoff (except on last attempt)
                 if (attempt < retries) {
-                    // Wait before retry with exponential backoff
+                    // Exponential backoff: delay doubles each attempt
                     const delay = LOCATION_CONFIG.RETRY_DELAY * Math.pow(2, attempt - 1);
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
@@ -158,8 +188,6 @@ class SmartLocationService {
      */
     private async getNetworkLocation(): Promise<LocationData | null> {
         try {
-            console.log('[SmartLocation] Trying network location...');
-
             // This would typically use a geolocation API
             // For now, we'll return null as we don't have network geolocation
             // In production, you might use services like:
@@ -169,7 +197,6 @@ class SmartLocationService {
 
             return null;
         } catch (error) {
-            console.log('[SmartLocation] Network location failed:', error);
             return null;
         }
     }
@@ -181,9 +208,8 @@ class SmartLocationService {
         try {
             this.cache = location;
             await AsyncStorage.setItem('smart_location_cache', JSON.stringify(location));
-            console.log('[SmartLocation] Location cached');
         } catch (error) {
-            console.log('[SmartLocation] Failed to cache location:', error);
+            // Silent failure for caching
         }
     }
 
@@ -203,7 +229,7 @@ class SmartLocationService {
                 return location;
             }
         } catch (error) {
-            console.log('[SmartLocation] Failed to get cached location:', error);
+            // Silent failure for getting cached location
         }
         return null;
     }
@@ -247,9 +273,8 @@ class SmartLocationService {
         try {
             this.cache = null;
             await AsyncStorage.removeItem('smart_location_cache');
-            console.log('[SmartLocation] Cache cleared');
         } catch (error) {
-            console.log('[SmartLocation] Failed to clear cache:', error);
+            // Silent failure for clearing cache
         }
     }
 

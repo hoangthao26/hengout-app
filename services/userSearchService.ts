@@ -18,7 +18,7 @@ class UserSearchService {
             });
             return response.data;
         } catch (error: any) {
-            console.error('Failed to search users:', error);
+            console.error('[UserSearchService] Failed to search users:', error);
             throw error;
         }
     }

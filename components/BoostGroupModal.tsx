@@ -101,7 +101,7 @@ const BoostGroupModal: React.FC<BoostGroupModalProps> = ({
                     }
                 })
                 .catch(err => {
-                    console.error('Failed to load group members:', err);
+                    console.error('[BoostGroupModal] Failed to load group members:', err);
                 });
         }
     }, [isVisible, fetchActiveSubscription, conversationId]);
@@ -296,9 +296,7 @@ const BoostGroupModal: React.FC<BoostGroupModalProps> = ({
                                     <Text style={[styles.subtitle, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
                                         Thành viên: {membersLabel}
                                     </Text>
-                                    <Text style={[styles.subtitle, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                        {conversationName}
-                                    </Text>
+
                                 </View>
 
                                 <View style={styles.headerButtonPlaceholder} />
@@ -391,7 +389,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 24,
-        paddingVertical: 20,
+        paddingVertical: 12,
         borderBottomWidth: 1,
         position: 'relative',
     },

@@ -15,7 +15,7 @@ class PreferenceService {
             const response = await axiosInstance.get<PreferenceResponse>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to get user preferences:', error);
+            console.error('[PreferenceService] Failed to get user preferences:', error);
             throw error;
         }
     }
@@ -30,7 +30,7 @@ class PreferenceService {
             const response = await axiosInstance.put<PreferenceResponse>(endpoint, preferences);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to update user preferences:', error);
+            console.error('[PreferenceService] Failed to update user preferences:', error);
             throw error;
         }
     }

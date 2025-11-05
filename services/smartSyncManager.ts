@@ -47,7 +47,14 @@ class SmartSyncManager {
     }
 
     /**
-     * Debounced sync - gộp nhiều sync requests thành 1
+     * Debounced sync - Aggregates multiple sync requests into single batch
+     * 
+     * Implements debounce pattern to prevent excessive sync calls:
+     * - Waits SYNC_DEBOUNCE_DELAY (5s) before processing
+     * - Cancels previous timer if new request arrives
+     * - Reduces server load and improves battery life
+     * 
+     * Example: 10 sync requests in 3 seconds → single sync after 5 seconds
      */
     private debouncedSync(): void {
         if (this.debounceTimer) {
@@ -60,7 +67,15 @@ class SmartSyncManager {
     }
 
     /**
-     * Process sync queue with priority
+     * Process sync queue with intelligent filtering and prioritization
+     * 
+     * Multi-stage processing pipeline:
+     * 1. Collects all queued conversations
+     * 2. Filters by shouldSync() logic (time-based, auth checks)
+     * 3. Prioritizes conversations (current > recent > others)
+     * 4. Syncs in batches to avoid overwhelming server
+     * 
+     * Thread-safe: Uses isSyncInProgress flag to prevent concurrent processing
      */
     private async processSyncQueue(): Promise<void> {
         if (this.syncInProgress || this.syncQueue.size === 0) {
@@ -69,29 +84,27 @@ class SmartSyncManager {
 
         try {
             this.syncInProgress = true;
-            // Processing sync queue
 
-            // Get conversations to sync
+            // Stage 1: Collect conversations from queue and clear it
             const conversationsToSync = Array.from(this.syncQueue);
             this.syncQueue.clear();
 
-            // Filter conversations that actually need sync
+            // Stage 2: Filter conversations that actually need sync
+            // (excludes recently synced, inactive, or unauthenticated)
             const conversationsNeedingSync = conversationsToSync.filter(id =>
                 this.shouldSync(id)
             );
 
             if (conversationsNeedingSync.length === 0) {
-                // No conversations need sync, skipping
+                // All conversations filtered out, nothing to sync
                 return;
             }
 
-            // Sort by priority
+            // Stage 3: Prioritize conversations (current conversation first, then by recency)
             const prioritizedConversations = this.prioritizeConversations(conversationsNeedingSync);
 
-            // Sync in batches
+            // Stage 4: Sync in batches with delays between batches
             await this.syncInBatches(prioritizedConversations);
-
-            // Completed sync for conversations
 
         } catch (error) {
             console.error('[SmartSync] Sync failed:', error);
@@ -101,36 +114,42 @@ class SmartSyncManager {
     }
 
     /**
-     * Check if conversation should be synced
+     * Determines if a conversation should be synced based on multiple conditions
+     * 
+     * Sync decision logic (all must pass):
+     * 1. Time-based: Not synced within MIN_SYNC_INTERVAL (5 min)
+     * 2. Activity-based: Had activity within 2x MIN_SYNC_INTERVAL (10 min)
+     * 3. Auth check: User must be authenticated
+     * 
+     * Prevents unnecessary syncs for:
+     * - Recently synced conversations (rate limiting)
+     * - Inactive conversations (optimization)
+     * - Unauthenticated users (error prevention)
+     * 
+     * @param conversationId - ID of conversation to check
+     * @returns true if should sync, false otherwise
      */
     private shouldSync(conversationId: string): boolean {
         const now = Date.now();
         const lastSync = this.lastSyncTime[conversationId] || 0;
         const lastActivity = this.lastActivityTime[conversationId] || 0;
 
-        // Don't sync if:
-        // 1. Already synced recently (< 5 minutes)
-        // 2. No recent activity
-        // 3. User not authenticated
-        // 4. App in background
-
         const timeSinceLastSync = now - lastSync;
         const timeSinceLastActivity = now - lastActivity;
 
+        // Condition 1: Rate limiting - skip if synced too recently
         if (timeSinceLastSync < this.MIN_SYNC_INTERVAL) {
-            // Skipping - synced recently
             return false;
         }
 
+        // Condition 2: Activity threshold - skip if no recent activity
         if (timeSinceLastActivity > this.MIN_SYNC_INTERVAL * 2) {
-            // Skipping - no recent activity
             return false;
         }
 
-        // Check if user is authenticated
+        // Condition 3: Authentication check - skip if user not logged in
         const { isAuthenticated } = useAuthStore.getState();
         if (!isAuthenticated) {
-            // Skipping - user not authenticated
             return false;
         }
 
@@ -138,48 +157,73 @@ class SmartSyncManager {
     }
 
     /**
-     * Prioritize conversations for sync
+     * Prioritize conversations for sync based on importance and recency
+     * 
+     * Priority order (ascending priority):
+     * 1. Currently selected conversation (highest - user is viewing it)
+     * 2. Recent conversations by lastMessage timestamp (newer = higher)
+     * 3. Conversations by activity time (fallback if lastMessage unavailable)
+     * 
+     * Ensures critical conversations sync first for better UX.
+     * 
+     * @param conversationIds - Array of conversation IDs to prioritize
+     * @returns Sorted array with highest priority first
      */
     private prioritizeConversations(conversationIds: string[]): string[] {
         const { conversations, selectedConversationId } = useChatStore.getState();
 
         return conversationIds.sort((a, b) => {
-            // Priority 1: Current conversation
+            // Priority 1: Current conversation gets highest priority
             if (a === selectedConversationId) return -1;
             if (b === selectedConversationId) return 1;
 
-            // Priority 2: Recent conversations (by lastMessage)
+            // Priority 2: Sort by lastMessage timestamp (newer = higher priority)
             const convA = conversations.find(c => c.id === a);
             const convB = conversations.find(c => c.id === b);
 
             if (convA && convB) {
                 const timeA = new Date(convA.lastMessage?.createdAt || convA.createdAt).getTime();
                 const timeB = new Date(convB.lastMessage?.createdAt || convB.createdAt).getTime();
-                return timeB - timeA; // Newer first
+                return timeB - timeA; // Newer first (descending order)
             }
 
-            // Priority 3: By activity time
+            // Priority 3: Fallback to activity time if conversation not found
             const activityA = this.lastActivityTime[a] || 0;
             const activityB = this.lastActivityTime[b] || 0;
-            return activityB - activityA;
+            return activityB - activityA; // More recent activity first
         });
     }
 
     /**
-     * Sync conversations in batches
+     * Sync conversations in batches with rate limiting
+     * 
+     * Batch processing strategy:
+     * 1. Splits conversations into batches of MAX_SYNC_BATCH_SIZE
+     * 2. Processes batches sequentially (not parallel to avoid overwhelming server)
+     * 3. Adds 1 second delay between batches (rate limiting)
+     * 4. Skips delay if only one batch (optimization)
+     * 
+     * Rate limiting:
+     * - Delays prevent overwhelming server with simultaneous sync requests
+     * - Sequential processing ensures server can handle load gracefully
+     * - 1 second delay balances speed vs server load
+     * 
+     * @param conversationIds - Array of conversation IDs to sync in batches
      */
     private async syncInBatches(conversationIds: string[]): Promise<void> {
+        // Split conversations into batches
         const batches = [];
         for (let i = 0; i < conversationIds.length; i += this.MAX_SYNC_BATCH_SIZE) {
             batches.push(conversationIds.slice(i, i + this.MAX_SYNC_BATCH_SIZE));
         }
 
+        // Process batches sequentially with rate limiting
         for (const batch of batches) {
             await this.syncBatch(batch);
 
-            // Small delay between batches to avoid overwhelming server
+            // Rate limiting: Add delay between batches (except last batch)
             if (batches.length > 1) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
             }
         }
     }

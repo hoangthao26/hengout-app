@@ -1,4 +1,3 @@
-import { useFonts } from 'expo-font';
 import { Tabs } from 'expo-router';
 import { Map, MessageCircle, User } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
@@ -14,11 +13,6 @@ import { ModalProvider, useModal } from '../../contexts/ModalContext';
 import Badge from '../../components/Badge';
 
 function TabLayoutContent() {
-    const [fontsLoaded] = useFonts({
-        'Dongle': require('../../assets/fonts/Dongle-Regular.ttf'),
-        'Dongle-Bold': require('../../assets/fonts/Dongle-Bold.ttf'),
-        'Dongle-Light': require('../../assets/fonts/Dongle-Light.ttf'),
-    });
 
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
@@ -70,7 +64,7 @@ function TabLayoutContent() {
                 setLinearGradient(() => LinearGradientModule.LinearGradient);
                 setMaskedView(() => MaskedViewModule.default);
             } catch (error) {
-                console.log('Native modules not available for tabs, using fallback:', error);
+                // Native modules not available, fallback to regular icons
             } finally {
                 setIsLoading(false);
             }
@@ -133,12 +127,10 @@ function TabLayoutContent() {
                 </MaskedView>
             );
         } catch (error) {
-            console.log('Error rendering gradient icon, using fallback:', error);
+            // Error rendering gradient, fallback to regular icon
             return <IconComponent size={size} color="#FAA307" />;
         }
     };
-
-    if (!fontsLoaded) return null;
 
     return (
         <>

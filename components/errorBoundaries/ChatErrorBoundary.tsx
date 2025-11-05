@@ -18,7 +18,7 @@ interface ChatErrorBoundaryProps {
 
 export const ChatErrorBoundary: React.FC<ChatErrorBoundaryProps> = ({ children, onError }) => {
     const handleError = (error: AppError) => {
-        console.log('💬 Chat Error Boundary caught error:', error);
+        console.error('[ChatErrorBoundary] Error caught:', error);
         onError?.(error);
     };
 

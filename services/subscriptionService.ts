@@ -45,9 +45,7 @@ class SubscriptionService {
     async getPlans(): Promise<PlansResponse> {
         try {
             const endpoint = buildEndpointUrl('SUBSCRIPTION_SERVICE', 'GET_PLANS');
-            console.log('[SubscriptionService] GET_PLANS →', endpoint);
             const response = await axiosInstance.get<Plan[]>(endpoint);
-            console.log('[SubscriptionService] GET_PLANS status:', (response as any)?.status, 'data type:', Array.isArray(response.data) ? 'array' : typeof response.data);
 
             // Normalize backend response to match PlansResponse type
             const payload = response.data;
@@ -70,7 +68,7 @@ class SubscriptionService {
         } catch (error: any) {
             const status = error?.response?.status;
             const data = error?.response?.data;
-            console.error('[SubscriptionService] GET_PLANS failed. HTTP:', status, 'Response:', data);
+            console.error('[SubscriptionService] GET_PLANS failed:', error);
             throw error;
         }
     }
@@ -103,7 +101,7 @@ class SubscriptionService {
                 errorCode: 404
             } as SubscriptionResponse;
         } catch (error: any) {
-            console.error('Không thể lấy thông tin gói đăng ký:', error);
+            console.error('[SubscriptionService] Failed to get subscription:', error);
             throw error;
         }
     }
@@ -120,7 +118,7 @@ class SubscriptionService {
             });
             return response.data;
         } catch (error: any) {
-            console.error('Không thể kích hoạt gói đăng ký:', error);
+            console.error('[SubscriptionService] Failed to activate subscription:', error);
             throw error;
         }
     }
@@ -137,7 +135,7 @@ class SubscriptionService {
             const response = await axiosInstance.get<UserLimitsResponse>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error('Không thể lấy giới hạn thư mục:', error);
+            console.error('[SubscriptionService] Failed to get folder limit:', error);
             throw error;
         }
     }
@@ -152,7 +150,7 @@ class SubscriptionService {
             const response = await axiosInstance.get<FriendLimitResponse>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error('Không thể lấy giới hạn bạn bè:', error);
+            console.error('[SubscriptionService] Failed to get friend limit:', error);
             throw error;
         }
     }
@@ -167,7 +165,7 @@ class SubscriptionService {
             const response = await axiosInstance.get<GroupLimitResponse>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error('Không thể lấy giới hạn nhóm:', error);
+            console.error('[SubscriptionService] Failed to get group limit:', error);
             throw error;
         }
     }
@@ -186,7 +184,7 @@ class SubscriptionService {
             });
             return response.data;
         } catch (error: any) {
-            console.error('Không thể kiểm tra thanh toán:', error);
+            console.error('[SubscriptionService] Failed to check payment:', error);
             throw error;
         }
     }
@@ -203,7 +201,7 @@ class SubscriptionService {
             });
             return response.data;
         } catch (error: any) {
-            console.error('Không thể tạo thanh toán:', error);
+            console.error('[SubscriptionService] Failed to create payment:', error);
             throw error;
         }
     }
@@ -229,7 +227,7 @@ class SubscriptionService {
             });
             return response.data;
         } catch (error: any) {
-            console.error('Không thể tạo thanh toán PayOS:', error);
+            console.error('[SubscriptionService] Failed to create PayOS payment:', error);
             throw error;
         }
     }
@@ -246,7 +244,7 @@ class SubscriptionService {
             });
             return response.data;
         } catch (error: any) {
-            console.error('Không thể kiểm tra trạng thái thanh toán:', error);
+            console.error('[SubscriptionService] Failed to check payment status:', error);
             throw error;
         }
     }
@@ -262,7 +260,7 @@ class SubscriptionService {
             const response = await axiosInstance.post<PaymentWebhookResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.error('Không thể xác nhận webhook:', error);
+            console.error('[SubscriptionService] Failed to confirm webhook:', error);
             throw error;
         }
     }
@@ -279,7 +277,7 @@ class SubscriptionService {
             });
             return response.data;
         } catch (error: any) {
-            console.error('Không thể hủy thanh toán:', error);
+            console.error('[SubscriptionService] Failed to cancel payment:', error);
             throw error;
         }
     }
@@ -346,7 +344,7 @@ class SubscriptionService {
                 group: groupLimits.data
             };
         } catch (error: any) {
-            console.error('Không thể lấy tất cả giới hạn người dùng:', error);
+            console.error('[SubscriptionService] Failed to get all user limits:', error);
             throw error;
         }
     }
@@ -359,7 +357,6 @@ class SubscriptionService {
             const response = await this.getActiveSubscription();
             return response.status === 'success' && !!response.data;
         } catch (error: any) {
-            console.log('Không tìm thấy gói đăng ký đang hoạt động:', error.message);
             return false;
         }
     }
@@ -375,7 +372,7 @@ class SubscriptionService {
             }
             return null;
         } catch (error: any) {
-            console.error('Không thể lấy gói theo ID:', error);
+            console.error('[SubscriptionService] Failed to get plan by ID:', error);
             return null;
         }
     }
@@ -447,7 +444,7 @@ class SubscriptionService {
             }
             return true; // assume success if 200
         } catch (error: any) {
-            console.error('Không thể khởi tạo gói mặc định:', error);
+            console.error('[SubscriptionService] Failed to initialize default subscription:', error);
             throw error;
         }
     }

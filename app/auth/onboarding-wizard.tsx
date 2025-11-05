@@ -161,11 +161,12 @@ export default function OnboardingWizardScreen() {
                     setUserLoggedOut(true);
                     await fastLogout();
                 } catch (e) {
-                    console.error('Background test logout failed:', e);
+                    // Background test logout failed - silent fail as user is already logged out
+                    console.error('[OnboardingWizard] Background test logout failed:', e);
                 }
             }, 100);
         } catch (e: any) {
-            console.error('Test logout failed:', e);
+            console.error('[OnboardingWizard] Test logout failed:', e);
             showError('Đăng xuất thất bại');
         }
     };
@@ -173,8 +174,6 @@ export default function OnboardingWizardScreen() {
     const handleComplete = async () => {
         setLoading(true);
         try {
-            console.log('[OnboardingWizard] Completing onboarding...', data);
-
             const profileData: InitializeProfileRequest = {
                 displayName: data.displayName,
                 gender: data.gender,
@@ -216,7 +215,7 @@ export default function OnboardingWizardScreen() {
                     NavigationService.secureNavigateToDiscover();
                 }
             } catch {
-            NavigationService.secureNavigateToDiscover();
+                NavigationService.secureNavigateToDiscover();
             }
         } catch (error: any) {
             console.error('[OnboardingWizard] Onboarding failed:', error);
@@ -390,12 +389,12 @@ export default function OnboardingWizardScreen() {
                     {/* Back Button - Only show if not first step */}
                     {!isFirstStep && <AuthBackButton onPress={handleBack} />}
 
-                    {/* TEMP Test Logout Button - comment out after testing */}
+                    {/* TEMP Test Logout Button - comment out after testing
                     <View style={styles.logoutContainer}>
                         <TouchableOpacity onPress={handleTestLogout} style={styles.logoutButton}>
                             <Text style={[styles.logoutText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>Đăng xuất (test)</Text>
                         </TouchableOpacity>
-                    </View>
+                    </View> */}
 
                     {/* Header */}
                     <View style={styles.header}>

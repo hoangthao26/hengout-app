@@ -191,9 +191,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             ? conversations.slice(0, MAX_CONVERSATIONS_IN_MEMORY)
             : conversations;
 
-        if (conversations.length > MAX_CONVERSATIONS_IN_MEMORY) {
-            console.log(`[Memory] Limited conversations in memory: ${conversations.length} → ${limitedConversations.length}`);
-        }
 
         // SẮP XẾP conversations theo lastMessage.createdAt (DESC), nếu null thì dùng createdAt
         const sortedConversations = limitedConversations.sort((a, b) => {
@@ -205,16 +202,31 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         return { conversations: sortedConversations };
     }),
 
+    /**
+     * Add new conversation with automatic memory management
+     * 
+     * Memory management strategy:
+     * 1. Adds conversation to beginning of list (most recent first)
+     * 2. If exceeds MAX_CONVERSATIONS_IN_MEMORY (50), removes oldest conversations
+     * 3. Cleans up all associated data (messages, members, cache) for removed conversations
+     * 4. Triggers background cleanup if exceeds 1.5x limit (75 conversations)
+     * 5. Sorts conversations by lastMessage timestamp after addition
+     * 
+     * Prevents memory bloat by automatically removing least-recent conversations
+     * and their associated data when memory limit is reached.
+     * 
+     * @param conversation - New conversation to add
+     */
     addConversation: (conversation) => set((state) => {
         const newConversations = [conversation, ...state.conversations];
 
         // MEMORY MANAGEMENT: Auto cleanup if too many conversations
         if (newConversations.length > MAX_CONVERSATIONS_IN_MEMORY) {
-            console.log(`[Memory] Auto cleanup triggered: ${newConversations.length} conversations`);
             const limitedConversations = newConversations.slice(0, MAX_CONVERSATIONS_IN_MEMORY);
             const removedConversations = newConversations.slice(MAX_CONVERSATIONS_IN_MEMORY);
 
-            // Remove data for removed conversations
+            // Clean up all associated data for removed conversations to prevent memory leaks
+            // Removes: messages, snapshots, cache, members, loading states, error states
             const newConversationMessages = { ...state.conversationMessages };
             const newMessageSnapshots = { ...state.messageSnapshots };
             const newCachedMessages = { ...state.cachedMessages };
@@ -255,15 +267,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             };
         }
 
-        // CLEANUP: Trigger cleanup if too many conversations
+        // CLEANUP: Trigger background cleanup if significantly over limit (150% threshold)
+        // This proactively cleans up inactive conversations before hitting hard limit
         if (newConversations.length > MAX_CONVERSATIONS_IN_MEMORY * 1.5) {
-            console.log('[ChatStore] Too many conversations, triggering cleanup');
             conversationCleanupManager.cleanupInactiveConversations().catch(error => {
                 console.error('[ChatStore] Cleanup failed:', error);
             });
         }
 
-        // SẮP XẾP conversations theo lastMessage.createdAt (DESC), nếu null thì dùng createdAt
+        // Sort conversations by lastMessage timestamp (newest first)
+        // Falls back to conversation createdAt if lastMessage is null
         const sortedConversations = newConversations.sort((a, b) => {
             const aTime = a.lastMessage?.createdAt || a.createdAt;
             const bTime = b.lastMessage?.createdAt || b.createdAt;
@@ -273,28 +286,57 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         return { conversations: sortedConversations };
     }),
 
+    /**
+     * Update conversation with automatic re-sorting and current conversation sync
+     * 
+     * Update flow:
+     * 1. Updates conversation in list with provided updates (shallow merge)
+     * 2. Auto-re-sorts entire conversation list by lastMessage timestamp (newest first)
+     * 3. Syncs currentConversation if it's the updated one (keeps UI in sync)
+     * 4. Creates new array reference (triggers React re-render)
+     * 
+     * Auto-re-sorting logic:
+     * - Triggered automatically on any update (especially lastMessage changes)
+     * - Sorts by lastMessage.createdAt (fallback to createdAt if no lastMessage)
+     * - Descending order: Newest conversations appear first
+     * - Maintains consistent list order across updates
+     * 
+     * Current conversation sync:
+     * - If updated conversation is currently selected, updates currentConversation too
+     * - Ensures detail view shows latest data (name, avatar, lastMessage, etc.)
+     * - Prevents UI inconsistencies between list and detail views
+     * 
+     * React re-render trigger:
+     * - Spread operator creates new array reference [...sortedConversations]
+     * - React detects reference change and re-renders conversation list
+     * - Ensures UI updates when conversation data changes
+     * 
+     * Use cases:
+     * - New message arrives (updates lastMessage, triggers re-sort)
+     * - Conversation name/avatar changes (updates metadata)
+     * - Member count changes (updates member_count)
+     * 
+     * @param conversationId - ID of conversation to update
+     * @param updates - Partial conversation data to merge
+     */
     updateConversation: (conversationId, updates) => set((state) => {
+        // Step 1: Update conversation in list
         const updatedConversations = state.conversations.map(conv =>
             conv.id === conversationId ? { ...conv, ...updates } : conv
         );
 
-        // SẮP XẾP LẠI conversations theo lastMessage.createdAt (DESC)
+        // Step 2: Auto-re-sort by lastMessage timestamp (newest first)
         const sortedConversations = updatedConversations.sort((a, b) => {
             const aTime = a.lastMessage?.createdAt || a.createdAt;
             const bTime = b.lastMessage?.createdAt || b.createdAt;
-            return new Date(bTime).getTime() - new Date(aTime).getTime();
+            return new Date(bTime).getTime() - new Date(aTime).getTime(); // Descending
         });
 
-        // REAL-TIME CONVERSATION LIST UPDATE
-        // Force re-render by creating new array reference
-        console.log('[ChatStore] Conversation updated, triggering conversation list re-render:', {
-            conversationId,
-            lastMessage: updates.lastMessage?.content?.text || 'Activity',
-            lastMessageTime: updates.lastMessage?.createdAt
-        });
-
+        // Step 3: Return new state with synced currentConversation
         return {
-            conversations: [...sortedConversations], // Force new array reference
+            // New array reference triggers React re-render
+            conversations: [...sortedConversations],
+            // Sync currentConversation if it's the updated one
             currentConversation: state.currentConversation?.id === conversationId
                 ? { ...state.currentConversation, ...updates }
                 : state.currentConversation
@@ -323,44 +365,53 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     setConversationCacheValid: (valid) => set({ conversationCacheValid: valid }),
 
+    /**
+     * Merge API conversations with WebSocket real-time updates
+     * 
+     * Intelligent merge strategy that combines API data with WebSocket updates:
+     * - Compares lastMessage timestamps to determine which is newer
+     * - Prefers WebSocket updates when more recent (real-time message updates)
+     * - Falls back to API data when WebSocket hasn't updated or API is newer
+     * 
+     * This ensures:
+     * - Real-time updates from WebSocket are preserved
+     * - API data provides fallback for conversations without WebSocket updates
+     * - No data loss during merge process
+     * - Conversation list shows latest messages even after API refresh
+     * 
+     * @param apiConversations - Conversations from API call
+     * @returns Merged conversations with WebSocket updates prioritized when newer, sorted by lastMessage timestamp
+     */
     mergeConversationsWithWebSocketUpdates: (apiConversations) => {
         const state = get();
         const storeConversations = state.conversations;
 
-        console.log('[ChatStore] Merging API conversations with WebSocket updates');
-
-        // Merge API data với WebSocket updates
+        // Merge strategy: prefer WebSocket updates when timestamp is newer
         const mergedConversations = apiConversations.map(apiConv => {
             const storeConv = storeConversations.find(s => s.id === apiConv.id);
 
+            // Compare lastMessage timestamps to determine which is more recent
             if (storeConv && storeConv.lastMessage && apiConv.lastMessage) {
-                // So sánh timestamp của lastMessage
                 const storeTime = new Date(storeConv.lastMessage.createdAt).getTime();
                 const apiTime = new Date(apiConv.lastMessage.createdAt).getTime();
 
+                // Use WebSocket data if newer (real-time updates take priority)
                 if (storeTime > apiTime) {
-                    console.log('[ChatStore] Using WebSocket updated conversation:', {
-                        conversationId: apiConv.id,
-                        storeLastMessage: storeConv.lastMessage.content?.text || 'Activity',
-                        apiLastMessage: apiConv.lastMessage.content?.text || 'Activity',
-                        storeTime: new Date(storeTime).toISOString(),
-                        apiTime: new Date(apiTime).toISOString()
-                    });
-                    return storeConv; // Use WebSocket updated data
+                    return storeConv;
                 }
             }
 
-            return apiConv; // Use API data
+            // Use API data (no WebSocket updates exist or API data is newer)
+            return apiConv;
         });
 
-        // Sắp xếp lại theo lastMessage.createdAt
+        // Sort merged conversations by lastMessage timestamp (newest first)
         const sortedConversations = mergedConversations.sort((a, b) => {
             const aTime = a.lastMessage?.createdAt || a.createdAt;
             const bTime = b.lastMessage?.createdAt || b.createdAt;
             return new Date(bTime).getTime() - new Date(aTime).getTime();
         });
 
-        console.log('[ChatStore] Merged conversations, preserving WebSocket updates');
         return sortedConversations;
     },
 
@@ -383,16 +434,26 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     // ==================== ENTERPRISE STORE-FIRST MESSAGES ====================
 
+    /**
+     * Set messages for conversation with memory optimization
+     * 
+     * Memory management:
+     * - Limits messages to MAX_MESSAGES_IN_STORE (200) to prevent memory bloat
+     * - Keeps only latest messages (slice from end) when limit exceeded
+     * - Updates lastMessageTimestamp for conversation ordering
+     * 
+     * Older messages beyond limit are handled by conversationCleanupManager.
+     * Used when loading full message list from API/database.
+     * 
+     * @param conversationId - ID of conversation
+     * @param messages - Array of messages (can exceed limit, will be truncated)
+     */
     setConversationMessages: (conversationId, messages) => set((state) => {
         // OPTIMIZATION: Limit messages in store to reduce memory usage
         const MAX_MESSAGES_IN_STORE = 200;
         const limitedMessages = messages.length > MAX_MESSAGES_IN_STORE
-            ? messages.slice(-MAX_MESSAGES_IN_STORE) // Keep only the latest messages
+            ? messages.slice(-MAX_MESSAGES_IN_STORE) // Keep only the latest messages (from end)
             : messages;
-
-        if (messages.length > MAX_MESSAGES_IN_STORE) {
-            console.log(`[ChatStore] Limited messages for conversation ${conversationId}: ${messages.length} → ${limitedMessages.length}`);
-        }
 
         return {
             conversationMessages: {
@@ -406,29 +467,49 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         };
     }),
 
+    /**
+     * Add a new message to conversation with duplicate prevention, notification, and memory management
+     * 
+     * Message addition flow:
+     * 1. Duplicate detection: Checks if message ID already exists (idempotency)
+     *    - Prevents duplicate messages from WebSocket re-delivery or optimistic updates
+     *    - Returns state unchanged if duplicate found
+     * 2. Notification handling: Triggers notification for new messages
+     *    - Handles own message filtering internally (no notification for own messages)
+     *    - Finds conversation for notification context
+     *    - Silent failure: Errors don't block message addition
+     * 3. Memory management: Limits messages to MAX_MESSAGES_PER_CONVERSATION (100)
+     *    - Keeps only most recent messages (slice from beginning)
+     *    - Prevents memory bloat in long conversations
+     * 4. State update: Updates message list and lastMessageTimestamp
+     * 
+     * Duplicate prevention:
+     * - Critical for WebSocket reliability (handles re-delivery)
+     * - Critical for optimistic updates (prevents temp + real message duplicates)
+     * - Uses message ID comparison (O(n) check, acceptable for message lists)
+     * 
+     * Memory optimization:
+     * - Hard limit: 100 messages per conversation in memory
+     * - Older messages beyond limit are handled by cleanup manager
+     * - Keeps most recent messages (slice keeps newest when limit exceeded)
+     * 
+     * @param conversationId - ID of conversation to add message to
+     * @param message - New message to add (must have unique ID)
+     */
     addConversationMessage: (conversationId, message) => set((state) => {
         const existingMessages = state.conversationMessages[conversationId] || [];
 
-        // Check if message already exists to prevent duplicates
+        // Prevent duplicates - check if message already exists
         const messageExists = existingMessages.some(msg => msg.id === message.id);
-
         if (messageExists) {
-            console.log('[ChatStore] Message already exists, skipping:', message.id);
-            return state; // Return unchanged state
+            return state;
         }
 
-        // NOTIFICATION: Handle new message notification
+        // Trigger notification for new messages (handles own message filtering internally)
         try {
             const { notificationManager } = require('../services/notificationManager');
             const conversation = state.conversations.find(conv => conv.id === conversationId);
             if (conversation) {
-                console.log('[ChatStore] Triggering notification for message:', {
-                    messageId: message.id,
-                    conversationId: conversationId,
-                    conversationName: conversation.name,
-                    messageContent: message.content?.text || 'Activity',
-                    currentConversationId: state.currentConversation?.id
-                });
                 notificationManager.handleNewMessage(message, conversation);
             } else {
                 console.warn('[ChatStore] Conversation not found for notification:', conversationId);
@@ -437,15 +518,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             console.error('[ChatStore] Failed to handle notification:', error);
         }
 
-        // MEMORY MANAGEMENT: Limit messages in store to reduce memory usage
+        // Memory management: limit messages to prevent memory bloat
         const newMessages = [message, ...existingMessages];
         const limitedMessages = newMessages.length > MAX_MESSAGES_PER_CONVERSATION
-            ? newMessages.slice(0, MAX_MESSAGES_PER_CONVERSATION) // Keep only the latest messages
+            ? newMessages.slice(0, MAX_MESSAGES_PER_CONVERSATION) // Keep only most recent
             : newMessages;
 
-        if (newMessages.length > MAX_MESSAGES_PER_CONVERSATION) {
-            console.log(`[Memory] Limited messages for conversation ${conversationId}: ${newMessages.length} → ${limitedMessages.length}`);
-        }
 
         return {
             conversationMessages: {
@@ -459,15 +537,29 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         };
     }),
 
+    /**
+     * Update message with ID conflict handling
+     * 
+     * Handles message ID changes (e.g., temporary ID → server ID):
+     * 1. If new ID already exists, removes old message (duplicate prevention)
+     * 2. Otherwise, updates message in place
+     * 
+     * Prevents duplicate messages when temporary IDs are replaced with server IDs.
+     * Common scenario: Optimistic message sends with temp ID, then server assigns real ID.
+     * 
+     * @param conversationId - ID of conversation containing message
+     * @param messageId - Current message ID to update
+     * @param updates - Partial message data including potentially new ID
+     */
     updateConversationMessage: (conversationId, messageId, updates) => set((state) => {
         const existingMessages = state.conversationMessages[conversationId] || [];
 
-        // If updating ID, check if new ID already exists
+        // Handle ID change: If updating to a new ID that already exists, remove old message
+        // This prevents duplicates when temp ID is replaced with server ID
         if (updates.id && updates.id !== messageId) {
             const newIdExists = existingMessages.some(msg => msg.id === updates.id);
             if (newIdExists) {
-                console.log('[ChatStore] Message with new ID already exists, removing old message:', messageId);
-                // Remove old message instead of updating
+                // New ID already exists - remove old message to prevent duplicate
                 return {
                     conversationMessages: {
                         ...state.conversationMessages,
@@ -477,6 +569,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             }
         }
 
+        // Normal update: Apply updates to matching message
         return {
             conversationMessages: {
                 ...state.conversationMessages,
@@ -622,12 +715,24 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         preloadedConversations: [...state.preloadedConversations, conversationId]
     })),
 
+    /**
+     * Determines if messages should be synced for a conversation
+     * 
+     * Rate limiting logic to prevent excessive sync calls:
+     * - Allows sync if never synced before
+     * - Allows sync if last sync was more than SYNC_INTERVAL (30s) ago
+     * - Prevents sync if synced within last 30 seconds
+     * 
+     * @param conversationId - ID of conversation to check
+     * @returns true if should sync (rate limit not exceeded), false otherwise
+     */
     shouldSyncMessages: (conversationId) => {
         const state = get();
         const lastSync = state.lastSyncTime[conversationId];
         const now = Date.now();
         const SYNC_INTERVAL = 30000; // 30 seconds
 
+        // Allow sync if never synced or if enough time has passed since last sync
         return !lastSync || (now - lastSync) > SYNC_INTERVAL;
     },
 
@@ -749,7 +854,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             await chatWebSocketManager.connect();
             set({ websocketConnected: true, websocketConnecting: false });
         } catch (error) {
-            console.error('Failed to connect WebSocket:', error);
+            console.error('[ChatStore] Failed to connect WebSocket:', error);
             set({ websocketConnected: false, websocketConnecting: false });
         }
     },
@@ -790,8 +895,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         });
 
         if (inactiveConversations.length > 0) {
-            console.log(`[Memory] Cleaning up ${inactiveConversations.length} inactive conversations`);
-
             // Remove inactive conversations from memory
             const newConversationMessages = { ...state.conversationMessages };
             const newMessageSnapshots = { ...state.messageSnapshots };
@@ -835,9 +938,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             return state;
         }
 
-        console.log(`[Memory] Cleaning up old messages for conversation ${conversationId}: ${messages.length} → ${MAX_MESSAGES_PER_CONVERSATION}`);
-
-        // Keep only the latest messages
+        // Keep only the latest messages to manage memory
         const limitedMessages = messages.slice(0, MAX_MESSAGES_PER_CONVERSATION);
 
         return {
@@ -852,8 +953,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         if (state.conversations.length <= MAX_CONVERSATIONS_IN_MEMORY) {
             return state;
         }
-
-        console.log(`[Memory] Limiting conversations in memory: ${state.conversations.length} → ${MAX_CONVERSATIONS_IN_MEMORY}`);
 
         // Keep only the most recent conversations
         const limitedConversations = state.conversations.slice(0, MAX_CONVERSATIONS_IN_MEMORY);

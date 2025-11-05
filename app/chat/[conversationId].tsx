@@ -16,6 +16,8 @@ import {
     useColorScheme,
     View
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import MaskedView from '@react-native-masked-view/masked-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackButton from '../../components/BackButton';
 import { ChatErrorBoundary } from '../../components/errorBoundaries';
@@ -85,7 +87,77 @@ export default function ChatConversationScreen() {
     const [showActivityDetailsModal, setShowActivityDetailsModal] = useState(false);
     const [selectedActivityId, setSelectedActivityId] = useState<string>('');
 
+    // State for native modules (gradient)
+    const [LinearGradientComponent, setLinearGradientComponent] = useState<any>(null);
+    const [MaskedViewComponent, setMaskedViewComponent] = useState<any>(null);
+    const [isGradientLoading, setIsGradientLoading] = useState(true);
 
+    // Load native modules for gradient
+    useEffect(() => {
+        const loadNativeModules = async () => {
+            try {
+                if (Platform.OS === 'web') {
+                    setIsGradientLoading(false);
+                    return;
+                }
+
+                const [LinearGradientModule, MaskedViewModule] = await Promise.all([
+                    import('expo-linear-gradient'),
+                    import('@react-native-masked-view/masked-view')
+                ]);
+
+                setLinearGradientComponent(() => LinearGradientModule.LinearGradient);
+                setMaskedViewComponent(() => MaskedViewModule.default);
+            } catch (error) {
+                // Silent fallback for native modules
+            } finally {
+                setIsGradientLoading(false);
+            }
+        };
+
+        loadNativeModules();
+    }, []);
+
+    // Gradient colors matching bottom tabs
+    const GRADIENT_COLORS = ["#FAA307", "#F48C06", "#DC2F02", "#9D0208"];
+    const GRADIENT_LOCATIONS = [0, 0.31, 0.69, 1];
+    const GRADIENT_START = { x: 0, y: 1 };
+    const GRADIENT_END = { x: 1, y: 0 };
+
+    // Render compass icon with gradient
+    const renderGradientCompass = () => {
+        const iconSize = 32;
+
+        // Fallback for web or when native modules are not available
+        if (Platform.OS === 'web' || isGradientLoading || !LinearGradientComponent || !MaskedViewComponent) {
+            return <Compass size={iconSize} color="#FAA307" />;
+        }
+
+        // Native gradient implementation
+        try {
+            return (
+                <MaskedViewComponent
+                    style={{ width: iconSize, height: iconSize }}
+                    maskElement={
+                        <Compass
+                            size={iconSize}
+                            color="white"
+                        />
+                    }
+                >
+                    <LinearGradientComponent
+                        colors={GRADIENT_COLORS}
+                        locations={GRADIENT_LOCATIONS}
+                        start={GRADIENT_START}
+                        end={GRADIENT_END}
+                        style={{ flex: 1 }}
+                    />
+                </MaskedViewComponent>
+            );
+        } catch (error) {
+            return <Compass size={iconSize} color="#FAA307" />;
+        }
+    };
 
     const flatListRef = useRef<FlatList>(null);
 
@@ -174,7 +246,6 @@ export default function ChatConversationScreen() {
         // Check if conversation still exists in store (might have been removed after disband/leave)
         const conversationExists = conversations.find(c => c.id === conversationId);
         if (!conversationExists) {
-            console.log(`[Chat] Conversation ${conversationId} no longer exists in store, skipping load`);
             // Navigate back if conversation was removed
             router.replace('/(tabs)/chat');
             return;
@@ -188,12 +259,11 @@ export default function ChatConversationScreen() {
         } catch (err: any) {
             // If 403 or 404, conversation was likely deleted/disbanded
             if (err?.response?.status === 403 || err?.response?.status === 404) {
-                console.log(`[Chat] Conversation ${conversationId} not accessible (403/404), likely disbanded`);
                 // Navigate back if we're on a deleted conversation
                 router.replace('/(tabs)/chat');
                 return;
             }
-            console.error('Failed to load conversation:', err);
+            console.error('[Chat] Failed to load conversation:', err);
             error('Không thể tải thông tin cuộc trò chuyện');
         }
     }, [conversationId, error, setCurrentConversation, conversations, router]);
@@ -204,19 +274,15 @@ export default function ChatConversationScreen() {
             if (!conversationId || isLoadingMessages) return;
 
             setIsLoadingMessages(true);
-            console.log(`Loading messages for conversation: ${conversationId}, page: ${pageNum}`);
 
             try {
                 // 1. Check store first (instant display)
                 const storeMessages = conversationMessages[conversationId] || [];
-                console.log(`DEBUG - Store check: conversationId=${conversationId}, storeMessages.length=${storeMessages.length}`);
-                console.log(`DEBUG - All conversationMessages keys:`, Object.keys(conversationMessages));
 
                 if (pageNum === 0 && storeMessages.length > 0) {
                     setMessages(storeMessages);
-                    console.log(`Instant display: ${storeMessages.length} messages from store`);
                     setIsLoadingMessages(false);
-                    return; // Exit early if we have store messages
+                    return;
                 }
 
                 // 2. Check snapshot (recent messages for instant display)
@@ -224,16 +290,13 @@ export default function ChatConversationScreen() {
                 if (pageNum === 0 && snapshotMessages.length > 0) {
                     setMessages(snapshotMessages);
                     setConversationMessages(conversationId, snapshotMessages);
-                    console.log(`Instant display: ${snapshotMessages.length} messages from snapshot`);
                     setIsLoadingMessages(false);
-                    return; // Exit early if we have snapshot messages
+                    return;
                 }
 
                 // 3. Load from SQLite (fast fallback)
                 if (chatSyncInitialized) {
-                    console.log(`Loading from SQLite...`);
                     const localMessages = await getMessagesFromDB(conversationId, 50, pageNum * 50);
-                    console.log(`Loaded ${localMessages.length} messages from SQLite`);
 
                     if (pageNum === 0) {
                         // Remove duplicates before setting messages
@@ -257,13 +320,11 @@ export default function ChatConversationScreen() {
 
                     // 4. Background sync from server (only if needed)
                     if (shouldSyncMessages(conversationId)) {
-                        console.log(`Starting background sync...`);
                         setTimeout(async () => {
                             try {
                                 const response = await chatService.getMessages(conversationId, pageNum, 50);
                                 if (response.status === 'success') {
                                     const syncedMessages = response.data;
-                                    console.log(`Synced ${syncedMessages.length} messages from server`);
 
                                     if (pageNum === 0) {
                                         // Only update if server has newer messages
@@ -301,17 +362,15 @@ export default function ChatConversationScreen() {
                                     markSyncTime(conversationId);
                                 }
                             } catch (syncError) {
-                                console.error('Background sync failed:', syncError);
-                                // Continue with local data
+                                // Background sync failed - continue with local data, non-critical
+                                console.error('[Chat] Background sync failed:', syncError);
                             }
                         }, 100); // Small delay to ensure UI renders first
                     }
                 } else {
                     // Fallback to direct API call if SQLite not ready
-                    console.log(`Loading from API (SQLite not ready)...`);
                     const response = await chatService.getMessages(conversationId, pageNum, 50);
                     if (response.status === 'success') {
-                        console.log(`Loaded ${response.data.length} messages from API`);
 
                         if (pageNum === 0) {
                             // Remove duplicates before setting messages
@@ -335,7 +394,7 @@ export default function ChatConversationScreen() {
                     }
                 }
             } catch (err: any) {
-                console.error('Failed to load messages:', err);
+                console.error('[Chat] Failed to load messages:', err);
                 error('Không thể tải tin nhắn');
             } finally {
                 setIsLoadingMessages(false);
@@ -371,7 +430,6 @@ export default function ChatConversationScreen() {
             // 1. Add to store immediately (optimistic UI)
             addConversationMessage(conversationId, optimisticMessage);
             setMessages(prev => [optimisticMessage, ...prev]);
-            console.log(`Optimistic message added: ${messageContent}`);
 
             if (chatSyncInitialized) {
                 // 2. Send to server with sync
@@ -388,7 +446,6 @@ export default function ChatConversationScreen() {
                         senderId: result.senderId,
                         senderName: result.senderName
                     });
-                    console.log(`Message sent successfully: ${result.id}`);
                 }
             } else {
                 // Try direct API call first
@@ -410,7 +467,6 @@ export default function ChatConversationScreen() {
                     }
                 } catch (apiError) {
                     // Fallback to WebSocket if API fails
-                    console.log('[Chat] API failed, trying WebSocket fallback');
                     sendWebSocketMessage({
                         conversationId,
                         type: 'TEXT',
@@ -420,7 +476,7 @@ export default function ChatConversationScreen() {
                 }
             }
         } catch (err: any) {
-            console.error('Failed to send message:', err);
+            console.error('[Chat] Failed to send message:', err);
             error('Lỗi khi gửi tin nhắn');
 
             // REMOVED: No need to update status since we don't show status indicators
@@ -480,9 +536,8 @@ export default function ChatConversationScreen() {
     // WebSocket subscription management
     useEffect(() => {
         if (conversationId) {
-            //  OPTIMIZED: Không cần subscribe nữa vì đã subscribe toàn bộ khi mở app
+            // OPTIMIZED: Không cần subscribe nữa vì đã subscribe toàn bộ khi mở app
             // subscribe(conversationId);
-            console.log('[Chat] Conversation opened:', conversationId, '- Already subscribed globally');
         }
 
         // No cleanup - maintain subscription for "subscribe all conversations" strategy
@@ -492,7 +547,6 @@ export default function ChatConversationScreen() {
     // Set toast function for WebSocket manager
     useEffect(() => {
         const toastFunction = (type: 'success' | 'info' | 'warning' | 'error', title: string, message?: string) => {
-            console.log(`[Chat] Toast Function Called with: ${type} - ${title} - ${message}`);
             switch (type) {
                 case 'success':
                     success(title, message);
@@ -538,16 +592,7 @@ export default function ChatConversationScreen() {
                     )) {
 
                     // Remove duplicates by ID before syncing
-                    const uniqueMessages = removeDuplicateMessages(storeMessages);
-
-                    console.log('[Chat] Synced messages from store:', {
-                        storeCount: storeMessages.length,
-                        uniqueCount: uniqueMessages.length,
-                        localCount: prevMessages.length,
-                        latestMessage: uniqueMessages[0]?.content?.text?.substring(0, 20) + '...'
-                    });
-
-                    return uniqueMessages;
+                    return removeDuplicateMessages(storeMessages);
                 }
                 return prevMessages;
             });
@@ -762,11 +807,14 @@ export default function ChatConversationScreen() {
                                     resizeMode="contain"
                                 />
                             ) : (
-                                <View style={styles.defaultConversationAvatar}>
+                                <View style={[
+                                    styles.defaultConversationAvatar,
+                                    { backgroundColor: isDark ? '#374151' : '#E5E7EB' }
+                                ]}>
                                     {conversation?.type === 'GROUP' ? (
-                                        <Users size={20} color="#9CA3AF" />
+                                        <Users size={20} color={isDark ? '#9CA3AF' : '#6B7280'} />
                                     ) : (
-                                        <User size={20} color="#9CA3AF" />
+                                        <User size={20} color={isDark ? '#9CA3AF' : '#6B7280'} />
                                     )}
                                 </View>
                             )}
@@ -784,10 +832,7 @@ export default function ChatConversationScreen() {
                         onPress={() => setShowActivityModal(true)}
                         activeOpacity={0.7}
                     >
-                        <Compass
-                            size={32}
-                            color={isDark ? '#FFFFFF' : '#000000'}
-                        />
+                        {renderGradientCompass()}
                     </TouchableOpacity>
 
                 </View>
@@ -875,7 +920,6 @@ export default function ChatConversationScreen() {
                     onClose={() => setShowActivityModal(false)}
                     conversationId={conversationId || ''}
                     onActivityCreated={(activity) => {
-                        console.log('Activity created:', activity);
                         // Handle activity creation success
                     }}
                 />
@@ -916,7 +960,6 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#374151'
     },
     headerTitle: { fontSize: 18, fontWeight: '600' },
     compassButton: { padding: 8, marginLeft: 8 },

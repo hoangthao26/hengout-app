@@ -85,7 +85,7 @@ export const FilterVibesModal: React.FC<FilterVibesModalProps> = ({ isVisible, o
                 setLoading(true);
                 try {
                     const res = await locationService.getCurrentVibes();
-                    console.log('[FilterVibesModal] Initial getCurrentVibes response:', JSON.stringify(res, null, 2));
+                    // Initial vibes loaded
                     if (res.status === 'success') {
                         setVibes(res.data as any);
                     }
@@ -168,17 +168,12 @@ export const FilterVibesModal: React.FC<FilterVibesModalProps> = ({ isVisible, o
                         try {
                             setGenerating(true);
                             const res = await locationService.generateNewVibes();
-                            console.log('[FilterVibesModal] Generate new vibes response:', JSON.stringify(res, null, 2));
                             if (res?.status === 'success') {
                                 const incoming = (res.data as any[] | undefined) ?? [];
-                                // Replace all vibes with new ones
                                 setVibes(incoming as Vibe[]);
-                                console.log(`[FilterVibesModal] Replaced with ${incoming.length} new vibes.`);
-                            } else {
-                                console.log('[FilterVibesModal] Unexpected status for generate new vibes:', res?.status);
                             }
                         } catch (e) {
-                            console.log('[FilterVibesModal] Generate new vibes failed:', e);
+                            console.error('[FilterVibesModal] Generate new vibes failed:', e);
                         } finally {
                             setGenerating(false);
                         }

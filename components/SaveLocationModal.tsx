@@ -64,32 +64,18 @@ const SaveLocationModal: React.FC<SaveLocationModalProps> = ({
     // Load folders when modal opens
     useEffect(() => {
         if (isVisible) {
-            console.log('📂 [SaveLocationModal] Modal opened, loading folders for location:', {
-                locationId: location?.id,
-                locationName: location?.name,
-                locationAddress: location?.address,
-                timestamp: new Date().toISOString()
-            });
             loadFolders();
         }
     }, [isVisible, location]);
 
     const loadFolders = async () => {
-        console.log('📁 [SaveLocationModal] Loading folders...');
         setLoading(true);
         try {
             const response = await locationFolderService.getAllFolders();
-            console.log('📁 [SaveLocationModal] Folders response:', {
-                status: response.status,
-                folderCount: response.data?.length || 0,
-                folders: response.data?.map(f => ({ id: f.id, name: f.name, isDefault: f.isDefault })) || []
-            });
 
             if (response.status === 'success') {
                 setFolders(response.data);
-                console.log('[SaveLocationModal] Successfully loaded folders');
             } else {
-                console.log('[SaveLocationModal] Failed to load folders:', response.message);
                 showError('Không thể tải danh sách collections');
             }
         } catch (error) {
@@ -125,50 +111,23 @@ const SaveLocationModal: React.FC<SaveLocationModalProps> = ({
     const handleSaveToFolder = async (folder: LocationFolder) => {
         if (!location) return;
 
-        console.log('[SaveLocationModal] Starting save location to folder:', {
-            locationId: location.id,
-            locationName: location.name,
-            folderId: folder.id,
-            folderName: folder.name,
-            timestamp: new Date().toISOString()
-        });
-
         setSaving(folder.id);
         try {
             const requestData = {
                 locationId: location.id
             };
 
-            console.log('[SaveLocationModal] API Request:', {
-                endpoint: `POST /folder/${folder.id}/locations`,
-                requestData,
-                folderId: folder.id,
-                locationId: location.id
-            });
-
             const response = await locationFolderService.addLocationToFolder(folder.id, requestData);
 
-            console.log('[SaveLocationModal] API Response:', {
-                status: response.status,
-                data: response.data,
-                message: response.message,
-                folderId: folder.id,
-                locationId: location.id
-            });
-
             if (response.status === 'success') {
-                console.log('[SaveLocationModal] Successfully saved location to folder');
                 showSuccess(`Đã lưu "${location.name}" vào "${folder.name}"`);
-                // Chỉ gọi onSuccess callback, không gọi handleClose để không tắt LocationDetailModal
                 onSuccess?.();
-                // Chỉ đóng SaveLocationModal
                 handleClose();
             } else {
-                console.log('[SaveLocationModal] API returned error status:', response.message);
                 showError(response.message || 'Không thể lưu địa điểm');
             }
         } catch (error: any) {
-            // Handle specific error cases - only show toast, no console.error
+            // Handle specific error cases
             if (error.response?.status === 409) {
                 showError(`"${location.name}" đã có trong "${folder.name}"`);
             } else if (error.response?.status === 404) {

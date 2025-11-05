@@ -18,7 +18,7 @@ interface MapErrorBoundaryProps {
 
 export const MapErrorBoundary: React.FC<MapErrorBoundaryProps> = ({ children, onError }) => {
     const handleError = (error: AppError) => {
-        console.log('[MapErrorBoundary] Map Error Boundary caught error:', error);
+        console.error('[MapErrorBoundary] Error caught:', error);
         onError?.(error);
     };
 

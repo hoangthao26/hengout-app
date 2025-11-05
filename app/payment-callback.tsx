@@ -14,15 +14,11 @@ export default function PaymentCallbackScreen() {
 
     useEffect(() => {
         const handlePaymentCallback = async () => {
-            console.log('[PaymentCallback] Deep link screen loaded');
-
             // Close WebBrowser first
             WebBrowser.dismissBrowser();
 
             // Process payment callback
             await paymentFlowManager.completePaymentFromDeepLink();
-
-            console.log('Payment callback processed successfully');
         };
 
         handlePaymentCallback();

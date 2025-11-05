@@ -74,7 +74,6 @@ export default function VerifyOTPScreen() {
         setHasError(false);
         try {
             const response = await authService.registerVerifyOTP(sessionToken, otpValue);
-            console.log('OTP verification successful:', response);
 
             // Save tokens to secure storage (including onboardingComplete)
             await AuthHelper.saveTokens({
@@ -93,7 +92,6 @@ export default function VerifyOTPScreen() {
             try {
                 const { initializationService } = await import('../../services/initializationService');
                 await initializationService.reinitializeWebSocket();
-                console.log('[Register] WebSocket reinitialized after register');
             } catch (wsError) {
                 console.error('[Register] WebSocket reinitialization failed:', wsError);
                 // Don't block registration flow
@@ -101,14 +99,12 @@ export default function VerifyOTPScreen() {
 
             // Check onboarding status from auth response
             if (response.data.onboardingComplete === false) {
-                console.log('Onboarding not complete, redirecting to wizard');
                 NavigationService.goToOnboardingWizard();
             } else {
-                console.log('Onboarding complete, navigating to tabs');
                 NavigationService.secureNavigateToDiscover();
             }
         } catch (error: any) {
-            console.error('OTP verification failed:', error);
+            console.error('[Register] OTP verification failed:', error);
             showError(error.message || 'OTP verification failed. Please try again.',);
             setHasError(true); // Set error state to show red borders
             // DO NOT reset hasAutoSubmitted here - this prevents auto-submit loop
@@ -140,7 +136,7 @@ export default function VerifyOTPScreen() {
             setCanResend(false);
             setResendCountdown(60);
         } catch (error: any) {
-            console.error('Resend OTP failed:', error);
+            console.error('[VerifyOTP] Resend OTP failed:', error);
             showError(error.message || 'Failed to resend OTP. Please try again.',);
         } finally {
             setLoading(false);
@@ -175,10 +171,11 @@ export default function VerifyOTPScreen() {
                         <View style={{ alignItems: 'center', marginBottom: 40 }}>
                             <GradientText
                                 style={{
-                                    fontSize: 64,
+                                    fontSize: 56,
                                     fontWeight: 'bold',
                                     textAlign: 'center',
-                                    fontFamily: 'Dongle',
+                                    marginTop: 20,
+                                    marginBottom: 20,
                                 }}
                                 colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
                             >
@@ -191,7 +188,8 @@ export default function VerifyOTPScreen() {
                                 paddingVertical: 10,
                                 borderRadius: 20,
                                 borderWidth: 1,
-                                borderColor: isDark ? '#374151' : '#E5E7EB'
+                                borderColor: isDark ? '#374151' : '#E5E7EB',
+                                marginTop: 12
                             }}>
                                 <Text style={{
                                     fontSize: 16,
@@ -289,10 +287,10 @@ export default function VerifyOTPScreen() {
                                     color: isDark ? '#9CA3AF' : '#6B7280',
                                     fontFamily: 'System',
                                     fontWeight: '400',
-                                    marginBottom: 8,
+                                    marginBottom: 16,
                                     textAlign: 'center'
                                 }}>
-                                    Didn&apos;t receive the code?
+                                    Không nhận được mã?
                                 </Text>
 
                                 <TouchableOpacity

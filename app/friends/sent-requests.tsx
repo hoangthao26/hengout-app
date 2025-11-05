@@ -57,7 +57,7 @@ export default function SentRequestsScreen() {
             const response = await socialService.getSentFriendRequests();
             setSentRequests(response);
         } catch (error: any) {
-            console.error('Failed to load sent requests:', error);
+            console.error('[SentRequests] Failed to load sent requests:', error);
             showError(`Failed to load sent requests: ${error.message}`);
         } finally {
             setLoading(false);
@@ -77,7 +77,7 @@ export default function SentRequestsScreen() {
             );
             // In a real app, you might want to call a search API here
         } catch (error: any) {
-            console.error('Failed to search sent requests:', error);
+            console.error('[SentRequests] Failed to search sent requests:', error);
             showError(`Failed to search sent requests: ${error.message}`);
         } finally {
             setSearchLoading(false);
@@ -93,7 +93,7 @@ export default function SentRequestsScreen() {
             // Remove from sent requests
             setSentRequests(prev => prev.filter(req => req.id !== requestId));
         } catch (error: any) {
-            console.error('Failed to cancel friend request:', error);
+            console.error('[SentRequests] Failed to cancel friend request:', error);
             showError(`Failed to cancel friend request: ${error.message}`);
         } finally {
             setProcessingRequest(null);
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingVertical: 12,
         paddingHorizontal: 16,
-        borderRadius: 12,
+        borderRadius: 24,
         marginBottom: 8,
         marginHorizontal: 16,
         shadowColor: '#000',

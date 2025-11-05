@@ -41,7 +41,6 @@ class ConversationCleanupManager {
             this.performPeriodicCleanup();
         }, this.CLEANUP_INTERVAL);
 
-        // Smart periodic cleanup scheduled
     }
 
     /**
@@ -52,7 +51,6 @@ class ConversationCleanupManager {
             clearInterval(this.cleanupTimer);
             this.cleanupTimer = null;
         }
-        // Periodic cleanup stopped
     }
 
     /**
@@ -60,15 +58,12 @@ class ConversationCleanupManager {
      */
     private async performPeriodicCleanup(): Promise<void> {
         if (this.isCleanupInProgress) {
-            // Cleanup already in progress, skipping
             return;
         }
 
         try {
-            // Starting smart periodic cleanup
             await this.cleanupInactiveConversations();
             this.lastCleanupTime = Date.now();
-            // Smart periodic cleanup completed
         } catch (error) {
             console.error('[ConversationCleanup] Periodic cleanup failed:', error);
         }
@@ -89,12 +84,10 @@ class ConversationCleanupManager {
 
         try {
             this.isCleanupInProgress = true;
-            // Starting smart conversation cleanup
 
             // Check if user is authenticated
             const { isAuthenticated } = useAuthStore.getState();
             if (!isAuthenticated) {
-                // User not authenticated, skipping cleanup
                 return { cleaned: 0, skipped: 0, errors: 0 };
             }
 
@@ -107,16 +100,12 @@ class ConversationCleanupManager {
             );
 
             if (conversationsToCleanup.length === 0) {
-                // No conversations need cleanup
                 return { cleaned: 0, skipped: 0, errors: 0 };
             }
-
-            // Found conversations to cleanup
 
             // Cleanup in batches
             const result = await this.cleanupConversationsBatch(conversationsToCleanup);
 
-            // Smart cleanup completed
             return result;
 
         } catch (error) {
@@ -128,48 +117,67 @@ class ConversationCleanupManager {
     }
 
     /**
-     * Check if conversation should be cleaned up
+     * Determine if a conversation should be cleaned up using multi-criteria decision logic
+     * 
+     * Cleanup decision tree (all conditions must pass):
+     * 1. Exclusion checks (if true, NEVER cleanup):
+     *    - Current conversation (user actively viewing)
+     *    - Pinned conversations (future feature, user marked as important)
+     * 
+     * 2. Activity-based criteria (AND logic - both must pass):
+     *    - No activity for 7+ days (lastMessage > 7 days old)
+     *    - Not opened for 14+ days (lastOpenedAt > 14 days old)
+     * 
+     * Strategy rationale:
+     * - Dual threshold (7 days activity, 14 days opened) prevents accidental cleanup
+     * - Current conversation protection ensures active sessions aren't disrupted
+     * - Pinned conversations bypass cleanup (user preference)
+     * 
+     * @param conversation - Conversation to evaluate
+     * @param currentConversationId - Currently active conversation ID (never cleanup)
+     * @param now - Current timestamp for age calculations
+     * @returns true if should cleanup, false if should preserve
      */
     private shouldCleanupConversation(
         conversation: any,
         currentConversationId: string | null,
         now: number
     ): boolean {
-        // Never cleanup current conversation
+        // Exclusion 1: Never cleanup current conversation (user is actively viewing it)
         if (conversation.id === currentConversationId) {
             return false;
         }
 
-        // Never cleanup pinned conversations (if we add this feature)
+        // Exclusion 2: Never cleanup pinned conversations (user marked as important)
         if ((conversation as any).isPinned) {
             return false;
         }
 
-        // Check last activity
+        // Calculate time since last activity (message sent/received)
         const lastActivity = new Date(conversation.lastMessage?.createdAt || conversation.createdAt).getTime();
         const timeSinceActivity = now - lastActivity;
 
-        // Check last opened (if we track this)
+        // Calculate time since last opened (user interaction)
         const lastOpened = conversation.lastOpenedAt || lastActivity;
         const timeSinceOpened = now - lastOpened;
 
-        // Cleanup if:
-        // 1. No activity for more than 7 days AND
-        // 2. Not opened for more than 14 days
-        const shouldCleanup = (
+        // Cleanup only if both conditions met:
+        // 1. No activity for 7+ days (inactive)
+        // 2. Not opened for 14+ days (unused)
+        return (
             timeSinceActivity > this.INACTIVE_THRESHOLD &&
             timeSinceOpened > this.UNUSED_THRESHOLD
         );
-
-        if (shouldCleanup) {
-            // Marking for smart cleanup
-        }
-
-        return shouldCleanup;
     }
 
     /**
-     * Cleanup conversations in batches
+     * Cleanup conversations in batches to avoid memory/performance issues
+     * 
+     * Splits conversations into smaller batches and processes them sequentially
+     * with delays between batches to prevent overwhelming the system.
+     * 
+     * @param conversations - Array of conversations to clean up
+     * @returns Summary of cleanup results (cleaned, skipped, errors)
      */
     private async cleanupConversationsBatch(conversations: any[]): Promise<{
         cleaned: number;
@@ -180,19 +188,20 @@ class ConversationCleanupManager {
         let skipped = 0;
         let errors = 0;
 
-        // Process in batches
+        // Split conversations into batches for processing
         const batches = [];
         for (let i = 0; i < conversations.length; i += this.MAX_CLEANUP_BATCH_SIZE) {
             batches.push(conversations.slice(i, i + this.MAX_CLEANUP_BATCH_SIZE));
         }
 
+        // Process each batch sequentially
         for (const batch of batches) {
             const batchResult = await this.cleanupBatch(batch);
             cleaned += batchResult.cleaned;
             skipped += batchResult.skipped;
             errors += batchResult.errors;
 
-            // Small delay between batches
+            // Add delay between batches to prevent system overload
             if (batches.length > 1) {
                 await new Promise(resolve => setTimeout(resolve, 500));
             }
@@ -202,7 +211,13 @@ class ConversationCleanupManager {
     }
 
     /**
-     * Cleanup a batch of conversations
+     * Process a single batch of conversations for cleanup
+     * 
+     * Iterates through conversations and attempts cleanup for each.
+     * Tracks successes, skips, and errors for reporting.
+     * 
+     * @param conversations - Batch of conversations to process
+     * @returns Summary of batch processing results
      */
     private async cleanupBatch(conversations: any[]): Promise<{
         cleaned: number;
@@ -227,25 +242,31 @@ class ConversationCleanupManager {
     }
 
     /**
-     * Smart cleanup - chỉ clean data cũ, không xóa toàn bộ conversation
+     * Smart cleanup for conversation - removes old data without deleting the conversation
+     * 
+     * This is a multi-step cleanup process that:
+     * 1. Removes old messages (keeps only recent ones)
+     * 2. Removes old media files if any
+     * 3. Removes stale temporary data
+     * 4. Clears memory cache
+     * 
+     * The conversation itself is preserved, only old data is cleaned.
+     * 
+     * @param conversation - Conversation object to clean up
      */
     private async cleanupOldConversationData(conversation: any): Promise<void> {
-        // Smart cleaning conversation
-
         try {
-            // 1. Clean old messages (giữ 50 messages gần nhất)
+            // Step 1: Clean old messages (keep only the most recent 50 messages)
             await this.cleanupOldMessages(conversation.id);
 
-            // 2. Clean old media files (nếu có)
+            // Step 2: Clean old media files (if any exist)
             await this.cleanupOldMedia(conversation.id);
 
-            // 3. Clean temp data cũ
+            // Step 3: Clean old temporary data (drafts, cache, etc.)
             await this.cleanupTempData(conversation.id);
 
-            // 4. Clean memory cache (không xóa conversation)
+            // Step 4: Clean memory cache (doesn't delete the conversation)
             await this.cleanupMemoryCache(conversation.id);
-
-            // Smart cleaned conversation
         } catch (error) {
             console.error(`[ConversationCleanup] Failed to smart cleanup conversation ${conversation.id}:`, error);
             throw error;
@@ -253,37 +274,44 @@ class ConversationCleanupManager {
     }
 
     /**
-     * Clean old messages - giữ 50 messages gần nhất
+     * Clean old messages from a conversation
+     * 
+     * Strategy: Keep only the most recent N messages (default: 50)
+     * - Fetches all messages from database
+     * - Sorts by creation time (newest first)
+     * - Keeps the most recent messages
+     * - Deletes older messages to free up space
+     * - Updates conversation's lastMessage reference
+     * 
+     * This prevents database bloat while preserving recent conversation history
      */
     private async cleanupOldMessages(conversationId: string): Promise<void> {
         try {
-            // Lấy messages từ database
-            const messages = await databaseService.getMessages(conversationId, 1000, 0); // Lấy tất cả
+            // Fetch all messages (limit 1000 to avoid memory issues)
+            const messages = await databaseService.getMessages(conversationId, 1000, 0);
 
+            // Skip cleanup if conversation has fewer messages than limit
             if (messages.length <= this.MAX_MESSAGES_PER_CONVERSATION) {
-                // Conversation has no cleanup needed
                 return;
             }
 
-            // Sắp xếp theo thời gian (mới nhất trước)
+            // Sort by creation time (newest first)
             const sortedMessages = messages.sort((a, b) =>
                 new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
             );
 
-            // Giữ 50 messages gần nhất
+            // Keep most recent messages, delete the rest
             const keepMessages = sortedMessages.slice(0, this.MAX_MESSAGES_PER_CONVERSATION);
             const deleteMessages = sortedMessages.slice(this.MAX_MESSAGES_PER_CONVERSATION);
 
-            // Cleaning old messages from conversation
-
-            // Xóa messages cũ từ database
+            // Delete old messages from database
             for (const message of deleteMessages) {
                 await databaseService.deleteMessage(message.id);
             }
 
-            // Cập nhật conversation với messages gần nhất
+            // Update conversation with most recent message info
             if (keepMessages.length > 0) {
-                const lastMessage = keepMessages[0]; // Message mới nhất
+                const lastMessage = keepMessages[0];
                 await databaseService.updateConversationLastMessage(
                     conversationId,
                     lastMessage.id,
@@ -292,8 +320,6 @@ class ConversationCleanupManager {
                     lastMessage.senderName
                 );
             }
-
-            console.log(`[ConversationCleanup] Cleaned ${deleteMessages.length} old messages, kept ${keepMessages.length} recent messages`);
         } catch (error) {
             console.error(`[ConversationCleanup] Failed to cleanup old messages for conversation ${conversationId}:`, error);
             throw error;
@@ -302,12 +328,16 @@ class ConversationCleanupManager {
 
     /**
      * Clean old media files (placeholder for future implementation)
+     * 
+     * This method will be implemented when media support is added to conversations.
+     * It will remove old media files that are no longer needed to free up storage space.
+     * 
+     * @param conversationId - ID of conversation to clean media for
      */
     private async cleanupOldMedia(conversationId: string): Promise<void> {
         try {
             // TODO: Implement media cleanup when we add media support
-            // For now, just log that we would clean media
-            // Media cleanup not implemented yet
+            // Strategy: Remove media files older than a certain threshold or exceeding storage limits
         } catch (error) {
             console.error(`[ConversationCleanup] Failed to cleanup old media for conversation ${conversationId}:`, error);
             throw error;
@@ -315,7 +345,12 @@ class ConversationCleanupManager {
     }
 
     /**
-     * Clean temp data cũ
+     * Clean temporary data older than threshold
+     * 
+     * Removes temporary data (e.g., unsent drafts, cached data) that exceeds the age limit.
+     * This helps prevent accumulation of stale temporary data.
+     * 
+     * @param conversationId - ID of conversation to clean temp data for
      */
     private async cleanupTempData(conversationId: string): Promise<void> {
         try {
@@ -324,8 +359,7 @@ class ConversationCleanupManager {
             const tempDataThreshold = now - this.MAX_TEMP_DATA_AGE;
 
             // TODO: Implement temp data cleanup when we add temp data support
-            // For now, just log that we would clean temp data
-            console.log(`[ConversationCleanup] Temp data cleanup for conversation ${conversationId} - not implemented yet`);
+            // Strategy: Query and delete temp data where timestamp < tempDataThreshold
         } catch (error) {
             console.error(`[ConversationCleanup] Failed to cleanup temp data for conversation ${conversationId}:`, error);
             throw error;
@@ -333,7 +367,12 @@ class ConversationCleanupManager {
     }
 
     /**
-     * Clean memory cache (không xóa conversation)
+     * Clean memory cache for conversation
+     * 
+     * Clears cached data from memory without deleting the conversation itself.
+     * This helps free up memory while keeping the conversation structure intact.
+     * 
+     * @param conversationId - ID of conversation to clean memory cache for
      */
     private async cleanupMemoryCache(conversationId: string): Promise<void> {
         try {
@@ -345,23 +384,18 @@ class ConversationCleanupManager {
                 if (messages.length > this.MAX_MESSAGES_PER_CONVERSATION) {
                     const keepMessages = messages.slice(0, this.MAX_MESSAGES_PER_CONVERSATION);
                     useChatStore.getState().setConversationMessages(conversationId, keepMessages);
-                    console.log(`[ConversationCleanup] Cleaned memory cache: ${messages.length} → ${keepMessages.length} messages`);
                 }
             }
 
             // Clean old snapshots
             if (messageSnapshots[conversationId]) {
                 delete messageSnapshots[conversationId];
-                console.log(`[ConversationCleanup] Cleaned message snapshots for conversation ${conversationId}`);
             }
 
             // Clean old cached messages
             if (cachedMessages[conversationId]) {
                 delete cachedMessages[conversationId];
-                console.log(`[ConversationCleanup] Cleaned cached messages for conversation ${conversationId}`);
             }
-
-            // Memory cache cleaned for conversation
         } catch (error) {
             console.error(`[ConversationCleanup] Failed to cleanup memory cache for conversation ${conversationId}:`, error);
             throw error;
@@ -372,8 +406,6 @@ class ConversationCleanupManager {
      * Emergency cleanup when memory is high
      */
     async emergencyCleanup(): Promise<void> {
-        console.log('[ConversationCleanup] Starting emergency smart cleanup...');
-
         try {
             // More aggressive cleanup
             const { conversations, selectedConversationId } = useChatStore.getState();
@@ -392,11 +424,8 @@ class ConversationCleanupManager {
             });
 
             if (conversationsToCleanup.length > 0) {
-                console.log(`[ConversationCleanup] Emergency smart cleanup: ${conversationsToCleanup.length} conversations`);
                 await this.cleanupConversationsBatch(conversationsToCleanup);
             }
-
-            console.log('[ConversationCleanup] Emergency smart cleanup completed');
         } catch (error) {
             console.error('[ConversationCleanup] Emergency cleanup failed:', error);
         }
@@ -406,7 +435,6 @@ class ConversationCleanupManager {
      * Manual cleanup trigger
      */
     async manualCleanup(): Promise<void> {
-        console.log('[ConversationCleanup] Manual smart cleanup triggered');
         await this.cleanupInactiveConversations(true);
     }
 
@@ -435,7 +463,6 @@ class ConversationCleanupManager {
         this.stopCleanup();
         this.isCleanupInProgress = false;
         this.lastCleanupTime = 0;
-        console.log('[ConversationCleanup] Smart cleanup manager reset');
     }
 }
 

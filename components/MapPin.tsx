@@ -22,22 +22,12 @@ const MapPin: React.FC<MapPinProps> = ({
     customIcon = 'location'
 }) => {
     const handlePress = () => {
-        console.log('MapPin pressed:', location.name);
-
-        // Center map on this location
         if (onCenterMap) {
-            console.log('Centering map to:', location.latitude, location.longitude);
             onCenterMap(location.latitude, location.longitude);
-        } else {
-            console.log('onCenterMap not available');
         }
 
-        // Call the original onPress callback
         if (onPress) {
-            console.log('Calling onPress callback');
             onPress(location);
-        } else {
-            console.log('onPress not available');
         }
     };
 

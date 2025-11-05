@@ -15,7 +15,6 @@ class DatabaseService {
             this.db = await SQLite.openDatabaseAsync('chat.db');
             await this.createTables();
             this.isInitialized = true;
-            console.log('[DatabaseService] Database initialized successfully');
         } catch (error) {
             console.error('[DatabaseService] Failed to initialize database:', error);
             throw error;
@@ -131,35 +130,49 @@ class DatabaseService {
 
         // DATABASE MIGRATION: Add last_message_sender_name column if not exists
         await this.migrateDatabase();
-
-        console.log('[DatabaseService] Database tables created successfully');
     }
 
     /**
-     *  DATABASE MIGRATION: Add new columns to existing tables
+     * Database migration: Add new columns to existing tables with safe column checking
+     * 
+     * Migration strategy:
+     * 1. Inspects existing table schema using PRAGMA table_info
+     * 2. Extracts column names from table metadata
+     * 3. Conditionally adds columns only if they don't exist (prevents duplicate column errors)
+     * 4. Handles both single column and batch column additions
+     * 
+     * Column addition logic:
+     * - Single column: last_message_sender_name (TEXT)
+     * - Activity columns: last_message_type (TEXT DEFAULT "TEXT"), activity_id, activity_name, activity_purpose (TEXT)
+     * 
+     * Error handling:
+     * - Migration failures are logged but don't throw (app continues to work)
+     * - Prevents app crash on schema evolution
+     * - Supports incremental migrations across app versions
+     * 
+     * Idempotent: Safe to run multiple times (checks existence before adding).
      */
     private async migrateDatabase(): Promise<void> {
         if (!this.db) throw new Error('Database not initialized');
 
         try {
-            // Check existing columns
+            // Step 1: Inspect existing table schema to get column metadata
             const tableInfo = await this.db.getAllAsync(`
                 PRAGMA table_info(conversations)
             `);
 
+            // Step 2: Extract existing column names from metadata
             const existingColumns = tableInfo.map((column: any) => column.name);
 
-            // Add last_message_sender_name column if not exists
+            // Step 3: Add last_message_sender_name column if missing
             if (!existingColumns.includes('last_message_sender_name')) {
-                console.log('[DatabaseMigration] Adding last_message_sender_name column...');
                 await this.db.execAsync(`
                     ALTER TABLE conversations 
                     ADD COLUMN last_message_sender_name TEXT
                 `);
-                console.log('[DatabaseMigration] Added last_message_sender_name column successfully');
             }
 
-            // Add Activity message columns if not exist
+            // Step 4: Add Activity message columns in batch if missing
             const activityColumns = [
                 'last_message_type',
                 'last_message_activity_id',
@@ -169,20 +182,18 @@ class DatabaseService {
 
             for (const columnName of activityColumns) {
                 if (!existingColumns.includes(columnName)) {
-                    console.log(`[DatabaseMigration] Adding ${columnName} column...`);
+                    // last_message_type has default value, others are nullable TEXT
                     const columnType = columnName === 'last_message_type' ? 'TEXT DEFAULT "TEXT"' : 'TEXT';
                     await this.db.execAsync(`
                         ALTER TABLE conversations 
                         ADD COLUMN ${columnName} ${columnType}
                     `);
-                    console.log(`[DatabaseMigration] Added ${columnName} column successfully`);
                 }
             }
-
-            console.log('[DatabaseMigration] All columns are up to date');
         } catch (error) {
+            // Migration failures don't crash app - schema evolves incrementally
             console.error('[DatabaseMigration] Migration failed:', error);
-            // Don't throw error - app should still work
+            // Don't throw error - app should still work with existing schema
         }
     }
 
@@ -267,17 +278,6 @@ class DatabaseService {
             new Date().toISOString(),
             conversationId
         ]);
-
-        console.log('[DatabaseService] Updated conversation last message:', {
-            conversationId,
-            messageId,
-            messageTimestamp,
-            isMine,
-            messageType,
-            activityId,
-            activityName,
-            activityPurpose
-        });
     }
 
     /**
@@ -356,14 +356,10 @@ class DatabaseService {
     async deleteConversation(conversationId: string): Promise<void> {
         if (!this.db) throw new Error('Database not initialized');
 
-        console.log(`[DatabaseService] Deleting conversation ${conversationId} from database`);
-
         // Delete in order: messages, members, then conversation (foreign key constraints)
         await this.db.runAsync(`DELETE FROM messages WHERE conversation_id = ?`, [conversationId]);
         await this.db.runAsync(`DELETE FROM members WHERE conversation_id = ?`, [conversationId]);
         await this.db.runAsync(`DELETE FROM conversations WHERE id = ?`, [conversationId]);
-
-        console.log(`[DatabaseService] Conversation ${conversationId} deleted successfully`);
     }
 
     /**
@@ -585,11 +581,8 @@ class DatabaseService {
     async clearAllData(): Promise<void> {
         // If database not initialized, nothing to clear
         if (!this.isInitialized || !this.db) {
-            console.log('[DatabaseService] Database not initialized, skipping clear');
             return;
         }
-
-        console.log('[DatabaseService] Clearing all user data...');
 
         try {
             await this.db.execAsync(`
@@ -597,8 +590,6 @@ class DatabaseService {
                 DELETE FROM members;
                 DELETE FROM conversations;
             `);
-
-            console.log('[DatabaseService] All user data cleared successfully');
         } catch (error) {
             console.error('[DatabaseService] Failed to clear data:', error);
             // Don't throw - allow logout to proceed even if clear fails
@@ -618,7 +609,6 @@ class DatabaseService {
         `);
 
         await this.createTables();
-        console.log('[DatabaseService] Database reset completed');
     }
 
     /**

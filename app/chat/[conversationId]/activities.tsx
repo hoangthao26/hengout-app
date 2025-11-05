@@ -86,7 +86,7 @@ export default function ConversationActivitiesScreen() {
                 error('Lỗi', 'Không thể tải danh sách hoạt động');
             }
         } catch (err) {
-            console.error('Error loading activities:', err);
+            console.error('[Activities] Error loading activities:', err);
             error('Lỗi', 'Không thể tải danh sách hoạt động');
         } finally {
             setLoading(false);
@@ -247,11 +247,9 @@ export default function ConversationActivitiesScreen() {
     // WebSocket subscription for real-time activity updates
     useEffect(() => {
         if (conversationId) {
-            console.log('[Activities] Subscribing to WebSocket for conversation:', conversationId);
             subscribe(conversationId);
 
             return () => {
-                console.log('[Activities] Unsubscribing from WebSocket');
                 unsubscribe(conversationId);
             };
         }

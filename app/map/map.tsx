@@ -15,7 +15,6 @@ export default function MapScreen() {
 
     const handleLocationSelect = (location: { lat: number; lng: number }) => {
         setSelectedLocation(location);
-        console.log('[Map] Selected location:', location);
     };
 
     const handleGetCurrentLocation = async () => {
@@ -36,7 +35,9 @@ export default function MapScreen() {
                 `Share this location?\nLat: ${selectedLocation.lat.toFixed(6)}\nLng: ${selectedLocation.lng.toFixed(6)}`,
                 [
                     { text: 'Cancel', style: 'cancel' },
-                    { text: 'Share', onPress: () => console.log('Sharing location:', selectedLocation) }
+                    { text: 'Share', onPress: () => {
+                        // TODO: Implement location sharing functionality
+                    }}
                 ]
             );
         } else {

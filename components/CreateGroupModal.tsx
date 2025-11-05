@@ -118,7 +118,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             const friendsList = await socialService.getFriends();
             setFriends(friendsList);
         } catch (err: any) {
-            console.error('Failed to load friends:', err);
+            console.error('[CreateGroupModal] Failed to load friends:', err);
             showError('Lỗi khi tải danh sách bạn bè');
         } finally {
             setLoading(false);
@@ -162,7 +162,6 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                         const { databaseService } = await import('../services/databaseService');
                         await databaseService.initialize();
                         await databaseService.saveConversation(response.data);
-                        console.log('[CreateGroupModal] Conversation saved to database');
                     } catch (dbError) {
                         console.error('[CreateGroupModal] Failed to save conversation to database:', dbError);
                         // Don't block user, just log error - sync will handle it later
@@ -174,7 +173,6 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                     const { chatWebSocketManager } = await import('../services/chatWebSocketManager');
                     if (chatWebSocketManager.isConnected()) {
                         chatWebSocketManager.subscribeToConversation(response.data.id);
-                        console.log('[CreateGroupModal] WebSocket subscribed to new conversation');
                     }
                 } catch (wsError) {
                     console.error('[CreateGroupModal] Failed to subscribe WebSocket:', wsError);
@@ -192,7 +190,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                 showError(response.message || 'Không thể tạo nhóm');
             }
         } catch (err: any) {
-            console.error('Failed to create group:', err);
+            console.error('[CreateGroupModal] Failed to create group:', err);
             const apiMsg = err?.response?.data?.message || err?.message;
             showError(apiMsg || 'Lỗi khi tạo nhóm');
         } finally {
@@ -406,7 +404,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 16,
+        paddingVertical: 12,
         borderBottomWidth: 1,
         position: 'relative',
     },

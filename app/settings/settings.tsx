@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
-import { ChevronRight, LogOut, Settings, TestTube, Bell, Crown, Shield, SlidersHorizontal } from 'lucide-react-native';
+import { ChevronRight, LogOut, Settings, TestTube, Bell, Crown, Shield, SlidersHorizontal, FileText } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import Header from '../../components/Header';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuthStore } from '../../store/authStore';
@@ -50,13 +51,13 @@ export default function SettingsScreen() {
                                     // BACKGROUND LOGOUT: Clear data without blocking UI
                                     await fastLogout();
                                 } catch (error: any) {
-                                    console.error('Background logout failed:', error);
-                                    // Don't show error to user since they're already logged out
+                                    // Background logout failed - user already logged out, no need to show error
+                                    console.error('[Settings] Background logout failed:', error);
                                 }
                             }, 100); // Small delay to ensure navigation completes
 
                         } catch (error: any) {
-                            console.error('Logout navigation failed:', error);
+                            console.error('[Settings] Logout navigation failed:', error);
                             error('Đăng xuất thất bại');
                             setIsLoggingOut(false);
                         }
@@ -128,6 +129,37 @@ export default function SettingsScreen() {
                         />
                         <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
                             Preferences
+                        </Text>
+                    </View>
+                    <ChevronRight
+                        size={20}
+                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                    />
+                </TouchableOpacity>
+
+                {/* Privacy Policy Option */}
+                <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={async () => {
+                        try {
+                            // Replace with your actual Privacy Policy URL
+                            const privacyPolicyUrl = 'https://hengout.app/privacy-policy';
+                            await WebBrowser.openBrowserAsync(privacyPolicyUrl, {
+                                presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
+                            });
+                        } catch (err) {
+                            console.error('[Settings] Failed to open Privacy Policy:', err);
+                            error('Không thể mở Privacy Policy. Vui lòng thử lại sau.');
+                        }
+                    }}
+                >
+                    <View style={styles.settingLeft}>
+                        <FileText
+                            size={24}
+                            color={isDark ? '#FFFFFF' : '#000000'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            Privacy Policy
                         </Text>
                     </View>
                     <ChevronRight

@@ -12,7 +12,7 @@ interface SimpleAvatarProps {
 const SimpleAvatar: React.FC<SimpleAvatarProps> = ({
     avatarUrl,
     size = 48,
-    iconSize = 24,
+    iconSize = 32,
     iconColor = '#9CA3AF',
 }) => {
     const borderRadius = size / 2;

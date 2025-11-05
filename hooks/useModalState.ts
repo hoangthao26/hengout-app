@@ -39,10 +39,8 @@ export const useModalState = (
     // Auto close when screen loses focus
     useFocusEffect(
         useCallback(() => {
-            console.log('[useModalState] useFocusEffect: Screen focused, modal state:', isVisible);
             if (autoCloseOnUnfocus) {
                 return () => {
-                    console.log('[useModalState] useFocusEffect: Screen unfocused, closing modal');
                     if (isMountedRef.current) {
                         setIsVisible(false);
                     }
@@ -55,7 +53,6 @@ export const useModalState = (
     useEffect(() => {
         if (autoCloseOnUnfocus) {
             const unsubscribe = navigation.addListener('beforeRemove', () => {
-                console.log('[useModalState] beforeRemove: Navigation event triggered, closing modal');
                 if (isMountedRef.current) {
                     setIsVisible(false);
                 }
@@ -66,7 +63,6 @@ export const useModalState = (
     }, [navigation, autoCloseOnUnfocus]);
 
     const openModal = useCallback(() => {
-        console.log('[useModalState] openModal: Opening modal');
         if (isMountedRef.current) {
             setIsVisible(true);
             onOpen?.();
@@ -74,7 +70,6 @@ export const useModalState = (
     }, [onOpen]);
 
     const closeModal = useCallback(() => {
-        console.log('[useModalState] closeModal: Closing modal');
         if (isMountedRef.current) {
             setIsVisible(false);
             onClose?.();
@@ -90,7 +85,6 @@ export const useModalState = (
     }, [isVisible, openModal, closeModal]);
 
     const resetModal = useCallback(() => {
-        console.log('[useModalState] resetModal: Resetting modal state');
         if (isMountedRef.current) {
             setIsVisible(false);
         }

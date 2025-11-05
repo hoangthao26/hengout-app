@@ -129,7 +129,7 @@ const EditCollectionModal: React.FC<EditCollectionModalProps> = ({
                 showError(response.message || 'Có lỗi xảy ra khi cập nhật collection');
             }
         } catch (error: any) {
-            console.error('Update collection error:', error);
+            console.error('[EditCollectionModal] Failed to update collection:', error);
             showError('Có lỗi xảy ra khi cập nhật collection');
         } finally {
             setIsUpdating(false);

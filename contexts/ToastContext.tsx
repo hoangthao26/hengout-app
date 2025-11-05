@@ -40,15 +40,10 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
         const existingIndex = toasts.findIndex(t => t.id === id);
         const isExistingToast = existingIndex >= 0;
 
-        console.log('[ToastContext] showToast - ID:', id, 'isExisting:', isExistingToast);
-        console.log('[ToastContext] showToast - Current toasts count:', toasts.length);
-        console.log('[ToastContext] showToast - Existing index:', existingIndex);
-
         if (isExistingToast) {
             // Update existing toast - clear old timeout first
             const existingTimeout = timeoutRefs.current.get(id);
             if (existingTimeout) {
-                console.log('[ToastContext] Clearing existing timeout for toast:', id);
                 clearTimeout(existingTimeout);
                 timeoutRefs.current.delete(id);
             }
@@ -57,18 +52,12 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
         // Update toast state
         setToasts(prev => {
             const existingIndex = prev.findIndex(t => t.id === id);
-            console.log('[ToastContext] setToasts - ID:', id, 'existingIndex:', existingIndex);
-            console.log('[ToastContext] setToasts - Previous toasts count:', prev.length);
 
             if (existingIndex >= 0) {
                 const updated = [...prev];
                 updated[existingIndex] = toast;
-                console.log('[ToastContext] Updated existing toast:', id);
-                console.log('[ToastContext] Updated toast data:', toast);
                 return updated;
             } else {
-                console.log('[ToastContext] Adding new toast:', id);
-                console.log('[ToastContext] New toast data:', toast);
                 return [...prev, toast];
             }
         });
@@ -76,15 +65,12 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
         // Auto hide after duration (unless persistent)
         if (!toast.persistent && toast.duration && toast.duration > 0) {
             const timeout = setTimeout(() => {
-                console.log('[ToastContext] Auto-hiding toast after timeout:', id);
-
                 // Clear active notification for message toasts
                 if (toast.type === 'message' && toast.conversationData) {
                     try {
                         const { useNotificationStore } = require('../store/notificationStore');
                         const notificationStore = useNotificationStore.getState();
                         notificationStore.removeActiveNotification(toast.conversationData.id);
-                        console.log('[ToastContext] Cleared active notification for conversation:', toast.conversationData.id);
                     } catch (error) {
                         console.error('[ToastContext] Failed to clear active notification:', error);
                     }
@@ -94,7 +80,6 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
             }, toast.duration);
 
             timeoutRefs.current.set(id, timeout);
-            console.log('[ToastContext] Set timeout for toast:', id, 'duration:', toast.duration, 'isExisting:', isExistingToast);
         }
 
         return id;
@@ -122,23 +107,15 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
     }, [toasts]);
 
     const updateToast = useCallback((id: string, updates: Partial<Omit<Toast, 'id'>>) => {
-        console.log('[ToastContext] updateToast called for ID:', id, 'updates:', updates);
-        console.log('[ToastContext] updateToast - Current toasts count:', toasts.length);
-
         setToasts(prev => {
-            console.log('[ToastContext] updateToast - Previous toasts:', prev.map(t => ({ id: t.id, type: t.type })));
-
             const existingToast = prev.find(t => t.id === id);
             if (!existingToast) {
-                console.log('[ToastContext] updateToast - Toast not found, clearing active notification for message toasts');
-
                 // Clear active notification for message toasts when toast doesn't exist
                 if (updates.conversationData) {
                     try {
                         const { useNotificationStore } = require('../store/notificationStore');
                         const notificationStore = useNotificationStore.getState();
                         notificationStore.removeActiveNotification(updates.conversationData.id);
-                        console.log('[ToastContext] Cleared active notification for conversation:', updates.conversationData.id);
                     } catch (error) {
                         console.error('[ToastContext] Failed to clear active notification:', error);
                     }
@@ -149,33 +126,25 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
 
             return prev.map(toast => {
                 if (toast.id === id) {
-                    console.log('[ToastContext] updateToast - Found toast to update:', toast.id);
-
                     // Clear existing timeout
                     const existingTimeout = timeoutRefs.current.get(id);
                     if (existingTimeout) {
-                        console.log('[ToastContext] Clearing existing timeout for toast:', id);
                         clearTimeout(existingTimeout);
                         timeoutRefs.current.delete(id);
                     }
 
                     // Update toast
                     const updatedToast = { ...toast, ...updates };
-                    console.log('[ToastContext] Updated toast:', updatedToast);
 
                     // Set new timeout if duration is provided
                     if (updates.duration && updates.duration > 0 && !updatedToast.persistent) {
-                        console.log('[ToastContext] Setting new timeout for toast:', id, 'duration:', updates.duration);
                         const timeout = setTimeout(() => {
-                            console.log('[ToastContext] Auto-hiding toast after timeout:', id);
-
                             // Clear active notification for message toasts
                             if (updatedToast.type === 'message' && updatedToast.conversationData) {
                                 try {
                                     const { useNotificationStore } = require('../store/notificationStore');
                                     const notificationStore = useNotificationStore.getState();
                                     notificationStore.removeActiveNotification(updatedToast.conversationData.id);
-                                    console.log('[ToastContext] Cleared active notification for conversation:', updatedToast.conversationData.id);
                                 } catch (error) {
                                     console.error('[ToastContext] Failed to clear active notification:', error);
                                 }

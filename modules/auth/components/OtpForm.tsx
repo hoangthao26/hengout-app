@@ -18,11 +18,22 @@ const OtpForm: React.FC<OtpFormProps> = ({ onSubmit, loading }) => {
     return (
         <View className="flex-1 bg-white dark:bg-black px-6 justify-center items-center">
             {/* Tiêu đề */}
-            <Text className="text-3xl font-bold text-center mb-2 font-dongle text-black dark:text-white">
+            <Text style={{
+                fontSize: 24,
+                fontWeight: 'bold',
+                textAlign: 'center',
+                marginBottom: 8,
+                color: isDark ? '#FFFFFF' : '#000000'
+            }}>
                 {t('verify_otp')}
             </Text>
             {/* Mô tả */}
-            <Text className="text-base text-center mb-8 font-dongle text-black dark:text-white">
+            <Text style={{
+                fontSize: 14,
+                textAlign: 'center',
+                marginBottom: 32,
+                color: isDark ? '#FFFFFF' : '#000000'
+            }}>
                 {t('otp_sent')}
             </Text>
 
@@ -78,7 +89,7 @@ const OtpForm: React.FC<OtpFormProps> = ({ onSubmit, loading }) => {
             />
 
             {/* Gợi ý resend */}
-            <Text className="text-base text-center mt-8 font-dongle text-gray-500 dark:text-gray-400">
+            <Text className="text-base text-center mt-8  text-gray-500 dark:text-gray-400">
                 {t('resend_in', { s: 60 })}
             </Text>
         </View>

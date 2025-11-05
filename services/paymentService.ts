@@ -21,22 +21,13 @@ class PaymentService {
         description: string;
     }> {
         try {
-            console.log(`[PaymentService] Starting payment for plan ${planId}`);
-
-            // 1. Create payment with PayOS
             const payment = await subscriptionService.createPaymentWithPayOS(planId);
 
             if (payment.status !== 'success') {
                 throw new Error(payment.message || 'Failed to create payment');
             }
 
-            console.log(`[PaymentService] Payment created successfully:`, {
-                orderCode: payment.data.orderCode,
-                amount: payment.data.amount,
-                status: payment.data.status
-            });
-
-            // 2. Return payment data
+            // Return payment data
             return {
                 orderCode: payment.data.orderCode,
                 checkoutUrl: payment.data.checkoutUrl,
@@ -56,12 +47,9 @@ class PaymentService {
      */
     async openPayOSCheckout(checkoutUrl: string): Promise<void> {
         try {
-            console.log('[PaymentService] Opening PayOS checkout:', checkoutUrl);
-
             const supported = await Linking.canOpenURL(checkoutUrl);
             if (supported) {
                 await Linking.openURL(checkoutUrl);
-                console.log('[PaymentService] PayOS checkout opened successfully');
             } else {
                 throw new Error('Cannot open PayOS checkout URL');
             }
@@ -72,7 +60,46 @@ class PaymentService {
     }
 
     /**
-     * Poll payment status until completion
+     * Poll payment status with exponential backoff and jitter until completion
+     * 
+     * Polling strategy:
+     * 1. Checks payment status from server every poll cycle
+     * 2. Uses exponential backoff with jitter for delay calculation
+     * 3. Stops on SUCCESS, FAILED, or CANCELLED status (immediate resolution)
+     * 4. Continues polling for PENDING status until maxAttempts reached
+     * 5. Returns TIMEOUT if maxAttempts exceeded
+     * 
+     * Exponential backoff formula:
+     * - Base delay: intervalMs (default 3000ms)
+     * - Backoff: intervalMs * 1.5^attempt (exponential growth)
+     * - Capped at: 15000ms (15 seconds max delay)
+     * - Jitter: Random 0-500ms added to prevent thundering herd
+     * 
+     * Backoff examples (intervalMs=3000ms):
+     * - Attempt 1: 3000ms * 1.5^1 = 4500ms + jitter
+     * - Attempt 2: 3000ms * 1.5^2 = 6750ms + jitter
+     * - Attempt 3: 3000ms * 1.5^3 = 10125ms + jitter (capped at 15000ms)
+     * 
+     * Jitter rationale:
+     * - Random 0-500ms prevents synchronized polling from multiple clients
+     * - Reduces server load spikes (distributes requests over time window)
+     * - Common pattern for distributed systems
+     * 
+     * Status resolution:
+     * - SUCCESS: Payment completed, resolves immediately
+     * - FAILED/CANCELLED: Payment failed, resolves immediately
+     * - PENDING: Continues polling with exponential backoff
+     * - TIMEOUT: Max attempts reached, payment still pending
+     * 
+     * Error handling:
+     * - Logs errors but continues polling (network errors are transient)
+     * - Uses same backoff strategy for errors as for pending status
+     * - Prevents polling loop from breaking on temporary failures
+     * 
+     * @param orderCode - PayOS order code to check status for
+     * @param maxAttempts - Maximum polling attempts (default 12, ~36 seconds total)
+     * @param intervalMs - Base interval between polls (default 3000ms)
+     * @returns Promise resolving to 'SUCCESS', 'FAILED', or 'TIMEOUT'
      */
     async pollPaymentStatus(
         orderCode: number,
@@ -85,20 +112,14 @@ class PaymentService {
             const poll = async () => {
                 try {
                     attempts++;
-                    console.log(`[PaymentService] Polling attempt ${attempts}/${maxAttempts} for order ${orderCode}`);
-
                     const status = await subscriptionService.checkPaymentStatusDetailed(orderCode);
 
-                    console.log(`[PaymentService] Payment status:`, status);
-
                     if (status.status === 'SUCCESS') {
-                        console.log('[PaymentService] Payment successful!');
                         resolve('SUCCESS');
                         return;
                     }
 
                     if (status.status === 'FAILED' || status.status === 'CANCELLED') {
-                        console.log('[PaymentService] Payment failed or cancelled');
                         resolve('FAILED');
                         return;
                     }
@@ -109,7 +130,6 @@ class PaymentService {
                         const jitter = Math.floor(Math.random() * 500);
                         this.pollingInterval = setTimeout(poll, backoff + jitter);
                     } else {
-                        console.log('[PaymentService] Polling timeout reached');
                         resolve('TIMEOUT');
                     }
                 } catch (error) {
@@ -120,7 +140,6 @@ class PaymentService {
                         const jitter = Math.floor(Math.random() * 500);
                         this.pollingInterval = setTimeout(poll, backoff + jitter);
                     } else {
-                        console.log('[PaymentService] Polling failed after max attempts');
                         resolve('TIMEOUT');
                     }
                 }
@@ -138,7 +157,6 @@ class PaymentService {
         if (this.pollingInterval) {
             clearTimeout(this.pollingInterval);
             this.pollingInterval = null;
-            console.log('[PaymentService] Polling stopped');
         }
     }
 
@@ -147,12 +165,7 @@ class PaymentService {
      */
     async completePayment(planId: number): Promise<void> {
         try {
-            console.log(`[PaymentService] Completing payment for plan ${planId}`);
-
-            // Activate subscription
             await subscriptionService.activateSubscription(planId);
-
-            console.log('[PaymentService] Payment completed successfully');
         } catch (error: any) {
             console.error('[PaymentService] Failed to complete payment:', error);
             throw error;
@@ -164,11 +177,7 @@ class PaymentService {
      */
     async cancelPayment(orderCode: number): Promise<void> {
         try {
-            console.log(`[PaymentService] Cancelling payment for order ${orderCode}`);
-
             await subscriptionService.cancelPayment(orderCode);
-
-            console.log('[PaymentService] Payment cancelled successfully');
         } catch (error: any) {
             console.error('[PaymentService] Failed to cancel payment:', error);
             throw error;

@@ -1,6 +1,5 @@
 
 
-import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React from 'react';
@@ -19,11 +18,18 @@ import { globalErrorHandler, networkErrorHandler } from '../services/globalError
 import { paymentFlowManager } from '../services/paymentFlowManager';
 
 export default function RootLayout() {
-    const [fontsLoaded] = useFonts({
-        'Dongle': require('../assets/fonts/Dongle-Regular.ttf'),
-        'Dongle-Bold': require('../assets/fonts/Dongle-Bold.ttf'),
-        'Dongle-Light': require('../assets/fonts/Dongle-Light.ttf'),
-    });
+    // Pre-load gradient modules early to prevent flash of non-gradient text
+    React.useEffect(() => {
+        // Importing GradientText will trigger auto-preload of native modules
+        import('../components/GradientText').then((module) => {
+            // Explicitly trigger loading if auto-load didn't work
+            if (module.loadNativeModules) {
+                module.loadNativeModules();
+            }
+        }).catch(() => {
+            // Silent fail - GradientText will handle its own loading
+        });
+    }, []);
 
     // Complete OAuth session when app returns from browser
     React.useEffect(() => {
@@ -34,14 +40,11 @@ export default function RootLayout() {
     // Handle deep linking for payment redirects (PaymentScreen handles payment deep links)
     React.useEffect(() => {
         const handleDeepLink = async (url: string) => {
-            console.log('[DeepLink] Received URL:', url);
-
             // Payment deep links are handled by dedicated pages:
             // - hengout://payment-success -> payment-success.tsx
             // - hengout://payment-cancel -> payment-cancel.tsx
             // - hengout://payment-callback -> payment-callback.tsx
             // No need to handle them here as they have their own routes
-            console.log('[DeepLink] Deep link received, letting router handle it');
         };
 
         // Handle initial URL if app was opened via deep link
@@ -70,7 +73,6 @@ export default function RootLayout() {
             try {
                 const { appLifecycleManager } = await import('../services/appLifecycleManager');
                 appLifecycleManager.initialize();
-                console.log('[RootLayout] App lifecycle manager initialized');
             } catch (error) {
                 console.error('[RootLayout] Failed to initialize app lifecycle manager:', error);
             }
@@ -81,7 +83,6 @@ export default function RootLayout() {
             try {
                 const { notificationManager } = await import('../services/notificationManager');
                 // Note: Toast context and navigation will be initialized later when available
-                console.log('[RootLayout] Notification manager imported');
             } catch (error) {
                 console.error('[RootLayout] Failed to import notification manager:', error);
             }
@@ -96,7 +97,6 @@ export default function RootLayout() {
                 try {
                     const isAuthenticated = await AuthHelper.isAuthenticated();
                     if (!isAuthenticated) {
-                        console.log('[RootLayout] User not authenticated, redirecting to login');
                         // AuthHelper will handle navigation automatically
                     } else {
                         // Start token monitoring if user is authenticated
@@ -169,7 +169,6 @@ export default function RootLayout() {
         };
     }, []);
 
-    if (!fontsLoaded) return null;
 
     return (
         <ToastProvider>

@@ -353,14 +353,12 @@ export const useAuthStore = create<AuthState>()(
                     const searchStore = useSearchStore.getState();
                     searchStore.clearSearch();
 
-                    //  CLEAR DATABASE: Clear all local database data (like WhatsApp/Telegram)
+                    // Clear database
                     try {
                         const { databaseService } = await import('../services/databaseService');
                         await databaseService.clearAllData();
-                        // Database cleared successfully
                     } catch (dbError) {
                         console.error('[AuthStore] Failed to clear database:', dbError);
-                        // Don't throw - database clear failure shouldn't block logout
                     }
 
                     //  RESET APP STORE: Reset initialization state for fresh start
@@ -395,9 +393,7 @@ export const useAuthStore = create<AuthState>()(
             //  OPTIMISTIC LOGOUT: Fast logout for better UX
             fastLogout: async () => {
                 try {
-                    // Starting fast logout
-
-                    //  IMMEDIATE STATE CLEAR: Clear UI state first
+                    // Immediate state clear - clear UI state first
                     set({
                         isAuthenticated: false,
                         user: null,
@@ -409,10 +405,9 @@ export const useAuthStore = create<AuthState>()(
                         error: null,
                     });
 
-                    // BACKGROUND CLEANUP: Clear data without blocking UI
+                    // Background cleanup - clear data without blocking UI
                     setTimeout(async () => {
                         try {
-                            // Set logout flags
                             const { setLogoutMode, setUserLoggedOut, resetRefreshState } = await import('../config/axios');
                             setLogoutMode(true);
                             setUserLoggedOut(true);
@@ -450,14 +445,12 @@ export const useAuthStore = create<AuthState>()(
                             useCollectionStore.getState().resetCurrentCollection();
                             useSearchStore.getState().clearSearch();
 
-                            // CLEAR DATABASE: Clear all local database data 
+                            // Clear database
                             try {
                                 const { databaseService } = await import('../services/databaseService');
                                 await databaseService.clearAllData();
-                                // Database cleared successfully (fast logout)
                             } catch (dbError) {
                                 console.error('[AuthStore] Failed to clear database (fast logout):', dbError);
-                                // Don't throw - database clear failure shouldn't block logout
                             }
 
                             const appStore = useAppStore.getState();
@@ -468,8 +461,6 @@ export const useAuthStore = create<AuthState>()(
                             appStore.setChatDataPreloaded(false);
                             appStore.setAppReady(false);
                             appStore.setInitializationError(null);
-
-                            // Fast logout completed
                         } catch (error: any) {
                             console.error('[AuthStore] Background logout cleanup failed:', error);
                         }
@@ -482,15 +473,10 @@ export const useAuthStore = create<AuthState>()(
             },
 
             refreshTokens: async () => {
-                // Starting token refresh
-
-                //  DELEGATE TO REFRESH TOKEN MANAGER: With store update
+                // Delegate to RefreshTokenManager with store update
                 const success = await refreshTokenManager.performRefresh(true);
 
-                if (success) {
-                    console.log('[AuthStore] Token refresh successful via RefreshTokenManager');
-                } else {
-                    console.log('[AuthStore] Token refresh failed via RefreshTokenManager');
+                if (!success) {
                     // Don't throw error - let RefreshTokenManager handle logout
                 }
             },
@@ -534,39 +520,28 @@ export const useAuthStore = create<AuthState>()(
             },
 
             initializeAuth: async () => {
-                //  GUARD: Prevent multiple initialization calls
+                // Prevent multiple initialization calls
                 const currentState = get();
                 if (currentState.isLoading) {
-                    console.log('[AuthStore] Auth initialization already in progress, skipping...');
                     return;
                 }
 
                 try {
-                    console.log('[AuthStore] Starting auth initialization...');
                     set({ isLoading: true });
 
                     const storedTokens = await AuthHelper.getTokens();
-                    // Stored tokens from SecureStore
 
                     if (storedTokens && storedTokens.accessToken) {
-                        console.log('[AuthStore] Found stored tokens, checking validity...');
-
-                        // ENTERPRISE FEATURE: Smart Token Validation with Optimized Timing
                         const isTokenExpired = storedTokens.expiresIn <= 0;
                         const timeUntilExpiry = storedTokens.expiresIn;
 
-                        // STANDARDIZED TIMING: Consistent 5-minute proactive refresh
-                        const CRITICAL_THRESHOLD = 2 * 60 * 1000; // 2 minutes - critical
-                        const PROACTIVE_THRESHOLD = 5 * 60 * 1000; // 5 minutes - proactive refresh
+                        // Standardized timing: consistent 5-minute proactive refresh
+                        const CRITICAL_THRESHOLD = 2 * 60 * 1000; // 2 minutes
+                        const PROACTIVE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
 
-                        if (isTokenExpired) {
-                            console.log('[AuthStore] Token expired, attempting immediate refresh...');
-                        } else if (timeUntilExpiry < CRITICAL_THRESHOLD) {
-                            console.log('[AuthStore] Token expires in <2 minutes, refreshing immediately...');
-                        } else if (timeUntilExpiry < PROACTIVE_THRESHOLD) {
-                            console.log('[AuthStore] Token expires in <5 minutes, refreshing proactively...');
+                        if (isTokenExpired || timeUntilExpiry < CRITICAL_THRESHOLD || timeUntilExpiry < PROACTIVE_THRESHOLD) {
+                            // Token needs refresh
                         } else {
-                            console.log('[AuthStore] Token still valid, using fast path');
                             // Token is still valid, set authenticated immediately
                             set({
                                 isAuthenticated: true,
@@ -577,10 +552,7 @@ export const useAuthStore = create<AuthState>()(
                             });
                             set({ isLoading: false });
 
-                            get().fetchUserProfile().catch(error => {
-                                console.log('[AuthStore] Background profile fetch failed:', error);
-                            });
-
+                            get().fetchUserProfile().catch(() => { });
                             await refreshTokenManager.startMonitoring();
                             return;
                         }
@@ -590,10 +562,8 @@ export const useAuthStore = create<AuthState>()(
                             await get().refreshTokens();
                             await get().fetchUserProfile();
                             set({ isAuthenticated: true });
-
                             await refreshTokenManager.startMonitoring();
                         } catch (error) {
-                            console.log('[AuthStore] Token refresh failed:', error);
                             if ((error as any)?.response?.status === 401 || (error as any)?.message?.includes('401')) {
                                 await AuthHelper.clearTokens();
                                 set({
@@ -605,7 +575,6 @@ export const useAuthStore = create<AuthState>()(
                                     },
                                 });
                             } else {
-                                console.log('[AuthStore] Network error - keeping tokens, will retry later');
                                 // Keep user logged in for network errors
                                 set({
                                     isAuthenticated: true,
@@ -617,14 +586,12 @@ export const useAuthStore = create<AuthState>()(
                             }
                         }
                     } else {
-                        console.log('[AuthStore] No stored tokens found, user needs to login');
                         set({ isAuthenticated: false });
                     }
 
                     set({ isLoading: false });
-                    console.log('[AuthStore] Auth initialization completed');
                 } catch (error: any) {
-                    console.log('[AuthStore] Auth initialization error:', error);
+                    console.error('[AuthStore] Auth initialization error:', error);
                     set({
                         error: error.message || 'Auth initialization failed',
                         isLoading: false,
@@ -649,28 +616,19 @@ export const useAuthStore = create<AuthState>()(
                         },
                     });
 
-                    // Also update ProfileStore to keep both stores in sync
-                    // This ensures ProfileStore has the latest data without additional API calls
+                    // Update ProfileStore to keep both stores in sync
                     const { useProfileStore } = await import('./profileStore');
                     const profileStore = useProfileStore.getState();
                     profileStore.setProfile(profileData);
                 } catch (error: any) {
-                    console.error('Failed to fetch user profile:', error);
-                    // Don't throw error here to avoid breaking auth flow
+                    console.error('[AuthStore] Failed to fetch user profile:', error);
                 }
             },
 
             initializeUserServices: async () => {
                 try {
-                    console.log('[AuthStore] Initializing services for new user...');
-
-                    // Import initialization service
                     const { initializationService } = await import('../services/initializationService');
-
-                    // Initialize services for the new user
                     await initializationService.initialize();
-
-                    console.log('[AuthStore] User services initialized successfully');
 
                     // Ensure subscription state is in sync for the newly logged-in user
                     try {
@@ -679,11 +637,10 @@ export const useAuthStore = create<AuthState>()(
                         await subStore.fetchActiveSubscription();
                         await subStore.fetchAllLimits();
                     } catch (e) {
-                        console.log('[AuthStore] Failed to prefetch subscription after init:', e);
+                        // Silent fail
                     }
                 } catch (error: any) {
                     console.error('[AuthStore] Failed to initialize user services:', error);
-                    // Don't throw error here to avoid breaking auth flow
                 }
             },
         }),

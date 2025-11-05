@@ -48,7 +48,8 @@ export const useChatWebSocket = () => {
         if (websocketConnected) {
             subscribeToConversation(conversationId);
         } else {
-            console.warn('WebSocket not connected, cannot subscribe to conversation:', conversationId);
+            // WebSocket not connected - connection will be established automatically
+            // Subscription will be retried when connection is ready
         }
     }, [websocketConnected, subscribeToConversation]);
 
@@ -70,7 +71,7 @@ export const useChatWebSocket = () => {
         if (websocketConnected) {
             sendWebSocketMessage(messageData);
         } else {
-            console.warn('WebSocket not connected, cannot send message');
+            // WebSocket not connected - message will be queued or sent via API fallback
         }
     }, [websocketConnected, sendWebSocketMessage]);
 

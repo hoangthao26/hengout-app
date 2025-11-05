@@ -15,12 +15,10 @@ class LocationFolderService {
             const response = await axiosInstance.get<ApiResponse<LocationFolder[]>>(endpoint);
             return response.data;
         } catch (error: any) {
-            // DEFENSIVE: Check if error is due to user logout
             if (error.message?.includes('User logged out')) {
-                console.log('[LocationFolderService] User logged out, skipping folder fetch');
                 return { status: 'success', data: [], message: 'User logged out' };
             }
-            console.error('Failed to get all folders:', error);
+            console.error('[LocationFolderService] Failed to get all folders:', error);
             throw error;
         }
     }
@@ -35,7 +33,7 @@ class LocationFolderService {
             const response = await axiosInstance.get<ApiResponse<LocationFolder>>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to get folder ${folderId}:`, error);
+            console.error(`[LocationFolderService] Failed to get folder ${folderId}:`, error);
             throw error;
         }
     }
@@ -50,7 +48,7 @@ class LocationFolderService {
             const response = await axiosInstance.post<ApiResponse<LocationFolder>>(endpoint, folderData);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to create folder:', error);
+            console.error('[LocationFolderService] Failed to create folder:', error);
             throw error;
         }
     }
@@ -65,7 +63,7 @@ class LocationFolderService {
             const response = await axiosInstance.put<ApiResponse<LocationFolder>>(endpoint, folderData);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to update folder ${folderId}:`, error);
+            console.error(`[LocationFolderService] Failed to update folder ${folderId}:`, error);
             throw error;
         }
     }
@@ -80,7 +78,7 @@ class LocationFolderService {
             const response = await axiosInstance.delete<ApiResponse<{}>>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to delete folder ${folderId}:`, error);
+            console.error(`[LocationFolderService] Failed to delete folder ${folderId}:`, error);
             throw error;
         }
     }
@@ -102,18 +100,13 @@ class LocationFolderService {
                 params: { page, size, sort, direction }
             });
 
-            // Handle server response with errorCode but success status
             if (response.data.status === 'success') {
-                // Server returns success but with errorCode - treat as success
-                console.log(`[LocationFolderService] Successfully loaded ${response.data.data.content.length} locations for folder ${folderId}`);
                 return response.data;
             } else {
-                // Server returns error status
-                console.error(`[LocationFolderService] Server error for folder ${folderId}:`, response.data.message);
                 throw new Error(response.data.message || 'Failed to get locations');
             }
         } catch (error: any) {
-            console.error(`Failed to get locations in folder ${folderId}:`, error);
+            console.error(`[LocationFolderService] Failed to get locations in folder ${folderId}:`, error);
             throw error;
         }
     }
@@ -144,7 +137,7 @@ class LocationFolderService {
             const response = await axiosInstance.put<ApiResponse<{}>>(endpoint, locationData);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to update location ${locationId} in folder ${folderId}:`, error);
+            console.error(`[LocationFolderService] Failed to update location ${locationId} in folder ${folderId}:`, error);
             throw error;
         }
     }
@@ -161,7 +154,7 @@ class LocationFolderService {
             const response = await axiosInstance.delete<ApiResponse<{}>>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to remove location ${locationId} from folder ${folderId}:`, error);
+            console.error(`[LocationFolderService] Failed to remove location ${locationId} from folder ${folderId}:`, error);
             throw error;
         }
     }
@@ -186,7 +179,8 @@ class LocationFolderService {
                             locationCount: locationsResponse.data.totalElements
                         };
                     } catch (error) {
-                        console.warn(`Failed to get location count for folder ${folder.id}:`, error);
+                        // Failed to get location count - use 0 as fallback, non-critical
+                        console.warn(`[LocationFolderService] Failed to get location count for folder ${folder.id}:`, error);
                         return {
                             ...folder,
                             locationCount: 0
@@ -197,7 +191,7 @@ class LocationFolderService {
 
             return foldersWithCounts;
         } catch (error: any) {
-            console.error('Failed to get folders with location counts:', error);
+            console.error('[LocationFolderService] Failed to get folders with location counts:', error);
             throw error;
         }
     }
@@ -210,7 +204,7 @@ class LocationFolderService {
             const locationsResponse = await this.getLocationsInFolder(folderId);
             return locationsResponse.data.content.some(location => location.locationId === locationId);
         } catch (error: any) {
-            console.error(`Failed to check if location ${locationId} is in folder ${folderId}:`, error);
+            console.error(`[LocationFolderService] Failed to check if location ${locationId} is in folder ${folderId}:`, error);
             return false;
         }
     }
@@ -224,7 +218,7 @@ class LocationFolderService {
             const defaultFolder = foldersResponse.data.find(folder => folder.isDefault);
             return defaultFolder || null;
         } catch (error: any) {
-            console.error('Failed to get default folder:', error);
+            console.error('[LocationFolderService] Failed to get default folder:', error);
             return null;
         }
     }

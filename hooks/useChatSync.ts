@@ -27,7 +27,7 @@ export const useChatSync = () => {
                 const stats = await chatSyncService.getSyncStats();
                 setSyncStats(stats);
             } catch (error) {
-                console.error('Failed to get chat sync stats:', error);
+                console.error('[useChatSync] Failed to get chat sync stats:', error);
             }
         };
 
@@ -39,7 +39,10 @@ export const useChatSync = () => {
         };
     }, [isServicesReady]);
 
-    // Force sync
+    /**
+     * Force a full sync of chat data from server to local database
+     * Useful for manual refresh or recovery scenarios
+     */
     const forceSync = useCallback(async () => {
         if (isSyncing) return;
 
@@ -51,17 +54,20 @@ export const useChatSync = () => {
             const stats = await chatSyncService.getSyncStats();
             setSyncStats(stats);
         } catch (error) {
-            console.error('Force sync failed:', error);
+            console.error('[useChatSync] Force sync failed:', error);
             throw error;
         } finally {
             setIsSyncing(false);
         }
     }, [isSyncing]);
 
-    // Get conversations (from local DB)
+    /**
+     * Get conversations from local database
+     * Returns cached data immediately without network request
+     * @returns Array of conversations from local SQLite database
+     */
     const getConversations = useCallback(async (): Promise<ChatConversation[]> => {
         if (!isInitialized) {
-            console.log('[useChatSync] Services not ready, returning empty conversations');
             return [];
         }
         return await chatSyncService.getConversations();
@@ -74,13 +80,17 @@ export const useChatSync = () => {
         offset: number = 0
     ): Promise<ChatMessage[]> => {
         if (!isInitialized) {
-            console.log('[useChatSync] Services not ready, returning empty messages');
             return [];
         }
         return await chatSyncService.getMessages(conversationId, limit, offset);
     }, [isInitialized]);
 
-    // Send message with optimistic update
+    /**
+     * Send a message with optimistic update
+     * Message is saved locally first, then synced to server
+     * @param messageData - Message data including conversation ID, type, and content
+     * @returns The created message
+     */
     const sendMessage = useCallback(async (messageData: {
         conversationId: string;
         type: 'TEXT' | 'ACTIVITY';
@@ -104,7 +114,6 @@ export const useChatSync = () => {
         size: number = 50
     ): Promise<ChatMessage[]> => {
         if (!isInitialized) {
-            console.log('[useChatSync] Services not ready, skipping message sync');
             return [];
         }
         return await chatSyncService.syncMessages(conversationId, page, size);
@@ -113,7 +122,6 @@ export const useChatSync = () => {
     // Get members (from local DB)
     const getMembers = useCallback(async (conversationId: string): Promise<ChatMember[]> => {
         if (!isInitialized) {
-            console.log('[useChatSync] Services not ready, returning empty members');
             return [];
         }
         return await chatSyncService.getMembers(conversationId);
@@ -122,7 +130,6 @@ export const useChatSync = () => {
     // Sync members for conversation
     const syncMembers = useCallback(async (conversationId: string): Promise<ChatMember[]> => {
         if (!isInitialized) {
-            console.log('[useChatSync] Services not ready, skipping member sync');
             return [];
         }
         return await chatSyncService.syncMembers(conversationId);
@@ -131,7 +138,6 @@ export const useChatSync = () => {
     // Sync conversations from server to database
     const syncConversations = useCallback(async (): Promise<void> => {
         if (!isInitialized) {
-            console.log('[useChatSync] Services not ready, skipping conversation sync');
             return;
         }
         await chatSyncService.syncConversations();
@@ -143,7 +149,6 @@ export const useChatSync = () => {
         updates: Partial<ChatConversation>
     ): Promise<void> => {
         if (!isInitialized) {
-            console.log('[useChatSync] Services not ready, skipping conversation update');
             return;
         }
         await chatSyncService.updateConversation(conversationId, updates);
@@ -154,7 +159,6 @@ export const useChatSync = () => {
         conversationId: string
     ): Promise<void> => {
         if (!isInitialized) {
-            console.log('[useChatSync] Services not ready, skipping conversation deletion');
             return;
         }
         await chatSyncService.deleteConversation(conversationId);

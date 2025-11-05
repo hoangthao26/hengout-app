@@ -24,15 +24,6 @@ export default function LoginScreen() {
         setLoading(true);
         try {
             const response = await authService.loginUser(email, password);
-            console.log('Login successful:', response);
-            console.log('Response data structure:', {
-                accessToken: typeof response.data.accessToken,
-                refreshToken: typeof response.data.refreshToken,
-                tokenType: typeof response.data.tokenType,
-                expiresIn: typeof response.data.expiresIn,
-                role: typeof response.data.role,
-                expiresInValue: response.data.expiresIn,
-            });
 
             // Validate response structure
             if (!response.data || !response.data.accessToken || !response.data.refreshToken) {
@@ -51,7 +42,7 @@ export default function LoginScreen() {
                     onboardingComplete: response.data.onboardingComplete, // Save onboarding status
                 });
             } catch (saveError: any) {
-                console.error('Failed to save tokens:', saveError);
+                console.error('[Login] Failed to save tokens:', saveError);
                 throw new Error(`Failed to save authentication tokens: ${saveError.message}`);
             }
 
@@ -62,38 +53,38 @@ export default function LoginScreen() {
 
             // Check onboarding status from auth response
             if (response.data.onboardingComplete === false) {
-                console.log('Onboarding not complete, redirecting to wizard');
                 NavigationService.goToOnboardingWizard();
             } else {
-                console.log('Onboarding complete, navigating to tabs');
-                // Get current location before navigating
+                // Best Practice: Don't request location permission after login
+                // Let user request it when they need it in Discover screen
+                // Just check if permission already exists, if yes try to get location
                 try {
-                    const { status } = await Location.requestForegroundPermissionsAsync();
+                    const { status } = await Location.getForegroundPermissionsAsync();
                     if (status === 'granted') {
-                        const location = await Location.getCurrentPositionAsync({
-                            accuracy: Location.Accuracy.Balanced,
-                        });
-                        console.log('[Login] GPS location obtained:', {
-                            lat: location.coords.latitude,
-                            lng: location.coords.longitude,
-                            accuracy: location.coords.accuracy
-                        });
-                        NavigationService.secureNavigateToDiscover({
-                            latitude: location.coords.latitude,
-                            longitude: location.coords.longitude,
-                            accuracy: location.coords.accuracy || 0
-                        });
-                    } else {
-                        console.log('[Login] Location permission denied, using fallback');
-                        NavigationService.secureNavigateToDiscover();
+                        // Permission already granted, try to get location (no request)
+                        try {
+                            const location = await Location.getCurrentPositionAsync({
+                                accuracy: Location.Accuracy.Balanced,
+                            });
+                            NavigationService.secureNavigateToDiscover({
+                                latitude: location.coords.latitude,
+                                longitude: location.coords.longitude,
+                                accuracy: location.coords.accuracy || 0
+                            });
+                            return;
+                        } catch (locationError) {
+                            // Location unavailable, navigate without location
+                        }
                     }
+                    // No permission or location unavailable - navigate without location
+                    NavigationService.secureNavigateToDiscover();
                 } catch (error) {
-                    console.log('[Login] GPS error, using fallback:', error);
+                    // Navigate without location
                     NavigationService.secureNavigateToDiscover();
                 }
             }
         } catch (error: any) {
-            console.log('Login failed:', error);
+            console.error('[Login] Login failed:', error);
             showError('Đăng nhập thất bại', error.message || 'Vui lòng kiểm tra thông tin đăng nhập và thử lại.');
         } finally {
             setLoading(false);
@@ -135,13 +126,12 @@ export default function LoginScreen() {
                     {/* REMOVED: No back button on login screen */}
 
                     {/* Logo Section - Reduced spacing */}
-                    <View style={{ alignItems: 'center', marginTop: 20, marginBottom: 20 }}>
+                    <View style={{ alignItems: 'center', marginTop: 64, marginBottom: 32 }}>
                         <GradientText
                             style={{
-                                fontSize: 120,
+                                fontSize: 90,
                                 fontWeight: 'bold',
                                 textAlign: 'center',
-                                fontFamily: 'Dongle',
                             }}
                             colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
                         >

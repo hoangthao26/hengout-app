@@ -159,7 +159,7 @@ const DeleteCollectionsModal: React.FC<DeleteCollectionsModalProps> = ({
                 showError(`Chỉ xóa được ${successCount}/${selectedCollections.length} collection(s)`);
             }
         } catch (error: any) {
-            console.error('Failed to delete collections:', error);
+            console.error('[DeleteCollectionsModal] Failed to delete collections:', error);
             showError(`Lỗi: ${error.message}`);
         } finally {
             setIsDeleting(false);

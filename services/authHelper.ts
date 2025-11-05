@@ -70,9 +70,8 @@ export class AuthHelper {
             if (tokens.onboardingComplete !== undefined) {
                 await OnboardingService.setOnboardingStatus(tokens.onboardingComplete);
             }
-
         } catch (error) {
-            console.error('Failed to save tokens:', error);
+            console.error('[AuthHelper] Failed to save tokens:', error);
             throw new Error('Failed to save authentication tokens');
         }
     }
@@ -81,7 +80,7 @@ export class AuthHelper {
         try {
             return await SecureStore.getItemAsync(this.ACCESS_TOKEN_KEY);
         } catch (error) {
-            console.error('Failed to get access token:', error);
+            console.error('[AuthHelper] Failed to get access token:', error);
             return null;
         }
     }
@@ -90,7 +89,7 @@ export class AuthHelper {
         try {
             return await SecureStore.getItemAsync(this.REFRESH_TOKEN_KEY);
         } catch (error) {
-            console.error('Failed to get refresh token:', error);
+            console.error('[AuthHelper] Failed to get refresh token:', error);
             return null;
         }
     }
@@ -124,7 +123,7 @@ export class AuthHelper {
 
             return tokens;
         } catch (error) {
-            console.error('Failed to get tokens:', error);
+            console.error('[AuthHelper] Failed to get tokens:', error);
             return null;
         }
     }
@@ -134,14 +133,13 @@ export class AuthHelper {
             const tokens = await this.getTokens();
             return tokens !== null && tokens.accessToken !== null;
         } catch (error) {
-            console.error('Failed to check authentication status:', error);
+            console.error('[AuthHelper] Failed to check authentication status:', error);
             return false;
         }
     }
 
     /**
      * Check if access token is expired
-     * Note: expiresIn from API is already in milliseconds
      */
     static async isTokenExpired(): Promise<boolean> {
         try {
@@ -150,7 +148,7 @@ export class AuthHelper {
 
             return tokens.expiresIn <= 0;
         } catch (error) {
-            console.error('Failed to check token expiration:', error);
+            console.error('[AuthHelper] Failed to check token expiration:', error);
             return true;
         }
     }
@@ -162,7 +160,7 @@ export class AuthHelper {
                 const { chatSyncService } = await import('./chatSyncService');
                 chatSyncService.stopSync();
             } catch (error) {
-                console.log('Failed to stop chat sync service:', error);
+                // Silent failure for chat sync stop
             }
 
             const refreshToken = await this.getRefreshToken();
@@ -178,34 +176,31 @@ export class AuthHelper {
                 try {
                     await this.callLogoutAPI(refreshToken);
                 } catch (apiError) {
-                    console.log('Logout API call failed, continuing with local cleanup');
+                    // Continue with local cleanup
                 }
             }
             await this.clearTokens();
             await OnboardingService.clearOnboardingStatus();
-            console.log('[AuthHelper] Local tokens and onboarding status cleared');
 
-            // CLEAR DATABASE: Clear all local database data (like WhatsApp/Telegram)
+            // Clear database
             try {
                 const { databaseService } = await import('./databaseService');
                 await databaseService.clearAllData();
-                console.log('[AuthHelper] Database cleared successfully');
             } catch (dbError) {
                 console.error('[AuthHelper] Failed to clear database:', dbError);
-                // Don't throw - database clear failure shouldn't block logout
             }
 
-            // SET LOGOUT FLAGS: Prevent infinite 401 loops
+            // Set logout flags to prevent infinite 401 loops
             try {
                 const { setLogoutMode, setUserLoggedOut } = await import('../config/axios');
                 setLogoutMode(true);
                 setUserLoggedOut(true);
             } catch (error) {
-                console.log('Failed to set logout flags:', error);
+                // Silent fail
             }
 
         } catch (error) {
-            console.error('Logout process failed:', error);
+            console.error('[AuthHelper] Logout process failed:', error);
             await this.clearTokens();
         }
     }
@@ -235,22 +230,19 @@ export class AuthHelper {
                 const { chatSyncService } = await import('./chatSyncService');
                 chatSyncService.stopSync();
             } catch (error) {
-                console.log('Failed to stop chat sync service:', error);
+                // Silent fail
             }
 
-            // Clear local tokens
             await this.clearTokens();
 
-            // CLEAR DATABASE: Clear all local database data (like WhatsApp/Telegram)
             try {
                 const { databaseService } = await import('./databaseService');
                 await databaseService.clearAllData();
-                console.log('[AuthHelper] Database cleared successfully (force logout)');
             } catch (dbError) {
-                console.error('Failed to clear database:', dbError);
+                console.error('[AuthHelper] Failed to clear database:', dbError);
             }
         } catch (error) {
-            console.error('Force logout failed:', error);
+            console.error('[AuthHelper] Force logout failed:', error);
             throw error;
         }
     }
@@ -266,7 +258,7 @@ export class AuthHelper {
 
             await this.logout();
         } catch (error) {
-            console.error('Smart logout failed, falling back to force logout:', error);
+            console.error('[AuthHelper] Smart logout failed, falling back to force logout:', error);
             await this.forceLogout();
         }
     }
@@ -293,10 +285,10 @@ export class AuthHelper {
 
             // Perform logout cleanup in background
             this.logout().catch(error => {
-                console.error('Background logout failed:', error);
+                console.error('[AuthHelper] Background logout failed:', error);
             });
         } catch (error) {
-            console.error('Logout and navigate failed:', error);
+            console.error('[AuthHelper] Logout and navigate failed:', error);
             try {
                 const { default: NavigationService } = await import('./navigationService');
                 NavigationService.logoutToLogin();
@@ -314,7 +306,7 @@ export class AuthHelper {
                     );
                 }, 500);
             } catch (navError) {
-                console.error('Force navigation failed:', navError);
+                console.error('[AuthHelper] Force navigation failed:', navError);
             }
         }
     }
@@ -330,7 +322,7 @@ export class AuthHelper {
                 SecureStore.deleteItemAsync(this.ROLE_KEY),
             ]);
         } catch (error) {
-            console.error('Failed to clear tokens:', error);
+            console.error('[AuthHelper] Failed to clear tokens:', error);
             throw new Error('Failed to clear authentication tokens');
         }
     }
@@ -342,7 +334,7 @@ export class AuthHelper {
 
             return `${tokens.tokenType} ${tokens.accessToken}`;
         } catch (error) {
-            console.error('Failed to get auth header:', error);
+            console.error('[AuthHelper] Failed to get auth header:', error);
             return null;
         }
     }
@@ -416,7 +408,7 @@ export class AuthHelper {
 
             return timeUntilExpiry < 300000 && timeUntilExpiry > 0;
         } catch (error) {
-            console.error('Failed to check token pre-refresh status:', error);
+            console.error('[AuthHelper] Failed to check token pre-refresh status:', error);
             return false;
         }
     }
@@ -432,7 +424,7 @@ export class AuthHelper {
             }
             return true;
         } catch (error) {
-            console.log('[AuthHelper] Token pre-refresh error:', (error as any)?.message || 'Unknown error');
+            console.error('[AuthHelper] Token pre-refresh error:', error);
             return false;
         }
     }
@@ -441,8 +433,6 @@ export class AuthHelper {
      * Start token pre-refresh monitoring
      */
     static startTokenMonitoring(): NodeJS.Timeout {
-        console.log('[AuthHelper] Starting token monitoring...');
-
         return setInterval(async () => {
             try {
                 const isAuthenticated = await this.isAuthenticated();
@@ -452,14 +442,13 @@ export class AuthHelper {
             } catch (error) {
                 console.error('[AuthHelper] Token monitoring error:', error);
             }
-        }, 60000); // Check every minute
+        }, 60000);
     }
 
     /**
      * Stop token pre-refresh monitoring
      */
     static stopTokenMonitoring(intervalId: NodeJS.Timeout): void {
-        console.log('[AuthHelper] Stopping token monitoring...');
         clearInterval(intervalId);
     }
 }

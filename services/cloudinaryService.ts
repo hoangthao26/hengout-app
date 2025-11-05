@@ -22,14 +22,9 @@ export class CloudinaryService {
         scale: number;
     }): Promise<string> {
         try {
-            console.log('[CloudinaryService] Starting Cloudinary upload for:', imageUri);
-
             // Create FormData for upload with timestamp
             const timestamp = Date.now();
             const fileName = `avatar_${timestamp}.jpg`;
-
-            console.log('[CloudinaryService] Uploading file with name:', fileName);
-            console.log('[CloudinaryService] Public ID:', `avatar_${timestamp}`);
 
             const formData = new FormData();
             formData.append('file', {
@@ -41,8 +36,6 @@ export class CloudinaryService {
             formData.append('folder', folder);
             formData.append('public_id', `avatar_${timestamp}`);
             formData.append('tags', 'avatar,profile');
-
-            console.log('[CloudinaryService] Uploading to Cloudinary...');
 
             const response = await fetch(this.UPLOAD_URL, {
                 method: 'POST',
@@ -59,14 +52,11 @@ export class CloudinaryService {
             }
 
             const result = await response.json();
-            console.log('[CloudinaryService] Upload successful:', result);
 
             if (result.secure_url) {
                 // Apply only quality and format optimization, no cropping
                 // q_80: quality 80%, f_auto: format auto
                 const optimizedUrl = result.secure_url.replace('/upload/', '/upload/q_80,f_auto/');
-                console.log('[CloudinaryService] Original URL:', result.secure_url);
-                console.log('[CloudinaryService] Optimized URL:', optimizedUrl);
                 return optimizedUrl;
             } else {
                 throw new Error('No secure_url in response');

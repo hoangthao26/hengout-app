@@ -37,8 +37,6 @@ export default function InitializeProfileScreen() {
 
         setLoading(true);
         try {
-            console.log('[InitializeProfile] Initializing profile with data:', formData);
-
             // Use Zustand store instead of direct API call
             await initializeProfile(formData);
 
@@ -186,7 +184,6 @@ const styles = StyleSheet.create({
         fontSize: 80,
         fontWeight: 'bold',
         textAlign: 'center',
-        fontFamily: 'Dongle',
         marginBottom: 16,
     },
     title: {

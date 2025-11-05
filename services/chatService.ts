@@ -27,12 +27,10 @@ class ChatService {
             const response = await axiosInstance.get<ChatResponse<ChatConversation[]>>(endpoint);
             return response.data;
         } catch (error: any) {
-            // DEFENSIVE: Don't throw error if user logged out
             if (error.message?.includes('User logged out')) {
-                console.log('[ChatService] User logged out, skipping conversation fetch');
                 return { status: 'success', data: [], message: 'User logged out' };
             }
-            console.error('Failed to get conversations:', error);
+            console.error('[ChatService] Failed to get conversations:', error);
             throw error;
         }
     }
@@ -47,7 +45,7 @@ class ChatService {
             const response = await axiosInstance.get<ChatResponse<ChatConversation>>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to get conversation ${conversationId}:`, error);
+            console.error(`[ChatService] Failed to get conversation ${conversationId}:`, error);
             throw error;
         }
     }
@@ -59,22 +57,10 @@ class ChatService {
     async createGroupConversation(data: CreateGroupRequest): Promise<ChatResponse<ChatConversation>> {
         try {
             const endpoint = buildEndpointUrl('SOCIAL_SERVICE', 'CREATE_GROUP');
-            // Debug request log (sanitize large arrays if needed)
-            console.log('[ChatService] CREATE_GROUP endpoint:', endpoint);
-            console.log('[ChatService] CREATE_GROUP payload:', {
-                name: data?.name,
-                avatarUrl: data?.avatarUrl,
-                memberIdsCount: Array.isArray(data?.memberIds) ? data.memberIds.length : 0,
-                sampleMemberId: Array.isArray(data?.memberIds) && data.memberIds.length > 0 ? data.memberIds[0] : undefined,
-            });
-
             const response = await axiosInstance.post<ChatResponse<ChatConversation>>(endpoint, data);
             return response.data;
         } catch (error: any) {
-            const status = error?.response?.status;
-            const message = error?.response?.data?.message || error?.message;
-            const serverData = error?.response?.data;
-            console.error('[ChatService] Failed to create group conversation:', { status, message, serverData });
+            console.error('[ChatService] Failed to create group conversation:', error);
             throw error;
         }
     }
@@ -89,7 +75,7 @@ class ChatService {
             const response = await axiosInstance.put<ChatResponse<string>>(endpoint, data);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to update conversation name ${conversationId}:`, error);
+            console.error(`[ChatService] Failed to update conversation name ${conversationId}:`, error);
             throw error;
         }
     }
@@ -104,7 +90,7 @@ class ChatService {
             const response = await axiosInstance.put<ChatResponse<string>>(endpoint, data);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to update conversation avatar ${conversationId}:`, error);
+            console.error(`[ChatService] Failed to update conversation avatar ${conversationId}:`, error);
             throw error;
         }
     }
@@ -127,7 +113,7 @@ class ChatService {
             });
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to get messages for conversation ${conversationId}:`, error);
+            console.error(`[ChatService] Failed to get messages for conversation ${conversationId}:`, error);
             throw error;
         }
     }
@@ -142,7 +128,7 @@ class ChatService {
             const response = await axiosInstance.post<ChatResponse<ChatMessage>>(endpoint, data);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to send message:', error);
+            console.error('[ChatService] Failed to send message:', error);
             throw error;
         }
     }
@@ -159,7 +145,7 @@ class ChatService {
             const response = await axiosInstance.get<ChatResponse<ChatMember[]>>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to get group members for conversation ${conversationId}:`, error);
+            console.error(`[ChatService] Failed to get group members for conversation ${conversationId}:`, error);
             throw error;
         }
     }
@@ -176,7 +162,7 @@ class ChatService {
             const response = await axiosInstance.post<ChatResponse<string>>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to add member ${memberId} to conversation ${conversationId}:`, error);
+            console.error(`[ChatService] Failed to add member ${memberId} to conversation ${conversationId}:`, error);
             throw error;
         }
     }
@@ -193,7 +179,7 @@ class ChatService {
             const response = await axiosInstance.delete<ChatResponse<string>>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to remove member ${memberId} from conversation ${conversationId}:`, error);
+            console.error(`[ChatService] Failed to remove member ${memberId} from conversation ${conversationId}:`, error);
             throw error;
         }
     }
@@ -209,7 +195,7 @@ class ChatService {
             const response = await axiosInstance.delete<ChatResponse<string>>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to leave conversation ${conversationId}:`, error);
+            console.error(`[ChatService] Failed to leave conversation ${conversationId}:`, error);
             throw error;
         }
     }
@@ -225,7 +211,7 @@ class ChatService {
             const response = await axiosInstance.delete<ChatResponse<string>>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to disband conversation ${conversationId}:`, error);
+            console.error(`[ChatService] Failed to disband conversation ${conversationId}:`, error);
             throw error;
         }
     }

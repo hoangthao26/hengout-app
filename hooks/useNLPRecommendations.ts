@@ -11,17 +11,43 @@ export const useNLPRecommendations = ({ onError }: UseNLPRecommendationsProps = 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Generate session ID in UUID format (same as useRandomRecommendations)
+    /**
+     * Generate UUID v4 session ID for tracking NLP recommendation requests
+     * 
+     * UUID v4 generation algorithm:
+     * 1. Template: "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
+     * 2. For 'x': Random hex digit (0-9, a-f)
+     * 3. For 'y': Random hex digit with variant bits set (8, 9, a, b)
+     * 4. Version field (4th group): Always starts with '4' (UUID v4 indicator)
+     * 
+     * Variant bits logic (RFC 4122):
+     * - y position: First hex digit must be one of: 8, 9, a, b
+     * - Ensures: (r & 0x3 | 0x8) = bits 10 and 11 are set
+     * - This creates valid UUID v4 variant identifier
+     * 
+     * Uniqueness:
+     * - 122 random bits ensure high uniqueness
+     * - Suitable for session tracking across multiple requests
+     * 
+     * @returns UUID v4 formatted string
+     */
     const generateSessionId = useCallback(() => {
         // Generate UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
             const r = Math.random() * 16 | 0;
+            // Variant bits: For 'y', ensure bits 10 and 11 are set (8, 9, a, b)
             const v = c === 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
     }, []);
 
-    // Search using NLP
+    /**
+     * Search locations using natural language processing
+     * Parses user query to find relevant locations nearby
+     * @param query - Natural language search query (e.g., "cà phê gần đây")
+     * @param coordinates - User's current coordinates
+     * @returns Array of matching location recommendations
+     */
     const search = useCallback(async (
         query: string,
         { lat, lng }: { lat: number; lng: number }
@@ -44,31 +70,20 @@ export const useNLPRecommendations = ({ onError }: UseNLPRecommendationsProps = 
                 longitude: lng,
             };
 
-            console.log('[useNLPRecommendations] Request:', requestData);
-
             const response = await locationService.getNLPRecommendations(requestData);
-
-            console.log('[useNLPRecommendations] Response:', response);
 
             if (response.status === 'success') {
                 setResults(response.data);
-                console.log('[useNLPRecommendations] Search results:', response.data.length, 'locations');
                 return response.data;
             } else {
                 const errorMessage = response.message || 'Failed to get NLP recommendations';
-                console.log('[useNLPRecommendations] API Error:', errorMessage);
                 setError(errorMessage);
                 onError?.(errorMessage);
                 return [];
             }
         } catch (err: any) {
             const errorMessage = err.message || 'Network error occurred';
-            console.log('[useNLPRecommendations] Network Error:', {
-                message: errorMessage,
-                status: err.response?.status,
-                data: err.response?.data,
-                fullError: err
-            });
+            console.error('[useNLPRecommendations] Network error:', err);
             setError(errorMessage);
             onError?.(errorMessage);
             return [];

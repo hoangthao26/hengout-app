@@ -13,11 +13,13 @@
       "bundleIdentifier": "com.hengout.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Hengout cần quyền truy cập vị trí của bạn để hiển thị bản đồ và tìm các địa điểm gần bạn.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Hengout cần quyền truy cập vị trí của bạn để hiển thị bản đồ và tìm các địa điểm gần bạn.",
         "CFBundleURLTypes": [
           {
             "CFBundleURLName": "Google OAuth",
             "CFBundleURLSchemes": [
-              "com.googleusercontent.apps.YOUR_CLIENT_ID_PREFIX_HERE"
+              "com.googleusercontent.apps.481945533208-35u68ikm7dn5gv99me66b612i5uek4ms"
             ]
           }
         ]
@@ -48,20 +50,18 @@
         }
       ],
       [
-        "expo-font",
-        {
-          "fonts": [
-            "./assets/fonts/Dongle-Regular.ttf",
-            "./assets/fonts/Dongle-Light.ttf",
-            "./assets/fonts/Dongle-Bold.ttf"
-          ]
-        }
-      ],
-      [
         "expo-image-picker",
         {
           "photosPermission": "The app accesses your photos to let you share them with your friends.",
           "cameraPermission": "The app accesses your camera to let you take photos for your profile."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Hengout cần quyền truy cập vị trí của bạn để hiển thị bản đồ và tìm các địa điểm gần bạn.",
+          "locationAlwaysPermission": "Hengout cần quyền truy cập vị trí của bạn để hiển thị bản đồ và tìm các địa điểm gần bạn.",
+          "locationWhenInUsePermission": "Hengout cần quyền truy cập vị trí của bạn để hiển thị bản đồ và tìm các địa điểm gần bạn."
         }
       ],
       "expo-web-browser"

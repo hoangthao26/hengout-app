@@ -150,7 +150,7 @@ const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
                 showError(response.message || 'Không thể tạo collection');
             }
         } catch (error: any) {
-            console.error('Failed to create collection:', error);
+            console.error('[CreateCollectionModal] Failed to create collection:', error);
             const apiMsg = error?.response?.data?.message || error?.message;
             // Duplicate name (409) or any server-provided message
             showError(apiMsg || 'Không thể tạo collection');
@@ -215,22 +215,24 @@ const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
                                 Tạo Collection
                             </Text>
                             <Text style={[styles.subtitle, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>Collections: {collectionsLabel}</Text>
-                            <Text style={[
+                            {/* <Text style={[
                                 styles.subtitle,
                                 { color: isDark ? '#9CA3AF' : '#6B7280' }
                             ]}>
                                 Tạo bộ sưu tập địa điểm mới
-                            </Text>
+                            </Text> */}
                         </View>
 
-                        <GradientButton
-                            title={isCreating ? "Đang tạo..." : "Tạo"}
-                            onPress={handleCreate}
-                            disabled={isCreating || !name.trim()}
-                            size="medium"
-                            fullWidth={false}
-                            minWidth={70}
-                        />
+                        <View style={styles.headerRightButton}>
+                            <GradientButton
+                                title={isCreating ? "Đang tạo..." : "Tạo"}
+                                onPress={handleCreate}
+                                disabled={isCreating || !name.trim()}
+                                size="medium"
+                                fullWidth={false}
+                                minWidth={70}
+                            />
+                        </View>
                     </View>
 
                     {/* Content */}
@@ -409,7 +411,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 24,
-        paddingVertical: 20,
+        paddingVertical: 12,
         borderBottomWidth: 1,
         position: 'relative',
     },
@@ -422,11 +424,14 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     titleContainer: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
+        flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
+        paddingHorizontal: 60, // Add padding to prevent overlap with buttons
+    },
+    headerRightButton: {
+        minWidth: 70,
+        alignItems: 'flex-end',
     },
     title: {
         fontSize: 20,

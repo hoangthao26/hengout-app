@@ -153,7 +153,7 @@ class NavigationService {
     static async navigate(route: string, options?: { skipAuth?: boolean; skipAnalytics?: boolean }) {
         try {
             if (this.isNavigating) {
-                console.warn('Navigation already in progress, skipping...');
+                // Navigation already in progress, skipping duplicate request
                 return;
             }
 
@@ -167,7 +167,6 @@ class NavigationService {
             if (config?.requiresAuth && !options?.skipAuth) {
                 const isAuthenticated = await this.checkAuthentication();
                 if (!isAuthenticated) {
-                    console.log('[NavigationService] Authentication required, redirecting to login');
                     this.navigateToLogin();
                     return;
                 }
@@ -177,7 +176,6 @@ class NavigationService {
             if (config?.featureFlag) {
                 const isFeatureEnabled = await this.checkFeatureFlag(config.featureFlag);
                 if (!isFeatureEnabled) {
-                    console.log(`[NavigationService] Feature ${config.featureFlag} is disabled`);
                     this.navigateToFallback(route);
                     return;
                 }
@@ -205,7 +203,7 @@ class NavigationService {
     static async replace(route: string, options?: { skipAuth?: boolean; skipAnalytics?: boolean }) {
         try {
             if (this.isNavigating) {
-                console.warn('Navigation already in progress, skipping...');
+                // Navigation already in progress, skipping duplicate request
                 return;
             }
 
@@ -219,7 +217,6 @@ class NavigationService {
             if (config?.requiresAuth && !options?.skipAuth) {
                 const isAuthenticated = await this.checkAuthentication();
                 if (!isAuthenticated) {
-                    console.log('[NavigationService] Authentication required, redirecting to login');
                     this.navigateToLogin();
                     return;
                 }
@@ -313,11 +310,6 @@ class NavigationService {
     private static trackNavigation(route: string, analytics: { event: string; properties?: Record<string, any> }) {
         try {
             // TODO: Implement analytics service
-            console.log(`[NavigationService] Analytics: ${analytics.event}`, {
-                route,
-                properties: analytics.properties,
-                timestamp: new Date().toISOString()
-            });
         } catch (error) {
             console.error('[NavigationService] Analytics tracking failed:', error);
         }
@@ -337,10 +329,7 @@ class NavigationService {
             this.navigationHistory = this.navigationHistory.slice(-100);
         }
 
-        console.log(`🧭 Navigation: ${action} to ${route}`, {
-            timestamp: new Date(event.timestamp).toISOString(),
-            historyLength: this.navigationHistory.length
-        });
+        // Navigation logged for debugging (only in dev mode if needed)
     }
 
     private static handleNavigationError(route: string, error: any) {
@@ -358,8 +347,6 @@ class NavigationService {
     }
 
     private static navigateToFallback(originalRoute: string) {
-        // Navigate to a safe fallback route
-        console.log(`Fallback navigation from ${originalRoute} to home`);
         router.replace(ROUTES.HOME as any);
     }
 
@@ -487,8 +474,6 @@ class NavigationService {
     static async goToDiscover() {
         // Auto-get GPS location for discover navigation
         try {
-            console.log('[NavigationService] Auto-getting GPS for discover navigation...');
-
             // Import smart location service
             const { smartLocationService } = await import('./smartLocationService');
 
@@ -501,13 +486,6 @@ class NavigationService {
             });
 
             if (location) {
-                console.log('[NavigationService] Smart location obtained for discover:', {
-                    lat: location.latitude,
-                    lng: location.longitude,
-                    accuracy: location.accuracy,
-                    source: location.source
-                });
-
                 // Navigate with GPS data
                 await this.secureNavigateToDiscover({
                     latitude: location.latitude,
@@ -515,11 +493,9 @@ class NavigationService {
                     accuracy: location.accuracy || 0
                 });
             } else {
-                console.log('[NavigationService] No location available, navigating to discover for user choice');
                 await this.replace(ROUTES.DISCOVER);
             }
         } catch (error) {
-            console.log('[NavigationService] Location error, navigating to discover for user choice:', error);
             await this.replace(ROUTES.DISCOVER);
         }
     }

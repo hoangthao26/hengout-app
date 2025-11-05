@@ -29,7 +29,7 @@ class AuthService {
             const response = await publicAxios.post<AuthResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.warn('Failed to login user:', error);
+            console.error('[AuthService] Failed to login user:', error);
             throw error;
         }
     }
@@ -45,7 +45,7 @@ class AuthService {
             const response = await axiosInstance.post<AuthResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.warn('Failed to change password:', error);
+            console.error('[AuthService] Failed to change password:', error);
             throw error;
         }
     }
@@ -60,7 +60,7 @@ class AuthService {
             const response = await axiosInstance.get(endpoint);
             return response.data;
         } catch (error: any) {
-            console.warn('Failed to get password status:', error);
+            console.error('[AuthService] Failed to get password status:', error);
             throw error;
         }
     }
@@ -76,7 +76,7 @@ class AuthService {
             const response = await axiosInstance.post(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.warn('Failed to set password:', error);
+            console.error('[AuthService] Failed to set password:', error);
             throw error;
         }
     }
@@ -92,7 +92,7 @@ class AuthService {
             const response = await publicAxios.post<OTPResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.warn('Failed to register and send OTP:', error);
+            console.error('[AuthService] Failed to register and send OTP:', error);
             throw error;
         }
     }
@@ -108,7 +108,7 @@ class AuthService {
             const response = await publicAxios.post<AuthResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.warn('Failed to verify OTP:', error);
+            console.error('[AuthService] Failed to verify OTP:', error);
             throw error;
         }
     }
@@ -124,7 +124,7 @@ class AuthService {
             const response = await publicAxios.post<OTPResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.warn('Failed to resend OTP:', error);
+            console.error('[AuthService] Failed to resend OTP:', error);
             throw error;
         }
     }
@@ -140,7 +140,7 @@ class AuthService {
             const response = await publicAxios.post<AuthResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.warn('Failed to login with Google OAuth:', error);
+            console.error('[AuthService] Failed to login with Google OAuth:', error);
             throw error;
         }
     }
@@ -156,7 +156,7 @@ class AuthService {
             const response = await publicAxios.post<OTPResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.warn('Failed to send forgot password OTP:', error);
+            console.error('[AuthService] Failed to send forgot password OTP:', error);
             throw error;
         }
     }
@@ -172,7 +172,7 @@ class AuthService {
             const response = await publicAxios.post<OTPResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.warn('Failed to verify forgot password OTP:', error);
+            console.error('[AuthService] Failed to verify forgot password OTP:', error);
             throw error;
         }
     }
@@ -188,7 +188,7 @@ class AuthService {
             const response = await publicAxios.post<AuthResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.warn('Failed to reset password:', error);
+            console.error('[AuthService] Failed to reset password:', error);
             throw error;
         }
     }

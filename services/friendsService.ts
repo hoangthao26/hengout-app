@@ -15,7 +15,7 @@ class FriendsService {
             const response = await axiosInstance.get<GetFriendsResponse>(endpoint);
             return response.data.data;
         } catch (error: any) {
-            console.error('Failed to get friends:', error);
+            console.error('[FriendsService] Failed to get friends:', error);
             throw error;
         }
     }
@@ -30,7 +30,7 @@ class FriendsService {
             const response = await axiosInstance.delete<RemoveFriendResponse>(endpoint);
             // No need to return anything for void methods
         } catch (error: any) {
-            console.error(`Failed to remove friend ${friendId}:`, error);
+            console.error(`[FriendsService] Failed to remove friend ${friendId}:`, error);
             throw error;
         }
     }

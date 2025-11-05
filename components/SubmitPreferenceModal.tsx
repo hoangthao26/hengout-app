@@ -58,7 +58,7 @@ export default function SubmitPreferenceModal({
             onSubmitSuccess?.(); // Call callback to update parent component
             onClose();
         } catch (err: any) {
-            console.error('Failed to submit preference:', err);
+            console.error('[SubmitPreferenceModal] Failed to submit preference:', err);
             error(err.message || 'Không thể gửi sở thích');
         } finally {
             setSubmitting(false);

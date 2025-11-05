@@ -57,11 +57,9 @@ export default function FriendsListScreen() {
     // Function to refresh conversations after friend actions
     const refreshConversations = useCallback(async () => {
         try {
-            console.log('[Friends List] Refreshing conversations after friend action...');
             const response = await chatService.getConversations();
             if (response.status === 'success') {
                 setConversations(response.data);
-                console.log('[Friends List] Conversations refreshed successfully');
             } else {
                 console.warn('[Friends List] Failed to refresh conversations:', response.message);
             }
@@ -98,7 +96,7 @@ export default function FriendsListScreen() {
             const friendsData = await socialService.getFriends();
             setFriends(friendsData);
         } catch (error) {
-            console.error('Error loading friends:', error);
+            console.error('[FriendsList] Failed to load friends:', error);
             Alert.alert('Lỗi', 'Không thể tải danh sách bạn bè');
         } finally {
             setLoading(false);
@@ -144,7 +142,7 @@ export default function FriendsListScreen() {
             // Refresh conversations to update conversation list (private conversation may be hidden/removed)
             await refreshConversations();
         } catch (error) {
-            console.error('Error removing friend:', error);
+            console.error('[FriendsList] Failed to remove friend:', error);
             showError('Không thể xóa bạn bè');
         }
     };
@@ -158,7 +156,7 @@ export default function FriendsListScreen() {
             // Refresh conversations to update conversation list (private conversation may be hidden/removed)
             await refreshConversations();
         } catch (error) {
-            console.error('Error blocking friend:', error);
+            console.error('[FriendsList] Failed to block friend:', error);
             showError('Không thể chặn bạn bè');
         }
     };
@@ -181,7 +179,6 @@ export default function FriendsListScreen() {
 
         try {
             setSearchLoading(true);
-            console.log('[Friends List] Starting search for:', query);
 
             const response = await userSearchService.searchUsers({
                 query,
@@ -189,12 +186,7 @@ export default function FriendsListScreen() {
                 size: 10
             });
 
-            console.log('[Friends List] Search response:', response);
-            console.log('[Friends List] Search results content:', response.data.content);
-
             setSearchResults(response.data.content);
-
-            console.log('[Friends List] Search results set:', response.data.content.length, 'users');
         } catch (error: any) {
             console.error('[Friends List] Failed to search users:', error);
             showError(`Failed to search users: ${error.message}`);
@@ -263,8 +255,8 @@ export default function FriendsListScreen() {
                     onBackPress={() => NavigationService.goBack()}
                     rightContent={(
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Users size={14} color={isDark ? '#9CA3AF' : '#6B7280'} />
-                            <Text style={{ marginLeft: 6, color: isDark ? '#9CA3AF' : '#6B7280', fontSize: 12, fontWeight: '600' }}>
+                            <Users size={20} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                            <Text style={{ marginLeft: 6, color: isDark ? '#9CA3AF' : '#6B7280', fontSize: 16, fontWeight: '600' }}>
                                 {friendsLabel}
                             </Text>
                         </View>
@@ -404,7 +396,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingVertical: 12,
         paddingHorizontal: 16,
-        borderRadius: 12,
+        borderRadius: 24,
         marginBottom: 8,
         marginHorizontal: 16,
         shadowColor: '#000',

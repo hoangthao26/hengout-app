@@ -67,7 +67,6 @@ const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
             // Request permission
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                console.log('Location permission denied, using default location');
                 return; // Use default TP.HCM location
             }
 
@@ -86,11 +85,10 @@ const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                 longitude,
             }));
 
-            console.log('Location updated:', { latitude, longitude });
 
         } catch (error) {
-            console.error('Error getting location:', error);
-            // Silently fail, use default location
+            // Silently fail, use default location (Ho Chi Minh City)
+            console.error('[CreateActivityModal] Error getting location:', error);
         } finally {
             setLocationLoading(false);
         }
@@ -123,7 +121,7 @@ const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                 Alert.alert('Lỗi', result.message || 'Có lỗi xảy ra khi tạo hoạt động');
             }
         } catch (error: any) {
-            console.error('Error creating activity:', error);
+            console.error('[CreateActivityModal] Failed to create activity:', error);
             Alert.alert('Lỗi', error.message || 'Không thể kết nối đến server');
         } finally {
             setLoading(false);

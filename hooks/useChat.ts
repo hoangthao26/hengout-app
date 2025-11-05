@@ -55,6 +55,10 @@ export const useChat = () => {
 
     // ==================== CONVERSATIONS ====================
 
+    /**
+     * Load all conversations for the current user
+     * Updates the conversations state in the store
+     */
     const loadConversations = useCallback(async () => {
         try {
             setConversationsLoading(true);
@@ -69,12 +73,11 @@ export const useChat = () => {
                 showError(response.message || 'Không thể tải danh sách cuộc trò chuyện');
             }
         } catch (error: any) {
-            // DEFENSIVE: Don't show error if user logged out
+            // Don't show error if user logged out
             if (error.message?.includes('User logged out')) {
-                console.log('[useChat] User logged out, skipping conversation load');
                 return;
             }
-            console.error('Failed to load conversations:', error);
+            console.error('[useChat] Failed to load conversations:', error);
             const errorMessage = error.message || 'Không thể tải danh sách cuộc trò chuyện';
             setConversationsError(errorMessage);
             showError(errorMessage);
@@ -83,6 +86,11 @@ export const useChat = () => {
         }
     }, [setConversations, setConversationsLoading, setConversationsError, showError]);
 
+    /**
+     * Load a specific conversation by ID
+     * @param conversationId - The ID of the conversation to load
+     * @returns The conversation data or throws an error
+     */
     const loadConversation = useCallback(async (conversationId: string) => {
         try {
             const response = await chatService.getConversation(conversationId);
@@ -96,13 +104,18 @@ export const useChat = () => {
                 throw new Error(errorMessage);
             }
         } catch (error: any) {
-            console.error('Failed to load conversation:', error);
+            console.error('[useChat] Failed to load conversation:', error);
             const errorMessage = error.message || 'Không thể tải thông tin cuộc trò chuyện';
             showError(errorMessage);
             throw error;
         }
     }, [setCurrentConversation, showError]);
 
+    /**
+     * Create a new group conversation
+     * @param data - Group creation data including name and member IDs
+     * @returns The created conversation or throws an error
+     */
     const createGroupConversation = useCallback(async (data: CreateGroupRequest) => {
         try {
             const response = await chatService.createGroupConversation(data);
@@ -117,7 +130,7 @@ export const useChat = () => {
                 throw new Error(errorMessage);
             }
         } catch (error: any) {
-            console.error('Failed to create group conversation:', error);
+            console.error('[useChat] Failed to create group conversation:', error);
             const errorMessage = error.message || 'Không thể tạo nhóm trò chuyện';
             showError(errorMessage);
             throw error;
@@ -137,7 +150,7 @@ export const useChat = () => {
                 throw new Error(errorMessage);
             }
         } catch (error: any) {
-            console.error('Failed to update conversation name:', error);
+            console.error('[useChat] Failed to update conversation name:', error);
             const errorMessage = error.message || 'Không thể cập nhật tên cuộc trò chuyện';
             showError(errorMessage);
             throw error;
@@ -157,7 +170,7 @@ export const useChat = () => {
                 throw new Error(errorMessage);
             }
         } catch (error: any) {
-            console.error('Failed to update conversation avatar:', error);
+            console.error('[useChat] Failed to update conversation avatar:', error);
             const errorMessage = error.message || 'Không thể cập nhật avatar cuộc trò chuyện';
             showError(errorMessage);
             throw error;
@@ -166,6 +179,21 @@ export const useChat = () => {
 
     // ==================== MESSAGES ====================
 
+    /**
+     * Load messages for a conversation with pagination
+     * 
+     * Pagination strategy:
+     * - Page 0: Replaces all messages (initial load or refresh)
+     * - Page > 0: Appends messages to existing list (load more history)
+     * 
+     * This allows infinite scroll pattern where users can load older messages
+     * without losing currently displayed messages.
+     * 
+     * @param conversationId - The ID of the conversation
+     * @param page - Page number (0-indexed), 0 = replace, >0 = append
+     * @param size - Number of messages per page
+     * @returns The loaded messages or throws an error
+     */
     const loadMessages = useCallback(async (conversationId: string, page: number = 0, size: number = 20) => {
         try {
             setMessagesLoading(conversationId, true);
@@ -175,10 +203,10 @@ export const useChat = () => {
 
             if (response.status === 'success') {
                 if (page === 0) {
-                    // Replace messages for first page
+                    // Replace messages for first page (initial load/refresh)
                     setConversationMessages(conversationId, response.data);
                 } else {
-                    // Append messages for pagination
+                    // Append messages for pagination (load more history)
                     const currentMessages = conversationMessages[conversationId] || [];
                     setConversationMessages(conversationId, [...currentMessages, ...response.data]);
                 }
@@ -190,7 +218,7 @@ export const useChat = () => {
                 throw new Error(errorMessage);
             }
         } catch (error: any) {
-            console.error('Failed to load messages:', error);
+            console.error('[useChat] Failed to load messages:', error);
             const errorMessage = error.message || 'Không thể tải tin nhắn';
             setMessagesError(conversationId, errorMessage);
             showError(errorMessage);
@@ -200,6 +228,12 @@ export const useChat = () => {
         }
     }, [conversationMessages, setConversationMessages, setMessagesLoading, setMessagesError, showError]);
 
+    /**
+     * Send a message to a conversation
+     * Updates the conversation's last message automatically
+     * @param data - Message data including conversation ID, type, and content
+     * @returns The sent message or throws an error
+     */
     const sendMessage = useCallback(async (data: SendMessageRequest) => {
         try {
             const response = await chatService.sendMessage(data);
@@ -219,7 +253,7 @@ export const useChat = () => {
                 throw new Error(errorMessage);
             }
         } catch (error: any) {
-            console.error('Failed to send message:', error);
+            console.error('[useChat] Failed to send message:', error);
             const errorMessage = error.message || 'Không thể gửi tin nhắn';
             showError(errorMessage);
             throw error;
@@ -245,7 +279,7 @@ export const useChat = () => {
                 throw new Error(errorMessage);
             }
         } catch (error: any) {
-            console.error('Failed to load group members:', error);
+            console.error('[useChat] Failed to load group members:', error);
             const errorMessage = error.message || 'Không thể tải danh sách thành viên';
             setMembersError(conversationId, errorMessage);
             showError(errorMessage);
@@ -269,7 +303,7 @@ export const useChat = () => {
                 throw new Error(errorMessage);
             }
         } catch (error: any) {
-            console.error('Failed to add member:', error);
+            console.error('[useChat] Failed to add member:', error);
             const errorMessage = error.message || 'Không thể thêm thành viên';
             showError(errorMessage);
             throw error;
@@ -290,7 +324,7 @@ export const useChat = () => {
                 throw new Error(errorMessage);
             }
         } catch (error: any) {
-            console.error('Failed to remove member:', error);
+            console.error('[useChat] Failed to remove member:', error);
             const errorMessage = error.message || 'Không thể xóa thành viên';
             showError(errorMessage);
             throw error;

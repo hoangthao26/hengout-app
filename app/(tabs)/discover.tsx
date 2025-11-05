@@ -99,12 +99,9 @@ export default function DiscoverScreen() {
     });
 
     const handleLocationSelect = useCallback((location: { lat: number; lng: number }) => {
-        console.log('handleLocationSelect called - closing modal');
         setSelectedLocation(location);
-        // Close LocationCard when clicking on map
         setIsDetailSheetVisible(false);
         setSelectedLocationForDetail(null);
-        // Remove debug logs in production
     }, []);
 
     // Handle MapPin selection
@@ -120,10 +117,7 @@ export default function DiscoverScreen() {
                 lng: locationDetails.longitude
             });
 
-            // Show LocationCard
             setSelectedLocationForDetail(locationDetails);
-            console.log('LocationCard should be visible now');
-
         }, 0);
     }, []);
 
@@ -139,7 +133,8 @@ export default function DiscoverScreen() {
 
             await getRandomRecommendations(lat, lng, address || undefined);
         } catch (error) {
-            console.error('Failed to load random recommendations:', error);
+            // Silently fail - recommendations will load when location is available
+            console.error('[Discover] Failed to load random recommendations:', error);
         }
     }, [tokens.accessToken, getRandomRecommendations, getAddressFromCoordinates]);
 
@@ -222,10 +217,7 @@ export default function DiscoverScreen() {
     const handleOpenDetailModal = useCallback((locationDetails: LocationDetails) => {
         // Keep the LocationCard visible when opening modal
         setSelectedLocationForDetail(locationDetails);
-        openLocationDetailModal(locationDetails, () => {
-            // Keep LocationCard visible after modal closes
-            console.log('LocationDetailModal closed, keeping LocationCard visible');
-        });
+        openLocationDetailModal(locationDetails);
     }, [openLocationDetailModal]);
 
     // Handle navigation to location
@@ -245,25 +237,40 @@ export default function DiscoverScreen() {
                 { text: 'Hủy', style: 'cancel' },
                 {
                     text: 'Mở bản đồ', onPress: () => {
-                        // Add logic to open external maps app
-                        console.log('Opening maps app for:', locationDetails.name);
+                        // Logic to open external maps app
                     }
                 }
             ]
         );
     }, [mapController]);
 
-    // Handle go to initial location
-    const handleGoToInitialLocation = useCallback(() => {
+    // Handle go to initial location - Best Practice: Request permission when user needs it
+    const handleGoToInitialLocation = useCallback(async () => {
         if (mapController) {
-            // Use current GPS location if available, otherwise use initial location
+            // If we have location, use it
             if (location) {
                 mapController.centerMapOnLocation(location.latitude, location.longitude, 0.01);
-            } else {
-                mapController.goToInitialLocation();
+                return;
             }
+
+            // No location - request permission when user explicitly needs it (best practice)
+            const hasPermission = await requestLocationPermission();
+            if (hasPermission) {
+                const currentLocation = await getCurrentLocation();
+                if (currentLocation) {
+                    mapController.centerMapOnLocation(
+                        currentLocation.latitude,
+                        currentLocation.longitude,
+                        0.01
+                    );
+                    return;
+                }
+            }
+
+            // Fallback: Go to initial/fallback location
+                mapController.goToInitialLocation();
         }
-    }, [mapController, location]);
+    }, [mapController, location, requestLocationPermission, getCurrentLocation]);
 
     // Stable callback for centering map
     const handleCenterMap = useCallback((latitude: number, longitude: number, delta?: number) => {
@@ -298,8 +305,7 @@ export default function DiscoverScreen() {
                 { text: 'Hủy', style: 'cancel' },
                 {
                     text: 'Gọi', onPress: () => {
-                        // Add logic to make phone call
-                        console.log('Calling:', phoneNumber);
+                        // Logic to make phone call
                     }
                 }
             ]
@@ -315,8 +321,7 @@ export default function DiscoverScreen() {
                 { text: 'Hủy', style: 'cancel' },
                 {
                     text: 'Lưu', onPress: () => {
-                        // Add logic to save location
-                        console.log('Saving location:', locationDetails.name);
+                        // Logic to save location
                     }
                 }
             ]
@@ -332,8 +337,7 @@ export default function DiscoverScreen() {
                 { text: 'Hủy', style: 'cancel' },
                 {
                     text: 'Chia sẻ', onPress: () => {
-                        // Add logic to share location
-                        console.log('Sharing location:', locationDetails.name);
+                        // Logic to share location
                     }
                 }
             ]
@@ -373,7 +377,8 @@ export default function DiscoverScreen() {
 
     // Remove duplicate initializeLocation function
 
-    // Initialize location on mount - use splash data if available
+    // Initialize location on mount - Best Practice: Don't request permission on mount
+    // Only use location if already granted or from splash screen
     useEffect(() => {
         let isMounted = true;
 
@@ -383,87 +388,73 @@ export default function DiscoverScreen() {
             try {
                 // Check if we have location data from splash screen
                 if (lat && lng) {
-                    console.log('[Discover] Using location from splash screen');
-
                     setInitialLocation({
                         lat: parseFloat(lat),
                         lng: parseFloat(lng)
                     });
 
-                    // Start watching location for real-time updates
+                    // Check permission status (don't request)
+                    const { status } = await Location.getForegroundPermissionsAsync();
+                    if (status === 'granted') {
+                        // Permission already granted, start watching location
                     await watchLocation();
-                    setIsInitialized(true);
+                    }
 
+                    setIsInitialized(true);
                     // Load random recommendations
                     await loadRandomRecommendations(parseFloat(lat), parseFloat(lng));
                     return;
                 }
 
-                // Try to get better location using smart location service
-                console.log('[Discover] Getting location with smart service...');
+                // Try to get location using smart location service (only if permission exists)
+                // Don't request permission here - best practice
                 const { smartLocationService } = await import('../../services/smartLocationService');
 
                 const smartLocation = await smartLocationService.getCurrentLocation({
                     accuracy: Location.Accuracy.High,
-                    timeout: 10000,
-                    retries: 3,
-                    useCache: true
+                    timeout: 5000,
+                    retries: 1,
+                    useCache: true,
+                    requestPermission: false // Don't request permission on mount
                 });
 
-                if (smartLocation && isMounted) {
-                    console.log('[Discover] Smart location obtained:', {
-                        lat: smartLocation.latitude,
-                        lng: smartLocation.longitude,
-                        accuracy: smartLocation.accuracy,
-                        source: smartLocation.source
-                    });
-
+                if (smartLocation && smartLocation.source !== 'fallback' && isMounted) {
                     setInitialLocation({
                         lat: smartLocation.latitude,
                         lng: smartLocation.longitude
                     });
 
-                    // Start watching location for real-time updates
+                    // Check permission status (don't request)
+                    const { status } = await Location.getForegroundPermissionsAsync();
+                    if (status === 'granted') {
+                        // Permission already granted, start watching location
                     await watchLocation();
-                    setIsInitialized(true);
+                    }
 
+                    setIsInitialized(true);
                     // Load random recommendations
                     await loadRandomRecommendations(smartLocation.latitude, smartLocation.longitude);
                 } else {
-                    // Fallback: Use existing useLocation hook
-                    console.log('[Discover] Smart location failed, trying fallback...');
-                    const hasPermission = await requestLocationPermission();
-
-                    if (hasPermission && isMounted) {
-                        const currentLocation = await getCurrentLocation();
-
-                        if (currentLocation && isMounted) {
+                    // No location available - use fallback location (HCMC)
+                    // Don't request permission here - let user request it when needed
+                    const fallback = smartLocationService.getFallbackLocation();
                             setInitialLocation({
-                                lat: currentLocation.latitude,
-                                lng: currentLocation.longitude
+                        lat: fallback.latitude,
+                        lng: fallback.longitude
                             });
-
-                            await watchLocation();
-                            setIsInitialized(true);
-                            await loadRandomRecommendations(currentLocation.latitude, currentLocation.longitude);
-                        } else {
-                            // No location available - show location picker
-                            console.log('[Discover] No location available, showing location picker');
-                            setIsInitialized(true);
-                            // TODO: Show location picker component
-                        }
-                    } else {
-                        // No permission - show location picker
-                        console.log('[Discover] No location permission, showing location picker');
                         setIsInitialized(true);
-                        // TODO: Show location picker component
-                    }
                 }
             } catch (error) {
-                console.log('[Discover] Location initialization error:', error);
+                console.error('[Discover] Location initialization error:', error);
                 if (isMounted) {
+                    // Fallback: Show map with default location (Ho Chi Minh City)
+                    const { smartLocationService } = await import('../../services/smartLocationService');
+                    const fallback = smartLocationService.getFallbackLocation();
+                    setInitialLocation({
+                        lat: fallback.latitude,
+                        lng: fallback.longitude
+                    });
                     setIsInitialized(true);
-                    // TODO: Show location picker component
                 }
             }
         };
@@ -479,7 +470,7 @@ export default function DiscoverScreen() {
                 clearTimeout(searchTimeout);
             }
         };
-    }, [lat, lng, accuracy]); // Dependencies include splash location data
+    }, [lat, lng, accuracy, watchLocation]); // Dependencies include splash location data
 
     // Center map on GPS location when initialLocation is set and mapController is ready
     useEffect(() => {
@@ -495,69 +486,50 @@ export default function DiscoverScreen() {
     // Handle auto-open location card from collection detail
     useEffect(() => {
         if (locationId && latitude && longitude && autoOpenCard === 'true') {
-            console.log('[Discover] Auto-opening location card from collection:', { locationId, latitude, longitude });
-
             const lat = parseFloat(latitude);
             const lng = parseFloat(longitude);
 
-            // Set map center to location coordinates
-            const newLocation = {
-                lat: lat,
-                lng: lng,
-            };
-            setSelectedLocation(newLocation);
+            setSelectedLocation({ lat, lng });
 
-            // Move map center to the location (with delay to ensure map is ready)
+            // Move map center to the location
             setTimeout(() => {
                 if (mapController) {
-                    console.log('[Discover] Moving map to location');
                     mapController.centerMapOnLocation(lat, lng, 0.005);
                 } else {
-                    console.log('[Discover] Map controller not ready yet, retrying...');
-                    // Retry after a longer delay
                     setTimeout(() => {
                         if (mapController) {
-                            console.log('[Discover] Moving map to location (retry)');
                             (mapController as any).centerMapOnLocation(lat, lng, 0.005);
                         }
                     }, 1000);
                 }
             }, 500);
 
-            // Fetch full location details and open card (fallback)
+            // Fetch full location details and open card
             const fetchLocationDetails = async () => {
                 try {
-                    console.log('[Discover] Fetching location details for auto-open');
                     const response = await locationService.getLocationDetails(locationId);
-
                     if (response.status === 'success') {
-                        console.log('[Discover] Location details fetched, opening card');
                         setSelectedLocationDetails(response.data);
                         setSelectedLocationForDetail(response.data);
-                    } else {
-                        console.error('[Discover] Failed to fetch location details:', response.message);
-                        // showError('Không thể tải thông tin địa điểm');
                     }
                 } catch (error) {
+                    // Silently fail - location card won't show details
                     console.error('[Discover] Error fetching location details:', error);
-                    // showError('Lỗi khi tải thông tin địa điểm');
                 }
             };
 
             // Use location data if available, otherwise fetch from API
             if (locationData) {
                 try {
-                    console.log('[Discover] Using location data from params');
                     const locationDetails = JSON.parse(locationData);
                     setSelectedLocationDetails(locationDetails);
                     setSelectedLocationForDetail(locationDetails);
                 } catch (error) {
+                    // Failed to parse location data - fetch from API instead
                     console.error('[Discover] Failed to parse location data:', error);
-                    // Fallback to API call
                     fetchLocationDetails();
                 }
             } else {
-                // Fallback: Fetch from API if no data provided
                 fetchLocationDetails();
             }
         }
@@ -599,54 +571,52 @@ export default function DiscoverScreen() {
                         </View>
                     )}
 
-                    {/* Floating Filter Button - always on the right of search area */}
-                    <TouchableOpacity
-                        style={styles.filterFloating}
-                        onPress={() => {
-                            if (!location) return;
-                            openFilterVibesModal(async ({ categories, purposes, tags }) => {
-                                const isEmpty = (!categories || categories.length === 0) && (!purposes || purposes.length === 0) && (!tags || tags.length === 0);
+                    {/* Floating Filter Button - only show when search is open */}
+                    {isSearchOpen && (
+                        <TouchableOpacity
+                            style={styles.filterFloating}
+                            onPress={() => {
+                                if (!location) return;
+                                openFilterVibesModal(async ({ categories, purposes, tags }) => {
+                                    const isEmpty = (!categories || categories.length === 0) && (!purposes || purposes.length === 0) && (!tags || tags.length === 0);
 
-                                if (isEmpty) {
-                                    // Clear filter results and reload random recommendations
-                                    clearFilter();
-                                    clearNLPSearch();
+                                    if (isEmpty) {
+                                        clearFilter();
+                                        clearNLPSearch();
+                                        clearRecommendations();
+                                        await refreshRecommendations(location.latitude, location.longitude);
+                                        return;
+                                    }
+
                                     clearRecommendations();
-                                    await refreshRecommendations(location.latitude, location.longitude);
-                                    console.log('[Filter] Cleared filters -> reload random recommendations');
-                                    return;
-                                }
 
-                                // Hide random results while filter is active
-                                clearRecommendations();
-
-                                try {
-                                    const res = await fetchByFilter({
-                                        categories,
-                                        purposes,
-                                        tags,
-                                        latitude: location.latitude,
-                                        longitude: location.longitude,
-                                        address: ''
-                                    });
-                                    console.log('[Filter] API response:', JSON.stringify(res, null, 2));
-                                } catch (err) {
-                                    console.log('[Filter] API error:', err);
-                                }
-                            });
-                        }}
-                        activeOpacity={0.85}
-                    >
-                        <LinearGradient
-                            colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
-                            locations={[0, 0.31, 0.69, 1]}
-                            start={{ x: 0, y: 1 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.gradientButton}
+                                    try {
+                                        await fetchByFilter({
+                                            categories,
+                                            purposes,
+                                            tags,
+                                            latitude: location.latitude,
+                                            longitude: location.longitude,
+                                            address: ''
+                                        });
+                                    } catch (err) {
+                                        console.error('[Discover] Filter API error:', err);
+                                    }
+                                });
+                            }}
+                            activeOpacity={0.85}
                         >
-                            <Filter size={28} color="#FFFFFF" />
-                        </LinearGradient>
-                    </TouchableOpacity>
+                            <LinearGradient
+                                colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
+                                locations={[0, 0.31, 0.69, 1]}
+                                start={{ x: 0, y: 1 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.gradientButton}
+                            >
+                                <Filter size={28} color="#FFFFFF" />
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    )}
 
                     {/* Bottom Container - Buttons + LocationCard */}
                     <View style={styles.bottomContainer}>

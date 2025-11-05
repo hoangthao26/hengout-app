@@ -105,7 +105,7 @@ export class ErrorBoundary extends Component<Props, State> {
         if (!error) return;
 
         // In Phase 3, this will integrate with error reporting service
-        console.log('[ErrorBoundary] Error reported:', error);
+        console.error('[ErrorBoundary] Error reported:', error);
 
         Alert.alert(
             'Error Reported',
