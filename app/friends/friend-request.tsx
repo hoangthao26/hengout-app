@@ -10,28 +10,42 @@ import {
     useColorScheme,
     View
 } from 'react-native';
-import BottomSheetModal from '../components/BottomSheetModal';
-import GradientButton from '../components/GradientButton';
-import Header from '../components/Header';
-import SearchUserItem from '../components/SearchUserItem';
-import SimpleAvatar from '../components/SimpleAvatar';
-import { useToast } from '../contexts/ToastContext';
-import { useFriendActions } from '../hooks/useFriendActions';
-import NavigationService from '../services/navigationService';
-import { socialService } from '../services/socialService';
-import { userSearchService } from '../services/userSearchService';
-import { useFriendStore, usePendingRequests } from '../store/friendStore';
-import { FriendRequest, SearchUser } from '../types/social';
+import BottomSheetModal from '../../components/BottomSheetModal';
+import GradientButton from '../../components/GradientButton';
+import Header from '../../components/Header';
+import SearchUserItem from '../../components/SearchUserItem';
+import SimpleAvatar from '../../components/SimpleAvatar';
+import { FeatureErrorBoundary } from '../../components/FeatureErrorBoundary';
+import { useToast } from '../../contexts/ToastContext';
+import { useFriendActions } from '../../hooks/useFriendActions';
+import NavigationService from '../../services/navigationService';
+import { socialService } from '../../services/socialService';
+import { userSearchService } from '../../services/userSearchService';
+import { useFriendStore, usePendingRequests, useFriends } from '../../store/friendStore';
+import useLimits from '../../hooks/useLimits';
+import { SubscriptionModal, PaymentScreen } from '../../components/subscription';
+import { paymentFlowManager } from '../../services/paymentFlowManager';
+import { Plan } from '../../types/subscription';
+import { useChatStore } from '../../store/chatStore';
+import { chatService } from '../../services/chatService';
+import { FriendRequest, SearchUser } from '../../types/social';
+import { showLimitReachedThenUpgrade } from '../../services/limitsService';
 
 
 export default function FriendRequestScreen() {
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
-    const { success: showSuccess, error: showError, info: showInfo, warning: showWarning } = useToast();
+    const { success: showSuccess, error: showError, info: showInfo, warning: showWarning, showToast } = useToast() as any;
 
     // Global state from FriendStore
     const pendingRequests = usePendingRequests();
     const { setPendingRequests, setLoadingPending } = useFriendStore();
+    const friends = useFriends();
+    const currentFriendsCount = friends.length;
+    const friendsLimit = useLimits('friends', currentFriendsCount, () => setShowSubscriptionModal(true));
+
+    // Chat store for refreshing conversations
+    const { setConversations } = useChatStore();
 
     // Local states
     const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
@@ -40,6 +54,34 @@ export default function FriendRequestScreen() {
     const [searchLoading, setSearchLoading] = useState(false);
     const [processingRequest, setProcessingRequest] = useState<string | null>(null);
     const [showBottomSheet, setShowBottomSheet] = useState(false);
+    const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+    const [showPaymentScreen, setShowPaymentScreen] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+
+    // Sync with global payment flow like ProfileScreen
+    useEffect(() => {
+        const unsubscribe = paymentFlowManager.subscribe(() => {
+            const current = paymentFlowManager.getCurrentPayment();
+            if (current) {
+                setSelectedPlan(current.plan);
+                setShowPaymentScreen(true);
+            } else {
+                setShowPaymentScreen(false);
+                setSelectedPlan(null);
+            }
+        });
+        return unsubscribe;
+    }, []);
+
+    const handlePlanSelect = useCallback((plan: Plan) => {
+        setShowSubscriptionModal(false);
+        paymentFlowManager.startPayment(plan).catch(() => { /* noop */ });
+    }, []);
+
+    const handlePaymentBack = useCallback(() => {
+        setShowPaymentScreen(false);
+        setSelectedPlan(null);
+    }, []);
 
     // Use custom hook for friend actions
     const {
@@ -50,7 +92,21 @@ export default function FriendRequestScreen() {
         handleAcceptRequestFromSearch,
         handleRejectRequestFromSearch,
         handleBlockUser,
-    } = useFriendActions(searchResults, setSearchResults);
+    } = useFriendActions(searchResults, setSearchResults, currentFriendsCount, () => setShowSubscriptionModal(true));
+
+    // Function to refresh conversations after friend request acceptance
+    const refreshConversations = useCallback(async () => {
+        try {
+            const response = await chatService.getConversations();
+            if (response.status === 'success') {
+                setConversations(response.data);
+            } else {
+                console.warn('[Friend Request] Failed to refresh conversations:', response.message);
+            }
+        } catch (error) {
+            console.error('[Friend Request] Error refreshing conversations:', error);
+        }
+    }, [setConversations]);
 
     useEffect(() => {
         loadPendingRequests();
@@ -81,7 +137,7 @@ export default function FriendRequestScreen() {
             const response = await socialService.getPendingFriendRequests();
             setPendingRequests(response.data);
         } catch (error: any) {
-            console.error('Failed to load pending requests:', error);
+            console.error('[FriendRequest] Failed to load pending requests:', error);
             showError(`Failed to load friend requests: ${error.message}`,);
         } finally {
             setLoading(false);
@@ -97,7 +153,6 @@ export default function FriendRequestScreen() {
 
         try {
             setSearchLoading(true);
-            console.log('🔍 Friend Request - Starting search for:', query);
 
             const response = await userSearchService.searchUsers({
                 query,
@@ -105,14 +160,9 @@ export default function FriendRequestScreen() {
                 size: 10
             });
 
-            console.log('📋 Friend Request - Search response:', response);
-            console.log('📋 Friend Request - Search results content:', response.data.content);
-
             setSearchResults(response.data.content);
-
-            console.log('✅ Friend Request - Search results set:', response.data.content.length, 'users');
         } catch (error: any) {
-            console.error('❌ Friend Request - Failed to search users:', error);
+            console.error('[FriendRequest] Failed to search users:', error);
             showError(`Failed to search users: ${error.message}`);
         } finally {
             setSearchLoading(false);
@@ -120,15 +170,22 @@ export default function FriendRequestScreen() {
     };
 
     const handleAcceptRequest = async (requestId: string) => {
+        if (friendsLimit.isAtLimit) {
+            showLimitReachedThenUpgrade({ error: showError, showToast }, friendsLimit.label, 4200, () => setShowSubscriptionModal(true));
+            return;
+        }
         try {
             setProcessingRequest(requestId);
             await socialService.handleFriendRequest(requestId, 'ACCEPTED');
             showSuccess('Friend request accepted!',);
 
-            // Remove from pending requests (global store will be updated by useFriendActions)
-            // setPendingRequests(prev => prev.filter(req => req.id !== requestId));
+            // Remove from pending requests immediately
+            setPendingRequests(pendingRequests.filter((req: FriendRequest) => req.id !== requestId));
+
+            // Refresh conversations to show new conversation immediately
+            await refreshConversations();
         } catch (error: any) {
-            console.error('Failed to accept friend request:', error);
+            console.error('[FriendRequest] Failed to accept friend request:', error);
             showError(`Failed to accept friend request: ${error.message}`,);
         } finally {
             setProcessingRequest(null);
@@ -141,10 +198,10 @@ export default function FriendRequestScreen() {
             await socialService.handleFriendRequest(requestId, 'REJECTED');
             showSuccess('Friend request rejected',);
 
-            // Remove from pending requests (global store will be updated by useFriendActions)
-            // setPendingRequests(prev => prev.filter(req => req.id !== requestId));
+            // Remove from pending requests immediately
+            setPendingRequests(pendingRequests.filter((req: FriendRequest) => req.id !== requestId));
         } catch (error: any) {
-            console.error('Failed to reject friend request:', error);
+            console.error('[FriendRequest] Failed to reject friend request:', error);
             showError(`Failed to reject friend request: ${error.message}`,);
         } finally {
             setProcessingRequest(null);
@@ -205,96 +262,113 @@ export default function FriendRequestScreen() {
     );
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            {/* Header */}
-            <Header
-                title="Lời mời kết bạn"
-                onBackPress={() => NavigationService.goBack()}
-                rightIcon={{
-                    icon: MoreHorizontal,
-                    size: 28,
-                    onPress: () => setShowBottomSheet(true)
-                }}
-            />
-
-            {/* Search Bar */}
-            <View style={styles.searchContainer}>
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Thêm bạn mới"
-                    placeholderTextColor="#9CA3AF"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
+        <FeatureErrorBoundary feature="Friends">
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                {/* Header */}
+                <Header
+                    title="Lời mời kết bạn"
+                    onBackPress={() => NavigationService.goBack()}
+                    rightIcon={{
+                        icon: MoreHorizontal,
+                        size: 28,
+                        onPress: () => setShowBottomSheet(true)
+                    }}
                 />
-                {searchLoading ? (
-                    <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
+
+                {/* Search Bar */}
+                <View style={styles.searchContainer}>
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Thêm bạn mới"
+                        placeholderTextColor="#9CA3AF"
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                    />
+                    {searchLoading ? (
+                        <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
+                    ) : (
+                        <TouchableOpacity
+                            style={styles.searchButton}
+                            onPress={searchQuery ? clearSearch : undefined}
+                        >
+                            {searchQuery ? (
+                                <X
+                                    size={20}
+                                    color="#9CA3AF"
+                                />
+                            ) : (
+                                <UserPlus
+                                    size={20}
+                                    color="#9CA3AF"
+                                />
+                            )}
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {/* Content */}
+                {searchQuery ? (
+                    <FlatList
+                        data={searchResults}
+                        renderItem={renderSearchResult}
+                        keyExtractor={(item) => item.id}
+                        style={styles.friendsList}
+                        contentContainerStyle={styles.friendsListContent}
+                        showsVerticalScrollIndicator={false}
+                        ListEmptyComponent={
+                            <View style={styles.emptyContainer}>
+                                <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                    Không tìm thấy người dùng nào
+                                </Text>
+                            </View>
+                        }
+                    />
                 ) : (
-                    <TouchableOpacity
-                        style={styles.searchButton}
-                        onPress={searchQuery ? clearSearch : undefined}
-                    >
-                        {searchQuery ? (
-                            <X
-                                size={20}
-                                color="#9CA3AF"
-                            />
-                        ) : (
-                            <UserPlus
-                                size={20}
-                                color="#9CA3AF"
-                            />
-                        )}
-                    </TouchableOpacity>
+                    <FlatList
+                        data={pendingRequests}
+                        renderItem={renderFriendRequest}
+                        keyExtractor={(item) => item.id}
+                        style={styles.friendsList}
+                        contentContainerStyle={styles.friendsListContent}
+                        showsVerticalScrollIndicator={false}
+                        ListEmptyComponent={
+                            <View style={styles.emptyContainer}>
+                                <Users
+                                    size={64}
+                                    color={isDark ? '#4B5563' : '#9CA3AF'}
+                                />
+                                <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                    Không có lời mời kết bạn nào
+                                </Text>
+                            </View>
+                        }
+                    />
+                )}
+
+                {/* Bottom Sheet Modal */}
+                <BottomSheetModal
+                    isOpen={showBottomSheet}
+                    onClose={() => setShowBottomSheet(false)}
+                    onSentRequests={() => NavigationService.goToSentRequests()}
+                    onFriendsList={() => NavigationService.goToFriendsList()}
+                />
+
+                {/* Subscription Modal */}
+                <SubscriptionModal
+                    isVisible={showSubscriptionModal}
+                    onClose={() => setShowSubscriptionModal(false)}
+                    onPlanSelect={handlePlanSelect}
+                />
+
+                {showPaymentScreen && selectedPlan && (
+                    <PaymentScreen
+                        plan={selectedPlan}
+                        onBack={handlePaymentBack}
+                        onSuccess={handlePaymentBack}
+                    />
                 )}
             </View>
-
-            {/* Content */}
-            {searchQuery ? (
-                <FlatList
-                    data={searchResults}
-                    renderItem={renderSearchResult}
-                    keyExtractor={(item) => item.id}
-                    style={styles.friendsList}
-                    contentContainerStyle={styles.friendsListContent}
-                    showsVerticalScrollIndicator={false}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                Không tìm thấy người dùng nào
-                            </Text>
-                        </View>
-                    }
-                />
-            ) : (
-                <FlatList
-                    data={pendingRequests}
-                    renderItem={renderFriendRequest}
-                    keyExtractor={(item) => item.id}
-                    style={styles.friendsList}
-                    contentContainerStyle={styles.friendsListContent}
-                    showsVerticalScrollIndicator={false}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Users
-                                size={64}
-                                color={isDark ? '#4B5563' : '#9CA3AF'}
-                            />
-                            <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                Không có lời mời kết bạn nào
-                            </Text>
-                        </View>
-                    }
-                />
-            )}
-
-            {/* Bottom Sheet Modal */}
-            <BottomSheetModal
-                isOpen={showBottomSheet}
-                onClose={() => setShowBottomSheet(false)}
-                onSentRequests={() => NavigationService.goToSentRequests()}
-                onFriendsList={() => NavigationService.goToFriendsList()}
-            />
-        </View>
+        </FeatureErrorBoundary>
     );
 }
 
@@ -345,7 +419,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingVertical: 12,
         paddingHorizontal: 16,
-        borderRadius: 12,
+        borderRadius: 24,
         marginBottom: 8,
         marginHorizontal: 16,
         shadowColor: '#000',

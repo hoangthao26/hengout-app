@@ -47,8 +47,8 @@ const CountryPicker: React.FC<CountryPickerProps> = ({ visible, onClose, onSelec
         >
             <Text style={{ fontSize: 28, marginRight: 12 }}>{item.flag}</Text>
             <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 28, fontFamily: 'Dongle', color: '#111827', marginBottom: -16, marginTop: -14 }}>{item.name}</Text>
-                <Text style={{ fontSize: 24, fontFamily: 'Dongle', color: '#6B7280', marginBottom: -16 }}>{item.dialCode}</Text>
+                <Text style={{ fontSize: 28,  color: '#111827', marginBottom: -16, marginTop: -14 }}>{item.name}</Text>
+                <Text style={{ fontSize: 24,  color: '#6B7280', marginBottom: -16 }}>{item.dialCode}</Text>
             </View>
         </TouchableOpacity>
     );
@@ -75,7 +75,6 @@ const CountryPicker: React.FC<CountryPickerProps> = ({ visible, onClose, onSelec
                             paddingHorizontal: 12,
                             paddingVertical: 8,
                             fontSize: 24,
-                            fontFamily: 'Dongle',
                             color: '#111827',
                         }}
                     />

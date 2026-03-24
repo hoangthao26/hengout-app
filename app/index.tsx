@@ -1,8 +1,13 @@
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef } from 'react';
-import { Animated, AppState, Image, useColorScheme } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, AppState, Image, useColorScheme, Alert } from 'react-native';
 import { refreshTokenManager } from '../services/refreshTokenManager';
+import NavigationService from '../services/navigationService';
 import { useAuthStore } from '../store';
+import { useAppStore } from '../store/appStore';
+import { initializationService } from '../services/initializationService';
+import * as Location from 'expo-location';
+import { initializationService as initSvc } from '../services/initializationService';
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -10,31 +15,142 @@ export default function SplashScreen() {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const { initializeAuth, isLoading, isAuthenticated } = useAuthStore();
 
-  // Initialize authentication on app start
-  useEffect(() => {
-    console.log('🚀 [SplashScreen] App started, initializing auth...');
-    initializeAuth();
-  }, [initializeAuth]);
+  // App initialization state
+  const {
+    isAppReady,
+    isServicesReady,
+    isChatDataPreloaded // Thêm chat data preloaded status
+  } = useAppStore();
 
-  // 🔥 ENTERPRISE FEATURE: Start token refresh monitoring
-  useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      console.log('🔄 [SplashScreen] Starting token refresh monitoring...');
-      refreshTokenManager.startMonitoring();
-    }
+  // GPS Location state
+  const [locationData, setLocationData] = useState<{
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+  } | null>(null);
 
-    return () => {
-      console.log('⏹️ [SplashScreen] Stopping token refresh monitoring...');
-      refreshTokenManager.stopMonitoring();
+  // Initialize all services on app start
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        // CRITICAL FIX: Wrap initializeAuth in try-catch to prevent crash on store initialization failure
+        try {
+          await initializeAuth();
+        } catch (authError) {
+          // Auth initialization failed - log but continue with app initialization
+          console.error('[SplashScreen] Auth initialization failed:', authError);
+          // App can still function without auth (user can login later)
+        }
+
+        await initializationService.initialize();
+        // CRITICAL FIX: Add try-catch to prevent unhandled promise rejection
+        try {
+          await initSvc.initOnAppStart();
+        } catch (initError) {
+          // Non-critical initialization - log but don't block app
+          console.error('[SplashScreen] initOnAppStart failed:', initError);
+        }
+      } catch (error) {
+        // Critical initialization error - app may not function properly
+        console.error('[SplashScreen] App initialization failed:', error);
+        // Don't throw - allow app to continue with degraded functionality
+      }
     };
-  }, [isAuthenticated, isLoading]);
 
-  // 🔥 ENTERPRISE FEATURE: Handle app state changes for background refresh
+    initializeApp();
+  }, []);
+
+  // Get GPS location after services are ready (only if permission already granted)
+  // Best Practice: Don't request permission on app launch, only check if already granted
+  useEffect(() => {
+    const getLocationData = async () => {
+      // Only get location if services are ready
+      if (!isServicesReady) return;
+
+      try {
+        // Check if permission is already granted (don't request)
+        const { status } = await Location.getForegroundPermissionsAsync();
+
+        if (status === 'granted') {
+          // Permission already granted, try to get location (no request)
+          try {
+        const { smartLocationService } = await import('../services/smartLocationService');
+
+            // Try to get cached location first, or get location if permission exists
+        const location = await smartLocationService.getCurrentLocation({
+          accuracy: Location.Accuracy.Balanced,
+              timeout: 5000,
+              retries: 1,
+          useCache: true
+        });
+
+            if (location && location.source !== 'fallback') {
+          setLocationData({
+            latitude: location.latitude,
+            longitude: location.longitude,
+            accuracy: location.accuracy || 0
+          });
+              return;
+            }
+          } catch (importError) {
+            // Dynamic import failed - use fallback location
+            console.error('[SplashScreen] Failed to import smartLocationService:', importError);
+          }
+        }
+
+        // No permission or location unavailable - use fallback location (HCMC)
+        try {
+          const { smartLocationService } = await import('../services/smartLocationService');
+          const fallback = smartLocationService.getFallbackLocation();
+          setLocationData({
+            latitude: fallback.latitude,
+            longitude: fallback.longitude,
+            accuracy: 0
+          });
+        } catch (importError) {
+          // Import failed - use hardcoded fallback
+          console.error('[SplashScreen] Failed to import smartLocationService for fallback:', importError);
+          setLocationData({
+            latitude: 10.8231, // HCMC fallback (hardcoded)
+            longitude: 106.6297,
+            accuracy: 0
+          });
+        }
+      } catch (error) {
+        // Location not available - use fallback location
+        console.error('[SplashScreen] Location error:', error);
+        try {
+          const { smartLocationService } = await import('../services/smartLocationService');
+          const fallback = smartLocationService.getFallbackLocation();
+          setLocationData({
+            latitude: fallback.latitude,
+            longitude: fallback.longitude,
+            accuracy: 0
+          });
+        } catch (importError) {
+          // Import failed - use hardcoded fallback
+          console.error('[SplashScreen] Failed to import smartLocationService in catch:', importError);
+          setLocationData({
+            latitude: 10.8231, // HCMC fallback (hardcoded)
+            longitude: 106.6297,
+            accuracy: 0
+          });
+        }
+      }
+    };
+
+    getLocationData();
+  }, [isServicesReady]);
+
+  // Handle app state changes for background refresh
   useEffect(() => {
     const handleAppStateChange = (nextAppState: string) => {
       if (nextAppState === 'active' && isAuthenticated) {
-        console.log('📱 [SplashScreen] App became active, checking token...');
-        refreshTokenManager.checkAndRefreshOnResume();
+        // CRITICAL FIX: Add try-catch to prevent unhandled promise rejection
+        refreshTokenManager.checkAndRefreshOnResume().catch((error) => {
+          // Log error but don't crash app - token refresh failure is non-critical
+          console.error('[SplashScreen] Token refresh on resume failed:', error);
+        });
       }
     };
 
@@ -42,35 +158,71 @@ export default function SplashScreen() {
     return () => subscription?.remove();
   }, [isAuthenticated]);
 
-  // Handle navigation based on authentication state
+  // Handle navigation based on app readiness
   useEffect(() => {
-    console.log('🔄 [SplashScreen] Auth state changed:', { isLoading, isAuthenticated });
+    // Don't wait for locationData - use fallback if needed
+    // App should always be able to navigate even without location
+    if (!isLoading && isAppReady && isChatDataPreloaded) {
+      // Use locationData if available, otherwise use fallback
+      const locationToUse = locationData || {
+        latitude: 10.8231, // HCMC fallback
+        longitude: 106.6297,
+        accuracy: 0
+      };
 
-    if (!isLoading) {
-      // Navigate immediately when auth check is complete (no artificial delay)
       const navigate = () => {
         Animated.timing(fadeAnim, {
           toValue: 0,
-          duration: 300, // Faster fade out
+          duration: 300,
           useNativeDriver: true,
         }).start(() => {
-          // Navigate based on authentication state
+          // CRITICAL FIX: Wrap navigation in try-catch to prevent crash if route doesn't exist
+          try {
           if (isAuthenticated) {
-            console.log('✅ [SplashScreen] User is authenticated, navigating to main app');
-            router.replace('/(tabs)/discover' as any); // User is logged in, go to discover tab
+              NavigationService.secureNavigateToDiscover(locationToUse).catch((navError) => {
+                // Navigation failed - try fallback to login
+                console.error('[SplashScreen] Navigation to Discover failed:', navError);
+                try {
+                  NavigationService.goToLogin();
+                } catch (fallbackError) {
+                  console.error('[SplashScreen] Fallback navigation to Login failed:', fallbackError);
+                  // Last resort: Use router directly
+                  try {
+                    router.replace('/auth/login');
+                  } catch (routerError) {
+                    console.error('[SplashScreen] Router navigation failed:', routerError);
+                  }
+                }
+              });
           } else {
-            console.log('❌ [SplashScreen] User not authenticated, navigating to login');
-            router.replace('/auth/login'); // User needs to login
+              NavigationService.goToLogin().catch((navError) => {
+                // Navigation to login failed - use router directly
+                console.error('[SplashScreen] Navigation to Login failed:', navError);
+                try {
+                  router.replace('/auth/login');
+                } catch (routerError) {
+                  console.error('[SplashScreen] Router navigation failed:', routerError);
+                }
+              });
+            }
+          } catch (error) {
+            // Navigation error - try router directly as last resort
+            console.error('[SplashScreen] Navigation error:', error);
+            try {
+              router.replace('/auth/login');
+            } catch (routerError) {
+              console.error('[SplashScreen] Router navigation failed:', routerError);
+            }
           }
         });
       };
 
-      // Add delay for better UX (1.5 seconds)
-      const timer = setTimeout(navigate, 1500);
-
+      // Add small delay to ensure location service has time to respond
+      // But don't wait forever if location fails
+      const timer = setTimeout(navigate, locationData ? 500 : 1500);
       return () => clearTimeout(timer);
     }
-  }, [isLoading, isAuthenticated, router, fadeAnim]);
+  }, [isLoading, isAuthenticated, isAppReady, isChatDataPreloaded, locationData, router, fadeAnim]);
 
   return (
     <Animated.View
@@ -86,6 +238,7 @@ export default function SplashScreen() {
         style={{ width: 200, height: 200 }}
         resizeMode="contain"
       />
+
 
     </Animated.View>
   );

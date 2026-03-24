@@ -1,25 +1,20 @@
 /**
- * Refresh Token Manager
- * Handles proactive, lazy, and app resume token refresh
+ * Refresh Token Manager - Simplified MVP Version
+ * Handles proactive token refresh and app resume
  */
 
 import { AppState, AppStateStatus } from 'react-native';
 import { AuthHelper, AuthTokens } from './authHelper';
-import { authMonitoringService } from './authMonitoringService';
-import { failSafeService } from './failSafeService';
+import { sessionService } from './sessionService';
 
 export class RefreshTokenManager {
     private static instance: RefreshTokenManager;
     private refreshTimer: ReturnType<typeof setTimeout> | null = null;
     private isRefreshing = false;
-    private refreshPromise: Promise<boolean> | null = null;
-    private lastRefreshTime = 0;
     private appStateSubscription: any = null;
 
-    private static readonly REFRESH_BEFORE_EXPIRY = 5 * 60 * 1000;
-    private static readonly MIN_REFRESH_INTERVAL = 60 * 1000;
-    private static readonly MAX_RETRY_ATTEMPTS = 3;
-    private static readonly RETRY_BACKOFF_BASE = 1000;
+    private static readonly REFRESH_BEFORE_EXPIRY = 5 * 60 * 1000; // 5 minutes
+    private static readonly MAX_RETRY_ATTEMPTS = 2; // Reduced from 3 to 2
 
     private constructor() {
         this.setupAppStateListener();
@@ -38,91 +33,39 @@ export class RefreshTokenManager {
     private setupAppStateListener(): void {
         this.appStateSubscription = AppState.addEventListener('change', async (nextAppState: AppStateStatus) => {
             if (nextAppState === 'active') {
-                console.log('📱 [RefreshTokenManager] App resumed - checking token refresh');
                 await this.checkAndRefreshOnResume();
             }
         });
     }
 
     /**
-     * Start comprehensive token monitoring with monitoring
+     * Start token monitoring
      */
     async startMonitoring(): Promise<void> {
+        if (this.refreshTimer !== null) {
+            return;
+        }
+
         try {
-            console.log('🚀 [RefreshTokenManager] Starting token monitoring...');
-
-            // ✅ ENTERPRISE BEST PRACTICE: Log monitoring start
-            authMonitoringService.logEvent(
-                'PERFORMANCE',
-                'LOW',
-                'Token monitoring started',
-                true
-            );
-
-            // Clear any existing timer
-            this.stopMonitoring();
-
-            // Check if user is authenticated
             const isAuthenticated = await AuthHelper.isAuthenticated();
             if (!isAuthenticated) {
-                console.log('⚠️ [RefreshTokenManager] User not authenticated, skipping monitoring');
-                authMonitoringService.logEvent(
-                    'PERFORMANCE',
-                    'LOW',
-                    'Token monitoring skipped - user not authenticated',
-                    true
-                );
                 return;
             }
 
-            // Get current tokens
             const tokens = await AuthHelper.getTokens();
             if (!tokens) {
-                console.log('⚠️ [RefreshTokenManager] No tokens found, skipping monitoring');
-                authMonitoringService.logEvent(
-                    'PERFORMANCE',
-                    'LOW',
-                    'Token monitoring skipped - no tokens found',
-                    true
-                );
                 return;
             }
 
-            // Calculate time until refresh is needed
             const timeUntilRefresh = this.calculateTimeUntilRefresh(tokens);
 
             if (timeUntilRefresh <= 0) {
-                // Token needs immediate refresh
-                console.log('🚨 [RefreshTokenManager] Token needs immediate refresh');
-                authMonitoringService.logEvent(
-                    'REFRESH',
-                    'HIGH',
-                    'Token needs immediate refresh',
-                    true,
-                    { timeUntilRefresh }
-                );
                 await this.performRefresh();
             } else {
-                // Schedule proactive refresh
-                console.log(`⏰ [RefreshTokenManager] Scheduling proactive refresh in ${Math.round(timeUntilRefresh / 1000)} seconds`);
-                authMonitoringService.logEvent(
-                    'PERFORMANCE',
-                    'LOW',
-                    `Proactive refresh scheduled in ${Math.round(timeUntilRefresh / 1000)} seconds`,
-                    true,
-                    { timeUntilRefresh }
-                );
                 this.scheduleProactiveRefresh(timeUntilRefresh);
             }
         } catch (error: any) {
-            console.error('❌ [RefreshTokenManager] Failed to start monitoring:', error);
-            authMonitoringService.logEvent(
-                'ERROR',
-                'HIGH',
-                `Failed to start token monitoring: ${error.message}`,
-                false,
-                { error: error.message }
-            );
+            console.error('[RefreshTokenManager] Failed to start monitoring:', error);
         }
     }
 
@@ -133,23 +76,40 @@ export class RefreshTokenManager {
         if (this.refreshTimer) {
             clearTimeout(this.refreshTimer);
             this.refreshTimer = null;
-            console.log('🛑 [RefreshTokenManager] Token monitoring stopped');
         }
+        this.isRefreshing = false;
     }
 
     /**
-     * Calculate time until token should be refreshed
+     * Calculate time until proactive token refresh should occur
+     * 
+     * Proactive refresh strategy:
+     * - Tokens are refreshed BEFORE expiry to prevent authentication failures
+     * - Refresh threshold: REFRESH_BEFORE_EXPIRY (5 minutes before expiry)
+     * 
+     * Calculation logic:
+     * - If token expires in < 5 minutes: Return 0 (refresh immediately)
+     * - Otherwise: Return time until 5 minutes before expiry
+     * 
+     * Example:
+     * - Token expires in 30 minutes → Refresh in 25 minutes (30 - 5)
+     * - Token expires in 3 minutes → Refresh now (return 0)
+     * 
+     * Prevents race conditions where token expires during API calls.
+     * 
+     * @param tokens - Current authentication tokens
+     * @returns Milliseconds until refresh should occur (0 = refresh immediately)
      */
     private calculateTimeUntilRefresh(tokens: AuthTokens): number {
         const currentTime = Date.now();
         const timeUntilExpiry = tokens.expiresAt - currentTime;
 
-        // If token expires in less than REFRESH_BEFORE_EXPIRY, refresh now
+        // Case 1: Token expiring soon (< 5 min) - refresh immediately
         if (timeUntilExpiry <= RefreshTokenManager.REFRESH_BEFORE_EXPIRY) {
-            return 0; // Refresh immediately
+            return 0; // Refresh immediately to prevent expiry during use
         }
 
-        // Otherwise, refresh REFRESH_BEFORE_EXPIRY before expiry
+        // Case 2: Token still valid - schedule refresh 5 minutes before expiry
         return timeUntilExpiry - RefreshTokenManager.REFRESH_BEFORE_EXPIRY;
     }
 
@@ -157,176 +117,127 @@ export class RefreshTokenManager {
      * Schedule proactive token refresh
      */
     private scheduleProactiveRefresh(delay: number): void {
-        // Ensure minimum interval between refreshes
-        const timeSinceLastRefresh = Date.now() - this.lastRefreshTime;
-        const actualDelay = Math.max(delay, RefreshTokenManager.MIN_REFRESH_INTERVAL - timeSinceLastRefresh);
-
         this.refreshTimer = setTimeout(async () => {
             await this.performRefresh();
-        }, actualDelay);
+        }, delay);
     }
 
     /**
-     * Perform token refresh with enterprise error handling
+     * Perform token refresh with exponential backoff retry and side effects
+     * 
+     * Refresh flow with retry strategy:
+     * 1. Validates refresh token exists (early exit if missing)
+     * 2. Attempts refresh with exponential backoff (max 2 attempts)
+     * 3. On success: Saves tokens, updates store (optional), reinitializes WebSocket, resumes monitoring
+     * 4. On failure: Exponential backoff retry (except 401 errors which fail immediately)
+     * 
+     * Retry strategy:
+     * - Max attempts: 2 (reduced from 3)
+     * - Exponential backoff: delay = 1000ms * 2^(attempt-1)
+     *   - Attempt 1: immediate
+     *   - Attempt 2: wait 1000ms (1s)
+     * 
+     * Error handling:
+     * - 401 errors: Fail immediately (refresh token invalid, no retry)
+     * - Network errors: Retry with exponential backoff
+     * - Other errors: Retry with exponential backoff
+     * 
+     * Side effects on success:
+     * - Saves new tokens to secure storage
+     * - Updates auth store (if requested)
+     * - Reinitializes WebSocket with new token
+     * - Resumes proactive monitoring for next refresh
+     * 
+     * @param updateStore - Whether to update auth store with new tokens
+     * @returns true if refresh succeeded, false if failed
      */
-    async performRefresh(): Promise<boolean> {
+    async performRefresh(updateStore: boolean = false): Promise<boolean> {
+        // Prevent concurrent refresh attempts
         if (this.isRefreshing) {
-            console.log('🔄 [RefreshTokenManager] Refresh already in progress, waiting...');
-            return this.refreshPromise || false;
+            return false;
         }
 
         this.isRefreshing = true;
 
-        this.refreshPromise = this.executeRefreshWithRetry();
-
         try {
-            const result = await this.refreshPromise;
-            return result;
-        } finally {
-            this.isRefreshing = false;
-            this.refreshPromise = null;
-        }
-    }
+            // Step 1: Validate refresh token exists
+            const refreshToken = await AuthHelper.getRefreshToken();
+            if (!refreshToken) {
+                return false;
+            }
 
-    /**
-     * Execute refresh with exponential backoff retry
-     */
-    private async executeRefreshWithRetry(): Promise<boolean> {
-        let lastError: any;
+            // Step 2: Retry loop with exponential backoff
+            let lastError: any;
+            for (let attempt = 1; attempt <= RefreshTokenManager.MAX_RETRY_ATTEMPTS; attempt++) {
+                try {
+                    const response = await sessionService.refreshToken(refreshToken);
 
-        for (let attempt = 1; attempt <= RefreshTokenManager.MAX_RETRY_ATTEMPTS; attempt++) {
-            try {
+                    // Step 3a: Save new tokens to secure storage
+                    await AuthHelper.saveTokens({
+                        accessToken: response.data.accessToken,
+                        refreshToken: response.data.refreshToken,
+                        tokenType: response.data.tokenType,
+                        expiresIn: response.data.expiresIn,
+                        expiresAt: Date.now() + response.data.expiresIn,
+                        role: response.data.role,
+                    });
 
-                // Check if enough time has passed since last refresh
-                const timeSinceLastRefresh = Date.now() - this.lastRefreshTime;
-                if (timeSinceLastRefresh < RefreshTokenManager.MIN_REFRESH_INTERVAL) {
-                    return true; // Consider it successful to avoid unnecessary retries
-                }
+                    // Step 3b: Update store if requested (optional)
+                    if (updateStore) {
+                        await this.updateAuthStore({
+                            accessToken: response.data.accessToken,
+                            refreshToken: response.data.refreshToken,
+                        });
+                    }
 
-                // Attempt to refresh token
-                const refreshSuccess = await this.executeRefresh();
+                    // Step 3c: Reinitialize WebSocket with new token (non-blocking)
+                    try {
+                        const { initializationService } = await import('./initializationService');
+                        await initializationService.reinitializeWebSocket();
+                    } catch (wsError) {
+                        // WebSocket reinit failure doesn't block token refresh success
+                        console.error('[RefreshTokenManager] WebSocket reinitialization failed:', wsError);
+                    }
 
-                if (refreshSuccess) {
-                    this.lastRefreshTime = Date.now();
-
-                    // Schedule next refresh
+                    // Step 3d: Resume proactive monitoring for next refresh
                     await this.startMonitoring();
                     return true;
-                } else {
-                    throw new Error('Refresh returned false');
-                }
-            } catch (error) {
-                lastError = error;
-                console.error(`❌ [RefreshTokenManager] Refresh attempt ${attempt} failed:`, error);
+                } catch (error: any) {
+                    lastError = error;
+                    console.error(`[RefreshTokenManager] Refresh attempt ${attempt} failed:`, error);
 
-                // Classify error type
-                const errorType = this.classifyError(error);
-                console.log(`🔍 [RefreshTokenManager] Error classified as: ${errorType}`);
+                    // Don't retry on 401 errors (refresh token invalid/expired)
+                    if (error.response?.status === 401 || error.message?.includes('Invalid refresh token')) {
+                        return false; // Fail immediately, no retry
+                    }
 
-                if (errorType === 'AUTHENTICATION_ERROR') {
-                    // Authentication error - don't retry, logout user
-                    console.log('🔐 [RefreshTokenManager] Authentication error - logging out user');
-                    await AuthHelper.logoutAndNavigate();
-                    return false;
-                } else if (errorType === 'NETWORK_ERROR' && attempt < RefreshTokenManager.MAX_RETRY_ATTEMPTS) {
-                    // Network error - retry with exponential backoff
-                    const backoffDelay = RefreshTokenManager.RETRY_BACKOFF_BASE * Math.pow(2, attempt - 1);
-                    console.log(`⏳ [RefreshTokenManager] Network error - retrying in ${backoffDelay}ms`);
-                    await this.delay(backoffDelay);
-                } else {
-                    // Unknown error or max retries reached
-                    console.log('❓ [RefreshTokenManager] Unknown error or max retries reached');
-                    break;
+                    // Exponential backoff retry (except on last attempt)
+                    if (attempt < RefreshTokenManager.MAX_RETRY_ATTEMPTS) {
+                        const delay = 1000 * Math.pow(2, attempt - 1); // 1s, 2s, 4s...
+                        await this.delay(delay);
+                    }
                 }
             }
+            return false; // All attempts failed
+        } catch (error: any) {
+            console.error('[RefreshTokenManager] Unexpected error during refresh:', error);
+            return false;
+        } finally {
+            this.isRefreshing = false;
         }
-
-        console.error('❌ [RefreshTokenManager] All refresh attempts failed:', lastError);
-        return false;
     }
 
     /**
-     * Execute the actual refresh API call with comprehensive monitoring
+     * Update auth store with new tokens
      */
-    private async executeRefresh(): Promise<boolean> {
-        const startTime = Date.now();
-        let success = false;
-
+    private async updateAuthStore(tokens: { accessToken: string; refreshToken: string }): Promise<void> {
         try {
-            const refreshToken = await AuthHelper.getRefreshToken();
-
-            if (!refreshToken) {
-                throw new Error('No refresh token available');
-            }
-
-
-            authMonitoringService.logEvent(
-                'REFRESH',
-                'MEDIUM',
-                'Token refresh initiated',
-                true,
-                { startTime }
-            );
-
-            const failSafeResult = await failSafeService.performFailSafeRefresh();
-
-            if (failSafeResult.success) {
-                success = true;
-                if (failSafeResult.usedFallback) {
-                    authMonitoringService.logEvent(
-                        'REFRESH',
-                        'MEDIUM',
-                        `Token refresh successful using ${failSafeResult.fallbackStrategy}`,
-                        true,
-                        {
-                            fallbackStrategy: failSafeResult.fallbackStrategy,
-                            recoveryAttempted: failSafeResult.recoveryAttempted
-                        }
-                    );
-                } else {
-                    authMonitoringService.logEvent(
-                        'REFRESH',
-                        'LOW',
-                        'Primary token refresh successful',
-                        true
-                    );
-                }
-            } else {
-                console.error(`❌ [RefreshTokenManager] Fail-safe refresh failed: ${failSafeResult.error}`);
-                authMonitoringService.logEvent(
-                    'ERROR',
-                    'HIGH',
-                    `Token refresh failed: ${failSafeResult.error}`,
-                    false,
-                    {
-                        error: failSafeResult.error,
-                        fallbackStrategy: failSafeResult.fallbackStrategy
-                    }
-                );
-            }
-        } catch (error: any) {
-            console.error('❌ [RefreshTokenManager] Failed to execute monitored refresh:', error);
-            authMonitoringService.logEvent(
-                'ERROR',
-                'HIGH',
-                `Token refresh exception: ${error.message}`,
-                false,
-                { error: error.message }
-            );
-        } finally {
-            const duration = Date.now() - startTime;
-            authMonitoringService.trackRefreshPerformance(startTime, success);
-
-            authMonitoringService.logEvent(
-                'PERFORMANCE',
-                'LOW',
-                `Token refresh completed in ${duration}ms`,
-                success,
-                { duration, success }
-            );
+            const { useAuthStore } = await import('../store/authStore');
+            useAuthStore.getState();
+            // Store update handled by AuthStore.refreshTokens()
+        } catch (error) {
+            console.warn('[RefreshTokenManager] Failed to update auth store:', error);
         }
-
-        return success;
     }
 
     /**
@@ -334,17 +245,13 @@ export class RefreshTokenManager {
      */
     async checkAndRefreshOnResume(): Promise<void> {
         try {
-            console.log('📱 [RefreshTokenManager] Checking token on app resume...');
-
             const isAuthenticated = await AuthHelper.isAuthenticated();
             if (!isAuthenticated) {
-                console.log('⚠️ [RefreshTokenManager] User not authenticated on resume');
                 return;
             }
 
             const tokens = await AuthHelper.getTokens();
             if (!tokens) {
-                console.log('⚠️ [RefreshTokenManager] No tokens found on resume');
                 return;
             }
 
@@ -356,39 +263,11 @@ export class RefreshTokenManager {
                 await this.performRefresh();
             }
         } catch (error) {
-            console.error('❌ [RefreshTokenManager] Error on app resume check:', error);
+            console.error('[RefreshTokenManager] Error on app resume check:', error);
         }
     }
 
-    /**
-     * Force immediate refresh (for manual refresh or testing)
-     */
-    async forceRefresh(): Promise<boolean> {
-        console.log('🚀 [RefreshTokenManager] Force refresh requested...');
-        return await this.performRefresh();
-    }
 
-    /**
-     * Classify error type for smart handling
-     */
-    private classifyError(error: any): 'AUTHENTICATION_ERROR' | 'NETWORK_ERROR' | 'UNKNOWN_ERROR' {
-        if (error.response?.status === 401 ||
-            error.message?.includes('invalid_token') ||
-            error.message?.includes('token_expired') ||
-            error.message?.includes('unauthorized')) {
-            return 'AUTHENTICATION_ERROR';
-        }
-
-        if (error.code === 'NETWORK_ERROR' ||
-            error.message?.includes('network') ||
-            error.message?.includes('timeout') ||
-            error.message?.includes('ECONNREFUSED') ||
-            error.message?.includes('ENOTFOUND')) {
-            return 'NETWORK_ERROR';
-        }
-
-        return 'UNKNOWN_ERROR';
-    }
 
     /**
      * Utility function for delay
@@ -403,30 +282,23 @@ export class RefreshTokenManager {
     async getRefreshStatus(): Promise<{
         isMonitoring: boolean;
         isRefreshing: boolean;
-        timeUntilRefresh: number;
-        lastRefreshTime: number;
         isAuthenticated: boolean;
         tokenExpiryTime: number;
     }> {
         const isMonitoring = this.refreshTimer !== null;
         const isAuthenticated = await AuthHelper.isAuthenticated();
 
-        let timeUntilRefresh = 0;
         let tokenExpiryTime = 0;
-
         if (isAuthenticated) {
             const tokens = await AuthHelper.getTokens();
             if (tokens) {
                 tokenExpiryTime = tokens.expiresAt;
-                timeUntilRefresh = this.calculateTimeUntilRefresh(tokens);
             }
         }
 
         return {
             isMonitoring,
             isRefreshing: this.isRefreshing,
-            timeUntilRefresh,
-            lastRefreshTime: this.lastRefreshTime,
             isAuthenticated,
             tokenExpiryTime,
         };
@@ -441,7 +313,6 @@ export class RefreshTokenManager {
             this.appStateSubscription.remove();
             this.appStateSubscription = null;
         }
-        console.log('🧹 [RefreshTokenManager] Resources cleaned up');
     }
 }
 

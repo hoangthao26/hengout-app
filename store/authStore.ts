@@ -41,8 +41,8 @@ export interface AuthState {
     clearError: () => void;
     initializeAuth: () => Promise<void>;
     fetchUserProfile: () => Promise<void>;
-    scheduleProactiveRefresh: (timeUntilExpiry: number) => void;
-    performProactiveRefresh: () => Promise<boolean>;
+    initializeUserServices: () => Promise<void>;
+    fastLogout: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -95,8 +95,23 @@ export const useAuthStore = create<AuthState>()(
                         isLoading: false,
                     });
 
+                    // RESET LOGOUT FLAGS: Enable axios interceptor for new session
+                    const { setLogoutMode, setUserLoggedOut, resetRefreshState } = await import('../config/axios');
+                    setLogoutMode(false);
+                    setUserLoggedOut(false);
+                    resetRefreshState();
+
                     // Fetch user profile after successful login
                     await get().fetchUserProfile();
+
+                    // INITIALIZE SERVICES: Preload data for new user
+                    await get().initializeUserServices();
+
+                    // Ensure WebSocket and post-login tasks run like cold start
+                    try {
+                        const { initializationService } = await import('../services/initializationService');
+                        await initializationService.initAfterLogin();
+                    } catch (e) { }
                 } catch (error: any) {
                     set({
                         error: error.message || 'Login failed',
@@ -158,8 +173,23 @@ export const useAuthStore = create<AuthState>()(
                         isLoading: false,
                     });
 
+                    // RESET LOGOUT FLAGS: Enable axios interceptor for new session
+                    const { setLogoutMode, setUserLoggedOut, resetRefreshState } = await import('../config/axios');
+                    setLogoutMode(false);
+                    setUserLoggedOut(false);
+                    resetRefreshState();
+
                     // Fetch user profile after successful OTP verification
                     await get().fetchUserProfile();
+
+                    // INITIALIZE SERVICES: Preload data for new user
+                    await get().initializeUserServices();
+
+                    // Ensure WebSocket and post-login tasks run like cold start
+                    try {
+                        const { initializationService } = await import('../services/initializationService');
+                        await initializationService.initAfterLogin();
+                    } catch (e) { }
                 } catch (error: any) {
                     set({
                         error: error.message || 'OTP verification failed',
@@ -221,8 +251,23 @@ export const useAuthStore = create<AuthState>()(
                         isLoading: false,
                     });
 
+                    // RESET LOGOUT FLAGS: Enable axios interceptor for new session
+                    const { setLogoutMode, setUserLoggedOut, resetRefreshState } = await import('../config/axios');
+                    setLogoutMode(false);
+                    setUserLoggedOut(false);
+                    resetRefreshState();
+
                     // Fetch user profile after successful Google sign in
                     await get().fetchUserProfile();
+
+                    // INITIALIZE SERVICES: Preload data for new user
+                    await get().initializeUserServices();
+
+                    // Ensure WebSocket and post-login tasks run like cold start
+                    try {
+                        const { initializationService } = await import('../services/initializationService');
+                        await initializationService.initAfterLogin();
+                    } catch (e) { }
                 } catch (error: any) {
                     set({
                         error: error.message || 'Google sign in failed',
@@ -236,13 +281,28 @@ export const useAuthStore = create<AuthState>()(
                 try {
                     set({ isLoading: true, error: null });
 
-                    // 🚀 STOP REFRESH TOKEN MANAGER: Stop monitoring before logout
+                    //  SET LOGOUT FLAGS: Prevent infinite 401 loops
+                    const { setLogoutMode, setUserLoggedOut, resetRefreshState } = await import('../config/axios');
+                    setLogoutMode(true);
+                    setUserLoggedOut(true);
+                    resetRefreshState();
+
+                    //  STOP REFRESH TOKEN MANAGER: Stop monitoring before logout
                     refreshTokenManager.stopMonitoring();
 
-                    // Get refresh token from SecureStore instead of Zustand store
-                    const storedTokens = await AuthHelper.getTokens();
-                    if (storedTokens && storedTokens.refreshToken) {
-                        await sessionService.logoutUser(storedTokens.refreshToken);
+                    //  STOP CHAT SYNC SERVICE: Stop background sync to prevent 401 errors
+                    const { chatSyncService } = await import('../services/chatSyncService');
+                    chatSyncService.stopSync();
+
+                    //  DISCONNECT WEBSOCKET: Disconnect WebSocket connection on logout
+                    const { useChatStore: useChatStoreForDisconnect } = await import('./chatStore');
+                    const chatStoreForDisconnect = useChatStoreForDisconnect.getState();
+                    await chatStoreForDisconnect.disconnectWebSocket();
+
+                    // Get refresh token from current store state (not SecureStore)
+                    const currentState = get();
+                    if (currentState.tokens.refreshToken) {
+                        await sessionService.logoutUser(currentState.tokens.refreshToken);
                     }
 
                     // Clear stored tokens
@@ -256,10 +316,61 @@ export const useAuthStore = create<AuthState>()(
                     const profileStore = useProfileStore.getState();
                     profileStore.clearProfile();
 
+                    // Clear SubscriptionStore (plans, activeSubscription, payment state)
+                    const { useSubscriptionStore } = await import('./subscriptionStore');
+                    const subscriptionStore = useSubscriptionStore.getState();
+                    subscriptionStore.clearSubscriptionData();
+
+                    // Clear any in-flight payment flow
+                    try {
+                        const { paymentFlowManager } = await import('../services/paymentFlowManager');
+                        paymentFlowManager.clearAllPaymentData?.();
+                    } catch { }
+
                     // Clear PreferencesStore
                     const { usePreferencesStore } = await import('./preferencesStore');
                     const preferencesStore = usePreferencesStore.getState();
                     preferencesStore.clearPreferences();
+
+                    // CLEAR CHAT DATA: Prevent showing old user's chat data
+                    const { useChatStore: useChatStoreForReset } = await import('./chatStore');
+                    const chatStoreForReset = useChatStoreForReset.getState();
+                    chatStoreForReset.reset();
+
+                    //  CLEAR FRIEND DATA: Prevent showing old user's friends
+                    const { useFriendStore } = await import('./friendStore');
+                    const friendStore = useFriendStore.getState();
+                    friendStore.reset();
+
+                    //  CLEAR COLLECTION DATA: Prevent showing old user's collections
+                    const { useCollectionStore } = await import('./collectionStore');
+                    const collectionStore = useCollectionStore.getState();
+                    collectionStore.resetCollections();
+                    collectionStore.resetCurrentCollection();
+
+                    //  CLEAR SEARCH DATA: Prevent showing old user's search history
+                    const { useSearchStore } = await import('./searchStore');
+                    const searchStore = useSearchStore.getState();
+                    searchStore.clearSearch();
+
+                    // Clear database
+                    try {
+                        const { databaseService } = await import('../services/databaseService');
+                        await databaseService.clearAllData();
+                    } catch (dbError) {
+                        console.error('[AuthStore] Failed to clear database:', dbError);
+                    }
+
+                    //  RESET APP STORE: Reset initialization state for fresh start
+                    const { useAppStore } = await import('./appStore');
+                    const appStore = useAppStore.getState();
+                    appStore.setDatabaseReady(false);
+                    appStore.setAuthReady(false);
+                    appStore.setLocationReady(false);
+                    appStore.setServicesReady(false);
+                    appStore.setChatDataPreloaded(false);
+                    appStore.setAppReady(false);
+                    appStore.setInitializationError(null);
 
                     set({
                         isAuthenticated: false,
@@ -279,130 +390,98 @@ export const useAuthStore = create<AuthState>()(
                 }
             },
 
-            refreshTokens: async () => {
-                console.log('🔄 [AuthStore] Starting token refresh...');
-
-                // 🚀 USE REFRESH TOKEN MANAGER: Delegate to consolidated service
-                const success = await refreshTokenManager.performRefresh();
-
-                if (success) {
-                    console.log('✅ [AuthStore] Token refresh successful via RefreshTokenManager');
-
-                    // Update Zustand store with new tokens
-                    const newTokens = await AuthHelper.getTokens();
-                    if (newTokens) {
-                        set({
-                            tokens: {
-                                accessToken: newTokens.accessToken,
-                                refreshToken: newTokens.refreshToken,
-                            }
-                        });
-                    }
-                } else {
-                    console.log('❌ [AuthStore] Token refresh failed via RefreshTokenManager');
-                    throw new Error('Token refresh failed');
-                }
-            },
-
-            // 🚀 OPTIMIZED PROACTIVE REFRESH: Smart scheduling with retry logic
-            scheduleProactiveRefresh: (timeUntilExpiry: number) => {
-                const REFRESH_BEFORE_EXPIRY = 7 * 60 * 1000; // 7 minutes before expiry
-                const scheduleTime = Math.max(0, timeUntilExpiry - REFRESH_BEFORE_EXPIRY);
-
-                console.log('⏰ [AuthStore] Scheduling proactive refresh:', {
-                    timeUntilExpiry: Math.round(timeUntilExpiry / 1000) + ' seconds',
-                    scheduleTime: Math.round(scheduleTime / 1000) + ' seconds',
-                    refreshBeforeExpiry: Math.round(REFRESH_BEFORE_EXPIRY / 1000) + ' seconds'
-                });
-
-                setTimeout(async () => {
-                    console.log('🔄 [AuthStore] Executing scheduled proactive refresh...');
-                    const success = await get().performProactiveRefresh();
-
-                    if (!success) {
-                        console.log('⚠️ [AuthStore] Proactive refresh failed, will fallback to lazy refresh');
-                        // Fallback: Schedule another attempt closer to expiry
-                        const fallbackTime = Math.max(0, timeUntilExpiry - (2 * 60 * 1000)); // 2 minutes before
-                        setTimeout(() => {
-                            get().performProactiveRefresh().catch(error => {
-                                console.log('❌ [AuthStore] Fallback proactive refresh also failed:', error);
-                            });
-                        }, fallbackTime);
-                    }
-                }, scheduleTime);
-            },
-
-            // 🚀 ENHANCED PROACTIVE REFRESH: With retry logic and fallback
-            performProactiveRefresh: async (): Promise<boolean> => {
+            //  OPTIMISTIC LOGOUT: Fast logout for better UX
+            fastLogout: async () => {
                 try {
-                    console.log('🔄 [AuthStore] Performing proactive token refresh...');
+                    // Immediate state clear - clear UI state first
+                    set({
+                        isAuthenticated: false,
+                        user: null,
+                        tokens: {
+                            accessToken: null,
+                            refreshToken: null,
+                        },
+                        isLoading: false,
+                        error: null,
+                    });
 
-                    // Check if token still needs refresh
-                    const storedTokens = await AuthHelper.getTokens();
-                    if (!storedTokens || !storedTokens.refreshToken) {
-                        console.log('❌ [AuthStore] No tokens available for proactive refresh');
-                        return false;
-                    }
-
-                    // Check if token is still close to expiry
-                    if (storedTokens.expiresIn > 10 * 60 * 1000) { // More than 10 minutes left
-                        console.log('✅ [AuthStore] Token still has plenty of time, skipping proactive refresh');
-                        return true;
-                    }
-
-                    // Perform refresh with retry logic
-                    const maxRetries = 2; // Fewer retries for proactive refresh
-                    let lastError: any;
-
-                    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                    // Background cleanup - clear data without blocking UI
+                    setTimeout(async () => {
                         try {
-                            console.log(`🔄 [AuthStore] Proactive refresh attempt ${attempt}/${maxRetries}...`);
+                            const { setLogoutMode, setUserLoggedOut, resetRefreshState } = await import('../config/axios');
+                            setLogoutMode(true);
+                            setUserLoggedOut(true);
+                            resetRefreshState();
 
-                            const response = await sessionService.refreshToken(storedTokens.refreshToken);
+                            // Stop services
+                            refreshTokenManager.stopMonitoring();
+                            const { chatSyncService } = await import('../services/chatSyncService');
+                            chatSyncService.stopSync();
 
-                            // Save new tokens
-                            await AuthHelper.saveTokens({
-                                accessToken: response.data.accessToken,
-                                refreshToken: response.data.refreshToken,
-                                tokenType: response.data.tokenType,
-                                expiresIn: response.data.expiresIn,
-                                expiresAt: Date.now() + response.data.expiresIn,
-                                role: response.data.role,
-                            });
+                            // DISCONNECT WEBSOCKET: Disconnect WebSocket connection on fast logout
+                            const { useChatStore: useChatStoreForFastDisconnect } = await import('./chatStore');
+                            const chatStoreForFastDisconnect = useChatStoreForFastDisconnect.getState();
+                            await chatStoreForFastDisconnect.disconnectWebSocket();
 
-                            // Update store
-                            set({
-                                tokens: {
-                                    accessToken: response.data.accessToken,
-                                    refreshToken: response.data.refreshToken,
-                                },
-                            });
+                            // Clear tokens and data
+                            await AuthHelper.clearTokens();
+                            await OnboardingService.clearOnboardingStatus();
 
-                            console.log('✅ [AuthStore] Proactive refresh successful');
+                            // Clear all stores
+                            const { useProfileStore } = await import('./profileStore');
+                            const { usePreferencesStore } = await import('./preferencesStore');
+                            const { useChatStore: useChatStoreForFastReset } = await import('./chatStore');
+                            const { useFriendStore } = await import('./friendStore');
+                            const { useCollectionStore } = await import('./collectionStore');
+                            const { useSearchStore } = await import('./searchStore');
+                            const { useAppStore } = await import('./appStore');
 
-                            // Schedule next proactive refresh
-                            get().scheduleProactiveRefresh(response.data.expiresIn);
+                            useProfileStore.getState().clearProfile();
+                            try { (await import('./subscriptionStore')).useSubscriptionStore.getState().clearSubscriptionData(); } catch { }
+                            usePreferencesStore.getState().clearPreferences();
+                            useChatStoreForFastReset.getState().reset();
+                            useFriendStore.getState().reset();
+                            useCollectionStore.getState().resetCollections();
+                            useCollectionStore.getState().resetCurrentCollection();
+                            useSearchStore.getState().clearSearch();
 
-                            return true;
-                        } catch (error: any) {
-                            lastError = error;
-                            console.log(`❌ [AuthStore] Proactive refresh attempt ${attempt} failed:`, error.message);
-
-                            if (attempt < maxRetries) {
-                                const waitTime = attempt * 2000; // 2s, 4s
-                                console.log(`⏳ [AuthStore] Waiting ${waitTime / 1000} seconds before retry...`);
-                                await new Promise(resolve => setTimeout(resolve, waitTime));
+                            // Clear database
+                            try {
+                                const { databaseService } = await import('../services/databaseService');
+                                await databaseService.clearAllData();
+                            } catch (dbError) {
+                                console.error('[AuthStore] Failed to clear database (fast logout):', dbError);
                             }
-                        }
-                    }
 
-                    console.log('❌ [AuthStore] Proactive refresh failed after all retries:', lastError);
-                    return false;
+                            const appStore = useAppStore.getState();
+                            appStore.setDatabaseReady(false);
+                            appStore.setAuthReady(false);
+                            appStore.setLocationReady(false);
+                            appStore.setServicesReady(false);
+                            appStore.setChatDataPreloaded(false);
+                            appStore.setAppReady(false);
+                            appStore.setInitializationError(null);
+                        } catch (error: any) {
+                            console.error('[AuthStore] Background logout cleanup failed:', error);
+                        }
+                    }, 100);
+
                 } catch (error: any) {
-                    console.error('❌ [AuthStore] Proactive refresh error:', error);
-                    return false;
+                    console.error('[AuthStore] Fast logout failed:', error);
+                    throw error;
                 }
             },
+
+            refreshTokens: async () => {
+                // Delegate to RefreshTokenManager with store update
+                const success = await refreshTokenManager.performRefresh(true);
+
+                if (!success) {
+                    // Don't throw error - let RefreshTokenManager handle logout
+                }
+            },
+
+
 
             forgotPassword: async (email: string) => {
                 try {
@@ -441,38 +520,28 @@ export const useAuthStore = create<AuthState>()(
             },
 
             initializeAuth: async () => {
+                // Prevent multiple initialization calls
+                const currentState = get();
+                if (currentState.isLoading) {
+                    return;
+                }
+
                 try {
-                    console.log('🔐 [AuthStore] Starting auth initialization...');
                     set({ isLoading: true });
 
                     const storedTokens = await AuthHelper.getTokens();
-                    console.log('🔑 [AuthStore] Stored tokens from SecureStore:', {
-                        hasAccessToken: !!storedTokens?.accessToken,
-                        hasRefreshToken: !!storedTokens?.refreshToken,
-                        accessTokenLength: storedTokens?.accessToken?.length || 0,
-                        refreshTokenLength: storedTokens?.refreshToken?.length || 0,
-                    });
 
                     if (storedTokens && storedTokens.accessToken) {
-                        console.log('✅ [AuthStore] Found stored tokens, checking validity...');
-
-                        // 🔥 ENTERPRISE FEATURE: Smart Token Validation with Optimized Timing
                         const isTokenExpired = storedTokens.expiresIn <= 0;
                         const timeUntilExpiry = storedTokens.expiresIn;
 
-                        // 🚀 OPTIMIZED TIMING: More flexible refresh windows
-                        const CRITICAL_THRESHOLD = 2 * 60 * 1000; // 2 minutes - critical
-                        const WARNING_THRESHOLD = 5 * 60 * 1000; // 5 minutes - warning
-                        const PROACTIVE_THRESHOLD = 10 * 60 * 1000; // 10 minutes - proactive
+                        // Standardized timing: consistent 5-minute proactive refresh
+                        const CRITICAL_THRESHOLD = 2 * 60 * 1000; // 2 minutes
+                        const PROACTIVE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
 
-                        if (isTokenExpired) {
-                            console.log('⏰ [AuthStore] Token expired, attempting immediate refresh...');
-                        } else if (timeUntilExpiry < CRITICAL_THRESHOLD) {
-                            console.log('🚨 [AuthStore] Token expires in <2 minutes, refreshing immediately...');
-                        } else if (timeUntilExpiry < WARNING_THRESHOLD) {
-                            console.log('⚠️ [AuthStore] Token expires in <5 minutes, refreshing proactively...');
+                        if (isTokenExpired || timeUntilExpiry < CRITICAL_THRESHOLD || timeUntilExpiry < PROACTIVE_THRESHOLD) {
+                            // Token needs refresh
                         } else {
-                            console.log('✅ [AuthStore] Token still valid, using fast path');
                             // Token is still valid, set authenticated immediately
                             set({
                                 isAuthenticated: true,
@@ -483,10 +552,7 @@ export const useAuthStore = create<AuthState>()(
                             });
                             set({ isLoading: false });
 
-                            get().fetchUserProfile().catch(error => {
-                                console.log('⚠️ [AuthStore] Background profile fetch failed:', error);
-                            });
-
+                            get().fetchUserProfile().catch(() => { });
                             await refreshTokenManager.startMonitoring();
                             return;
                         }
@@ -496,10 +562,8 @@ export const useAuthStore = create<AuthState>()(
                             await get().refreshTokens();
                             await get().fetchUserProfile();
                             set({ isAuthenticated: true });
-
                             await refreshTokenManager.startMonitoring();
                         } catch (error) {
-                            console.log('❌ [AuthStore] Token refresh failed:', error);
                             if ((error as any)?.response?.status === 401 || (error as any)?.message?.includes('401')) {
                                 await AuthHelper.clearTokens();
                                 set({
@@ -511,7 +575,6 @@ export const useAuthStore = create<AuthState>()(
                                     },
                                 });
                             } else {
-                                console.log('🌐 [AuthStore] Network error - keeping tokens, will retry later');
                                 // Keep user logged in for network errors
                                 set({
                                     isAuthenticated: true,
@@ -523,14 +586,12 @@ export const useAuthStore = create<AuthState>()(
                             }
                         }
                     } else {
-                        console.log('❌ [AuthStore] No stored tokens found, user needs to login');
                         set({ isAuthenticated: false });
                     }
 
                     set({ isLoading: false });
-                    console.log('🏁 [AuthStore] Auth initialization completed');
                 } catch (error: any) {
-                    console.log('💥 [AuthStore] Auth initialization error:', error);
+                    console.error('[AuthStore] Auth initialization error:', error);
                     set({
                         error: error.message || 'Auth initialization failed',
                         isLoading: false,
@@ -544,24 +605,42 @@ export const useAuthStore = create<AuthState>()(
                     const profileData = response.data;
 
                     // Update user data with profile information
+                    const currentUser = get().user;
                     set({
                         user: {
-                            id: '', // Profile doesn't have id
-                            email: '', // Profile doesn't have email
+                            id: currentUser?.id || '', // Keep existing id
+                            email: currentUser?.email || '', // Keep existing email
                             displayName: profileData.displayName,
                             avatarUrl: profileData.avatarUrl,
-                            role: get().user?.role || 'USER',
+                            role: currentUser?.role || 'USER',
                         },
                     });
 
-                    // Also update ProfileStore to keep both stores in sync
-                    // This ensures ProfileStore has the latest data without additional API calls
+                    // Update ProfileStore to keep both stores in sync
                     const { useProfileStore } = await import('./profileStore');
                     const profileStore = useProfileStore.getState();
                     profileStore.setProfile(profileData);
                 } catch (error: any) {
-                    console.error('Failed to fetch user profile:', error);
-                    // Don't throw error here to avoid breaking auth flow
+                    console.error('[AuthStore] Failed to fetch user profile:', error);
+                }
+            },
+
+            initializeUserServices: async () => {
+                try {
+                    const { initializationService } = await import('../services/initializationService');
+                    await initializationService.initialize();
+
+                    // Ensure subscription state is in sync for the newly logged-in user
+                    try {
+                        const { useSubscriptionStore } = await import('./subscriptionStore');
+                        const subStore = useSubscriptionStore.getState();
+                        await subStore.fetchActiveSubscription();
+                        await subStore.fetchAllLimits();
+                    } catch (e) {
+                        // Silent fail
+                    }
+                } catch (error: any) {
+                    console.error('[AuthStore] Failed to initialize user services:', error);
                 }
             },
         }),
@@ -576,3 +655,4 @@ export const useAuthStore = create<AuthState>()(
         }
     )
 );
+

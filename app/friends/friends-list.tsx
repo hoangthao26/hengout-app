@@ -11,20 +11,27 @@ import {
     useColorScheme,
     View,
 } from 'react-native';
-import ContextMenu from '../components/ContextMenu';
-import Header from '../components/Header';
-import SearchUserItem from '../components/SearchUserItem';
-import SimpleAvatar from '../components/SimpleAvatar';
-import { useToast } from '../contexts/ToastContext';
-import { useFriendActions } from '../hooks/useFriendActions';
-import NavigationService from '../services/navigationService';
-import { socialService } from '../services/socialService';
-import { userSearchService } from '../services/userSearchService';
-import { Friend, SearchUser } from '../types/social';
+import ContextMenu from '../../components/ContextMenu';
+import Header from '../../components/Header';
+import SearchUserItem from '../../components/SearchUserItem';
+import SimpleAvatar from '../../components/SimpleAvatar';
+import { FeatureErrorBoundary } from '../../components/FeatureErrorBoundary';
+import { useToast } from '../../contexts/ToastContext';
+import { useFriendActions } from '../../hooks/useFriendActions';
+import useLimits from '../../hooks/useLimits';
+import NavigationService from '../../services/navigationService';
+import { socialService } from '../../services/socialService';
+import { userSearchService } from '../../services/userSearchService';
+import { chatService } from '../../services/chatService';
+import { useChatStore } from '../../store/chatStore';
+import { Friend, SearchUser } from '../../types/social';
 
 export default function FriendsListScreen() {
     const isDark = useColorScheme() === 'dark';
     const { success: showSuccess, error: showError } = useToast();
+
+    // Chat store for refreshing conversations
+    const { setConversations } = useChatStore();
 
     const [friends, setFriends] = useState<Friend[]>([]);
     const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
@@ -32,6 +39,10 @@ export default function FriendsListScreen() {
     const [searchLoading, setSearchLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
+    // Limits: current friends vs plan limit (display only)
+    const currentFriendsCount = friends.length;
+    const { label: friendsLabel } = useLimits('friends', currentFriendsCount, () => NavigationService.navigate('/settings/my-subscription'));
     // Use custom hook for friend actions
     const {
         processingUser,
@@ -42,6 +53,20 @@ export default function FriendsListScreen() {
         handleRejectRequestFromSearch,
         handleBlockUser,
     } = useFriendActions(searchResults, setSearchResults);
+
+    // Function to refresh conversations after friend actions
+    const refreshConversations = useCallback(async () => {
+        try {
+            const response = await chatService.getConversations();
+            if (response.status === 'success') {
+                setConversations(response.data);
+            } else {
+                console.warn('[Friends List] Failed to refresh conversations:', response.message);
+            }
+        } catch (error) {
+            console.error('[Friends List] Error refreshing conversations:', error);
+        }
+    }, [setConversations]);
 
     useEffect(() => {
         loadFriends();
@@ -71,7 +96,7 @@ export default function FriendsListScreen() {
             const friendsData = await socialService.getFriends();
             setFriends(friendsData);
         } catch (error) {
-            console.error('Error loading friends:', error);
+            console.error('[FriendsList] Failed to load friends:', error);
             Alert.alert('Lỗi', 'Không thể tải danh sách bạn bè');
         } finally {
             setLoading(false);
@@ -113,8 +138,11 @@ export default function FriendsListScreen() {
             await socialService.removeFriend(friendId);
             setFriends(prev => prev.filter(friend => friend.friendId !== friendId));
             showSuccess('Đã xóa bạn bè');
+
+            // Refresh conversations to update conversation list (private conversation may be hidden/removed)
+            await refreshConversations();
         } catch (error) {
-            console.error('Error removing friend:', error);
+            console.error('[FriendsList] Failed to remove friend:', error);
             showError('Không thể xóa bạn bè');
         }
     };
@@ -124,8 +152,11 @@ export default function FriendsListScreen() {
             await socialService.blockFriend(friendId, 'BLOCKED');
             setFriends(prev => prev.filter(friend => friend.friendId !== friendId));
             showSuccess('Đã chặn bạn bè');
+
+            // Refresh conversations to update conversation list (private conversation may be hidden/removed)
+            await refreshConversations();
         } catch (error) {
-            console.error('Error blocking friend:', error);
+            console.error('[FriendsList] Failed to block friend:', error);
             showError('Không thể chặn bạn bè');
         }
     };
@@ -148,7 +179,6 @@ export default function FriendsListScreen() {
 
         try {
             setSearchLoading(true);
-            console.log('🔍 Friends List - Starting search for:', query);
 
             const response = await userSearchService.searchUsers({
                 query,
@@ -156,14 +186,9 @@ export default function FriendsListScreen() {
                 size: 10
             });
 
-            console.log('📋 Friends List - Search response:', response);
-            console.log('📋 Friends List - Search results content:', response.data.content);
-
             setSearchResults(response.data.content);
-
-            console.log('✅ Friends List - Search results set:', response.data.content.length, 'users');
         } catch (error: any) {
-            console.error('❌ Friends List - Failed to search users:', error);
+            console.error('[Friends List] Failed to search users:', error);
             showError(`Failed to search users: ${error.message}`);
         } finally {
             setSearchLoading(false);
@@ -222,95 +247,105 @@ export default function FriendsListScreen() {
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            {/* Header */}
-            <Header
-                title="Bạn bè của bạn"
-                onBackPress={() => NavigationService.goBack()}
-            />
-
-            {/* Search Bar */}
-            <View style={styles.searchContainer}>
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Thêm bạn mới"
-                    placeholderTextColor="#9CA3AF"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
+        <FeatureErrorBoundary feature="Friends">
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                {/* Header with right-side counter */}
+                <Header
+                    title="Bạn bè của bạn"
+                    onBackPress={() => NavigationService.goBack()}
+                    rightContent={(
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Users size={20} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                            <Text style={{ marginLeft: 6, color: isDark ? '#9CA3AF' : '#6B7280', fontSize: 16, fontWeight: '600' }}>
+                                {friendsLabel}
+                            </Text>
+                        </View>
+                    )}
                 />
-                {searchLoading ? (
-                    <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
-                ) : (
-                    <TouchableOpacity
-                        style={styles.searchButton}
-                        onPress={searchQuery ? clearSearch : undefined}
-                    >
-                        {searchQuery ? (
-                            <X
-                                size={20}
-                                color="#9CA3AF"
-                            />
-                        ) : (
-                            <UserPlus
-                                size={20}
-                                color="#9CA3AF"
+
+                {/* Search Bar */}
+                <View style={styles.searchContainer}>
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Thêm bạn mới"
+                        placeholderTextColor="#9CA3AF"
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                    />
+                    {searchLoading ? (
+                        <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
+                    ) : (
+                        <TouchableOpacity
+                            style={styles.searchButton}
+                            onPress={searchQuery ? clearSearch : undefined}
+                        >
+                            {searchQuery ? (
+                                <X
+                                    size={20}
+                                    color="#9CA3AF"
+                                />
+                            ) : (
+                                <UserPlus
+                                    size={20}
+                                    color="#9CA3AF"
+                                />
+                            )}
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {/* Content */}
+                {searchQuery ? (
+                    <FlatList
+                        data={searchResults}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => (
+                            <SearchUserItem
+                                user={item}
+                                onAddFriend={handleSendFriendRequest}
+                                onRemoveFriend={handleRemoveFriend}
+                                onCancelRequest={handleCancelRequest}
+                                onAcceptRequest={handleAcceptRequestFromSearch}
+                                onRejectRequest={handleRejectRequestFromSearch}
+                                onBlock={handleBlockUser}
+                                loading={processingUser === item.id}
+                                disabled={processingUser === item.id}
                             />
                         )}
-                    </TouchableOpacity>
+                        style={styles.friendsList}
+                        contentContainerStyle={styles.friendsListContent}
+                        showsVerticalScrollIndicator={false}
+                        ListEmptyComponent={
+                            <View style={styles.emptyContainer}>
+                                <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                    Không tìm thấy người dùng nào
+                                </Text>
+                            </View>
+                        }
+                    />
+                ) : (
+                    <FlatList
+                        data={filteredFriends}
+                        keyExtractor={(item) => item.friendId}
+                        renderItem={renderFriendItem}
+                        style={styles.friendsList}
+                        contentContainerStyle={styles.friendsListContent}
+                        showsVerticalScrollIndicator={false}
+                        ListEmptyComponent={
+                            <View style={styles.emptyContainer}>
+                                <Users
+                                    size={64}
+                                    color={isDark ? '#4B5563' : '#9CA3AF'}
+                                />
+                                <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                    Chưa có bạn bè nào
+                                </Text>
+                            </View>
+                        }
+                    />
                 )}
             </View>
-
-            {/* Content */}
-            {searchQuery ? (
-                <FlatList
-                    data={searchResults}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                        <SearchUserItem
-                            user={item}
-                            onAddFriend={handleSendFriendRequest}
-                            onRemoveFriend={handleRemoveFriend}
-                            onCancelRequest={handleCancelRequest}
-                            onAcceptRequest={handleAcceptRequestFromSearch}
-                            onRejectRequest={handleRejectRequestFromSearch}
-                            onBlock={handleBlockUser}
-                            loading={processingUser === item.id}
-                            disabled={processingUser === item.id}
-                        />
-                    )}
-                    style={styles.friendsList}
-                    contentContainerStyle={styles.friendsListContent}
-                    showsVerticalScrollIndicator={false}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                Không tìm thấy người dùng nào
-                            </Text>
-                        </View>
-                    }
-                />
-            ) : (
-                <FlatList
-                    data={filteredFriends}
-                    keyExtractor={(item) => item.friendId}
-                    renderItem={renderFriendItem}
-                    style={styles.friendsList}
-                    contentContainerStyle={styles.friendsListContent}
-                    showsVerticalScrollIndicator={false}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Users
-                                size={64}
-                                color={isDark ? '#4B5563' : '#9CA3AF'}
-                            />
-                            <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                Chưa có bạn bè nào
-                            </Text>
-                        </View>
-                    }
-                />
-            )}
-        </View>
+        </FeatureErrorBoundary>
     );
 }
 
@@ -361,7 +396,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingVertical: 12,
         paddingHorizontal: 16,
-        borderRadius: 12,
+        borderRadius: 24,
         marginBottom: 8,
         marginHorizontal: 16,
         shadowColor: '#000',

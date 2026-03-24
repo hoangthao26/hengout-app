@@ -2,8 +2,8 @@ import { useRouter } from 'expo-router';
 import { XCircle } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
-import { useToast } from '../contexts/ToastContext';
-import { useProfileStore } from '../store';
+import { useToast } from '../../contexts/ToastContext';
+import { useProfileStore } from '../../store';
 
 export default function EditNameScreen() {
     const colorScheme = useColorScheme();
@@ -31,7 +31,7 @@ export default function EditNameScreen() {
             }
             setDisplayName(profile?.displayName || '');
         } catch (error: any) {
-            console.error('Failed to load profile:', error);
+            console.error('[EditName] Failed to load profile:', error);
             showError('Failed to load profile',);
         } finally {
             setLoading(false);
@@ -53,7 +53,7 @@ export default function EditNameScreen() {
             showSuccess('Tên đã được cập nhật!',);
             router.back();
         } catch (error: any) {
-            console.error('Failed to update name:', error);
+            console.error('[EditName] Failed to update name:', error);
             showError('Không thể cập nhật tên',);
         } finally {
             setSaving(false);

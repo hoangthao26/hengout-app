@@ -5,7 +5,7 @@
 export const SERVICES_CONFIG = {
     // Authentication Service
     AUTH_SERVICE: {
-        BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://hengout.tranquocdat.com/auth-service/api/v1',
+        BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.hengout.app/auth-service/api/v1',
         ENDPOINTS: {
             LOGIN: '/auth/user/login',
             REGISTER_SEND_OTP: '/auth/user/register/send-otp',
@@ -15,6 +15,9 @@ export const SERVICES_CONFIG = {
             FORGOT_PASSWORD_SEND_OTP: '/password/user/forgot',
             FORGOT_PASSWORD_VERIFY_OTP: '/password/forgot/confirm-otp',
             FORGOT_PASSWORD_RESET: '/password/forgot/reset',
+            CHANGE_PASSWORD: '/password/change',
+            PASSWORD_STATUS: '/password/status',
+            PASSWORD_SET: '/password/set',
             REFRESH_TOKEN: '/session/refresh',
             LOGOUT: '/session/logout',
         }
@@ -22,7 +25,7 @@ export const SERVICES_CONFIG = {
 
     // User Service
     USER_SERVICE: {
-        BASE_URL: process.env.EXPO_PUBLIC_USER_SERVICE_URL || 'https://hengout.tranquocdat.com/user-service/api/v1',
+        BASE_URL: process.env.EXPO_PUBLIC_USER_SERVICE_URL || 'https://api.hengout.app/user-service/api/v1',
         ENDPOINTS: {
             PROFILE: '/profile',
             INITIALIZE_PROFILE: '/profile/initialize',
@@ -47,21 +50,28 @@ export const SERVICES_CONFIG = {
 
     // Location Service
     LOCATION_SERVICE: {
-        BASE_URL: process.env.EXPO_PUBLIC_LOCATION_SERVICE_URL || 'https://hengout.tranquocdat.com/location-service/api/v1',
+        BASE_URL: process.env.EXPO_PUBLIC_LOCATION_SERVICE_URL || 'https://api.hengout.app/location-service/api/v1',
         ENDPOINTS: {
-            SEARCH_PLACES: '/places/search',
-            GET_PLACE_DETAILS: '/places/:id',
-            GET_NEARBY_PLACES: '/places/nearby',
-            GET_RECOMMENDATIONS: '/places/recommendations',
-            ADD_PLACE: '/places',
-            UPDATE_PLACE: '/places/:id',
-            DELETE_PLACE: '/places/:id',
+            // Location Details
+            GET_LOCATION_DETAILS: '/recommendation/locations/:locationId',
+            GET_LOCATION_REVIEWS: '/recommendation/locations/:locationId/reviews',
+
+            // Recommendations
+            GET_RANDOM_RECOMMENDATIONS: '/recommendation/random',
+            GET_NLP_RECOMMENDATIONS: '/recommendation/nlp',
+            GET_FILTERED_RECOMMENDATIONS: '/recommendation/filter',
+
+            // User Vibes
+            GET_CURRENT_VIBES: '/recommendation/current-vibes',
+            INIT_CURRENT_VIBES: '/recommendation/current-vibes/init',
+            GENERATE_NEW_VIBES: '/recommendation/current-vibes/new',
         }
     },
 
     // Social Service
     SOCIAL_SERVICE: {
-        BASE_URL: process.env.EXPO_PUBLIC_SOCIAL_SERVICE_URL || 'https://hengout.tranquocdat.com/social-service/api/v1',
+        BASE_URL: process.env.EXPO_PUBLIC_SOCIAL_SERVICE_URL || 'https://api.hengout.app/social-service/api/v1',
+        ACTIVITIES_BASE_URL: process.env.EXPO_PUBLIC_SOCIAL_SERVICE_ACTIVITIES_URL || 'https://api.hengout.app/social-service/api',
         ENDPOINTS: {
             FOLLOW_USER: '/users/:id/follow',
             UNFOLLOW_USER: '/users/:id/unfollow',
@@ -93,12 +103,68 @@ export const SERVICES_CONFIG = {
             GET_GROUP_MEMBERS: '/chat/conversations/:conversationId/members',
             ADD_MEMBER: '/chat/conversations/:conversationId/members/:memberId',
             REMOVE_MEMBER: '/chat/conversations/:conversationId/members/:memberId',
+            // Leave / Disband
+            LEAVE_CONVERSATION: '/chat/conversations/:conversationId/leave',
+            DISBAND_CONVERSATION: '/chat/conversations/:conversationId',
+            // Activity endpoints
+            GET_ACTIVITY_BY_ID: '/activities/:activityId',
+            GET_CONVERSATION_ACTIVITIES: '/activities/conversation/:conversationId',
+            GET_ACTIVITY_SUGGESTIONS: '/activities/:activityId/suggestions',
+            GET_ACTIVITY_RESULT: '/activities/:activityId/result',
+            CREATE_ACTIVITY: '/activities',
+            UPDATE_ACTIVITY: '/activities/:activityId',
+            DELETE_ACTIVITY: '/activities/:activityId',
+            SUBMIT_ACTIVITY_PREFERENCE: '/activities/preferences',
+            VOTE_FOR_SUGGESTION: '/activities/vote',
+        }
+    },
+
+    // Activities Service
+    ACTIVITIES_BASE_URL: {
+        BASE_URL: process.env.EXPO_PUBLIC_SOCIAL_SERVICE_ACTIVITIES_URL || 'https://api.hengout.app/social-service/api',
+        ENDPOINTS: {
+            GET_ACTIVITY_BY_ID: '/activities/:activityId',
+            GET_CONVERSATION_ACTIVITIES: '/activities/conversation/:conversationId',
+            GET_ACTIVITY_SUGGESTIONS: '/activities/:activityId/suggestions',
+            GET_ACTIVITY_RESULT: '/activities/:activityId/result',
+            CREATE_ACTIVITY: '/activities',
+            UPDATE_ACTIVITY: '/activities/:activityId',
+            DELETE_ACTIVITY: '/activities/:activityId',
+            SUBMIT_ACTIVITY_PREFERENCE: '/activities/preferences',
+            VOTE_FOR_SUGGESTION: '/activities/vote',
+        }
+    },
+
+    // Subscription Service
+    SUBSCRIPTION_SERVICE: {
+        BASE_URL: process.env.EXPO_PUBLIC_SUBSCRIPTION_SERVICE_URL || 'https://api.hengout.app/sub-service/api/v1',
+        ENDPOINTS: {
+            // Plans
+            GET_PLANS: '/subscriptions/plans',
+            GET_ACTIVE_SUBSCRIPTION: '/subscriptions/active',
+            ACTIVATE_SUBSCRIPTION: '/subscriptions/activate',
+            INIT_DEFAULT_SUBSCRIPTION: '/subscriptions/init',
+
+            // User Limits
+            GET_FOLDER_LIMITS: '/users/limits/folder',
+            GET_FRIEND_LIMITS: '/users/limits/friend',
+            GET_GROUP_LIMITS: '/users/limits/group',
+
+            // Payments
+            CHECK_PAYMENT: '/payments/check',
+            CREATE_PAYMENT: '/payments/create',
+            CONFIRM_WEBHOOK: '/payments/confirm-webhook',
+            CANCEL_PAYMENT: '/payments/cancel',
+
+            // Group Management
+            GET_GROUP_STATUS: '/groups/:groupId/status',
+            APPLY_GROUP_BOOST: '/group-boosts/apply',
         }
     },
 
     // Gateway Management
     GATEWAY: {
-        BASE_URL: process.env.EXPO_PUBLIC_GATEWAY_URL || 'https://hengout.tranquocdat.com/gateway/api/v1',
+        BASE_URL: process.env.EXPO_PUBLIC_GATEWAY_URL || 'https://api.hengout.app/gateway/api/v1',
         ENDPOINTS: {
             HEALTH_CHECK: '/health',
             API_STATUS: '/status',
@@ -116,13 +182,26 @@ export const getServiceUrl = (service: keyof typeof SERVICES_CONFIG, endpoint?: 
 };
 
 // Helper function to build full endpoint URL
-export const buildEndpointUrl = (service: keyof typeof SERVICES_CONFIG, endpointKey: string): string => {
+export const buildEndpointUrl = (service: keyof typeof SERVICES_CONFIG, endpointKey: string, params?: Record<string, string>): string => {
     const serviceConfig = SERVICES_CONFIG[service];
     const endpoint = (serviceConfig.ENDPOINTS as any)[endpointKey];
     if (!endpoint) {
         throw new Error(`Endpoint ${endpointKey} not found in ${service} service`);
     }
-    return `${serviceConfig.BASE_URL}${endpoint}`;
+
+    let finalEndpoint = endpoint;
+    if (params) {
+        Object.keys(params).forEach(key => {
+            finalEndpoint = finalEndpoint.replace(`:${key}`, params[key]);
+        });
+    }
+
+    // Use ACTIVITIES_BASE_URL for activity endpoints
+    const baseUrl = (endpointKey.includes('ACTIVITY') && (serviceConfig as any).ACTIVITIES_BASE_URL)
+        ? (serviceConfig as any).ACTIVITIES_BASE_URL
+        : serviceConfig.BASE_URL;
+
+    return `${baseUrl}${finalEndpoint}`;
 };
 
 // Export individual service configs for convenience
@@ -130,4 +209,5 @@ export const AUTH_SERVICE = SERVICES_CONFIG.AUTH_SERVICE;
 export const USER_SERVICE = SERVICES_CONFIG.USER_SERVICE;
 export const LOCATION_SERVICE = SERVICES_CONFIG.LOCATION_SERVICE;
 export const SOCIAL_SERVICE = SERVICES_CONFIG.SOCIAL_SERVICE;
+export const SUBSCRIPTION_SERVICE = SERVICES_CONFIG.SUBSCRIPTION_SERVICE;
 export const GATEWAY = SERVICES_CONFIG.GATEWAY;

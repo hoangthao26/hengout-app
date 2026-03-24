@@ -1,5 +1,14 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, useColorScheme } from 'react-native';
+import {
+    Ban,
+    CheckCircle,
+    Clock,
+    MinusCircle,
+    UserPlus,
+    UserMinus,
+    XCircle
+} from 'lucide-react-native';
 import ContextMenu, { MenuAction } from '../components/ContextMenu';
 
 export type RelationshipStatus = "REQUEST_PENDING" | "FRIEND" | "NONE" | "REQUEST_SENT";
@@ -40,7 +49,7 @@ const FriendActionButton: React.FC<FriendActionButtonProps> = ({
                 actions.push({
                     id: 'remove',
                     title: 'Xóa bạn',
-                    icon: 'person-remove',
+                    icon: UserMinus,
                     onPress: onRemoveFriend || (() => { }),
                     destructive: true,
                 });
@@ -50,36 +59,33 @@ const FriendActionButton: React.FC<FriendActionButtonProps> = ({
                 actions.push({
                     id: 'accept',
                     title: 'Chấp nhận',
-                    icon: 'checkmark-circle',
+                    icon: CheckCircle,
                     onPress: onAcceptRequest || (() => { }),
                 });
                 actions.push({
                     id: 'reject',
                     title: 'Từ chối',
-                    icon: 'close-circle',
+                    icon: XCircle,
                     onPress: onRejectRequest || (() => { }),
                     destructive: true,
                 });
                 break;
             case "REQUEST_SENT":
                 // Mình đã gửi lời mời
-                console.log('🔍 REQUEST_SENT - friendRequestId:', friendRequestId);
                 if (friendRequestId) {
                     // Có friendRequestId → có thể hủy
-                    console.log('✅ Showing cancel button');
                     actions.push({
                         id: 'cancel',
                         title: 'Hủy lời mời',
-                        icon: 'close-circle',
+                        icon: XCircle,
                         onPress: onCancelRequest || (() => { }),
                     });
                 } else {
                     // Chưa có friendRequestId → đang gửi
-                    console.log('⏳ Showing sending state');
                     actions.push({
                         id: 'sending',
                         title: 'Đang gửi lời mời...',
-                        icon: 'time',
+                        icon: Clock,
                         onPress: () => { }, // No action
                         disabled: true,
                     });
@@ -91,7 +97,7 @@ const FriendActionButton: React.FC<FriendActionButtonProps> = ({
                 actions.push({
                     id: 'add',
                     title: 'Thêm bạn',
-                    icon: 'person-add',
+                    icon: UserPlus,
                     onPress: onAddFriend || (() => { }),
                 });
                 break;
@@ -102,7 +108,7 @@ const FriendActionButton: React.FC<FriendActionButtonProps> = ({
             actions.push({
                 id: 'block',
                 title: 'Chặn',
-                icon: 'ban',
+                icon: Ban,
                 onPress: onBlock,
                 destructive: true,
             });

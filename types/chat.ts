@@ -5,14 +5,20 @@ export interface ChatMessage {
     senderId: string;
     senderName: string;
     senderAvatar: string;
-    type: 'TEXT' | 'IMAGE' | 'FILE' | 'SYSTEM';
+    type: 'TEXT' | 'ACTIVITY';
     content: {
         text?: string;
-        imageUrl?: string;
-        fileName?: string;
-        fileUrl?: string;
+        // ACTIVITY content
+        activityId?: string;
+        name?: string;
+        purpose?: string;
+        status?: string;
+        creatorName?: string;
+        creatorAvatar?: string;
     };
+
     createdAt: string;
+    updatedAt?: string;
     mine: boolean;
 }
 
@@ -22,7 +28,7 @@ export interface ChatConversation {
     name: string;
     avatarUrl?: string;
     createdBy: string;
-    status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+    status: 'ACTIVE' | 'INACTIVE';
     memberCount: number;
     userRole: 'OWNER' | 'ADMIN' | 'MEMBER';
     lastMessage?: ChatMessage;
@@ -61,12 +67,13 @@ export interface ChatResponse<T> {
 // Request Types
 export interface SendMessageRequest {
     conversationId: string;
-    type: 'TEXT' | 'IMAGE' | 'FILE';
+    type: 'TEXT' | 'ACTIVITY';
     content: {
         text?: string;
-        imageUrl?: string;
-        fileName?: string;
-        fileUrl?: string;
+        // ACTIVITY content
+        activityId?: string;
+        name?: string;
+        purpose?: string;
     };
 }
 

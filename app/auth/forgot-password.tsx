@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { View, useColorScheme } from 'react-native';
 import AuthBackButton from '../../components/AuthBackButton';
+import { AuthErrorBoundary } from '../../components/errorBoundaries';
 import { useToast } from '../../contexts/ToastContext';
 import ForgotPasswordForm from '../../modules/auth/components/ForgotPasswordForm';
 import { authService } from '../../services';
@@ -18,7 +19,6 @@ export default function ForgotPasswordScreen() {
         setLoading(true);
         try {
             const response = await authService.forgotPasswordSendOTP(email);
-            console.log('Reset OTP sent successfully:', response);
 
             showSuccess('Reset OTP sent to your email',);
 
@@ -28,7 +28,7 @@ export default function ForgotPasswordScreen() {
                 sessionToken: response.data.sessionToken
             });
         } catch (error: any) {
-            console.error('Failed to send reset OTP:', error);
+            console.error('[ForgotPassword] Failed to send reset OTP:', error);
             showError(error.message || 'Failed to send reset OTP. Please try again.',);
         } finally {
             setLoading(false);
@@ -36,20 +36,22 @@ export default function ForgotPasswordScreen() {
     };
 
     return (
-        <View style={{
-            flex: 1,
-            backgroundColor: isDark ? '#000000' : '#FFFFFF',
-            paddingHorizontal: 24,
-            paddingTop: 60,
-            maxWidth: 500,
-            alignSelf: 'center',
-            width: '100%'
-        }}>
-            <AuthBackButton onPress={() => router.back()} />
-            <ForgotPasswordForm
-                onSubmit={handleSendResetOTP}
-                loading={loading}
-            />
-        </View>
+        <AuthErrorBoundary>
+            <View style={{
+                flex: 1,
+                backgroundColor: isDark ? '#000000' : '#FFFFFF',
+                paddingHorizontal: 24,
+                paddingTop: 60,
+                maxWidth: 500,
+                alignSelf: 'center',
+                width: '100%'
+            }}>
+                <AuthBackButton onPress={() => router.back()} />
+                <ForgotPasswordForm
+                    onSubmit={handleSendResetOTP}
+                    loading={loading}
+                />
+            </View>
+        </AuthErrorBoundary>
     );
 }

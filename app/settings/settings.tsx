@@ -1,18 +1,21 @@
 import { useRouter } from 'expo-router';
-import { ChevronRight, LogOut, Settings } from 'lucide-react-native';
+import { ChevronRight, LogOut, Settings, TestTube, Bell, Crown, Shield, SlidersHorizontal, FileText } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
-import Header from '../components/Header';
-import { useToast } from '../contexts/ToastContext';
-import { AuthHelper } from '../services/authHelper';
-import NavigationService from '../services/navigationService';
+import * as WebBrowser from 'expo-web-browser';
+import Header from '../../components/Header';
+import { useToast } from '../../contexts/ToastContext';
+import { useAuthStore } from '../../store/authStore';
+import NavigationService from '../../services/navigationService';
+// removed one-time init default subscription
 
 export default function SettingsScreen() {
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
-    const { success, error, info, warning, loading, hideLoading } = useToast();
+    const { success, error } = useToast();
     const router = useRouter();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const { fastLogout, isLoading } = useAuthStore();
 
     const handleLogout = async () => {
         Alert.alert(
@@ -28,14 +31,34 @@ export default function SettingsScreen() {
                     style: 'destructive',
                     onPress: async () => {
                         try {
+                            // OPTIMISTIC LOGOUT: Navigate immediately for better UX
                             setIsLoggingOut(true);
-                            await AuthHelper.logout();
-                            success('Đã đăng xuất thành công');
+
+                            // 1. Navigate to login immediately
                             NavigationService.logoutToLogin();
+
+                            // 2. Show success toast
+                            success('Đã đăng xuất thành công');
+
+                            // 3. Background logout (non-blocking)
+                            setTimeout(async () => {
+                                try {
+                                    // SET LOGOUT FLAGS: Prevent race conditions
+                                    const { setLogoutMode, setUserLoggedOut } = await import('../../config/axios');
+                                    setLogoutMode(true);
+                                    setUserLoggedOut(true);
+
+                                    // BACKGROUND LOGOUT: Clear data without blocking UI
+                                    await fastLogout();
+                                } catch (error: any) {
+                                    // Background logout failed - user already logged out, no need to show error
+                                    console.error('[Settings] Background logout failed:', error);
+                                }
+                            }, 100); // Small delay to ensure navigation completes
+
                         } catch (error: any) {
-                            console.error('Logout failed:', error);
+                            console.error('[Settings] Logout navigation failed:', error);
                             error('Đăng xuất thất bại');
-                        } finally {
                             setIsLoggingOut(false);
                         }
                     },
@@ -43,6 +66,11 @@ export default function SettingsScreen() {
             ]
         );
     };
+
+
+
+
+
 
     return (
         <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
@@ -55,13 +83,47 @@ export default function SettingsScreen() {
 
             {/* Settings Content */}
             <View style={styles.content}>
+                {/* Change Password Option */}
+                <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={() => NavigationService.navigate('/auth/change-password')}
+                >
+                    <View style={styles.settingLeft}>
+                        <Shield
+                            size={24}
+                            color={isDark ? '#FFFFFF' : '#000000'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>Đổi mật khẩu</Text>
+                    </View>
+                    <ChevronRight size={20} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                </TouchableOpacity>
+                {/* My Subscription Option */}
+                <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={() => router.push('/settings/my-subscription')}
+                >
+                    <View style={styles.settingLeft}>
+                        <Crown
+                            size={24}
+                            color={isDark ? '#FAA307' : '#FAA307'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            Gói đăng ký của tôi
+                        </Text>
+                    </View>
+                    <ChevronRight
+                        size={20}
+                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                    />
+                </TouchableOpacity>
+
                 {/* Preferences Option */}
                 <TouchableOpacity
                     style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
-                    onPress={() => router.push('/settings/preferences')}
+                    onPress={() => NavigationService.goToPreferences()}
                 >
                     <View style={styles.settingLeft}>
-                        <Settings
+                        <SlidersHorizontal
                             size={24}
                             color={isDark ? '#FFFFFF' : '#000000'}
                         />
@@ -75,18 +137,184 @@ export default function SettingsScreen() {
                     />
                 </TouchableOpacity>
 
-                {/* Logout Option */}
+                {/* Privacy Policy Option */}
                 <TouchableOpacity
                     style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
-                    onPress={handleLogout}
-                    disabled={isLoggingOut}
+                    onPress={async () => {
+                        try {
+                            // Replace with your actual Privacy Policy URL
+                            const privacyPolicyUrl = 'https://hengout.app/privacy-policy';
+                            await WebBrowser.openBrowserAsync(privacyPolicyUrl, {
+                                presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
+                            });
+                        } catch (err) {
+                            console.error('[Settings] Failed to open Privacy Policy:', err);
+                            error('Không thể mở Privacy Policy. Vui lòng thử lại sau.');
+                        }
+                    }}
                 >
                     <View style={styles.settingLeft}>
-                        <LogOut
+                        <FileText
                             size={24}
                             color={isDark ? '#FFFFFF' : '#000000'}
                         />
                         <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            Privacy Policy
+                        </Text>
+                    </View>
+                    <ChevronRight
+                        size={20}
+                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                    />
+                </TouchableOpacity>
+
+                {/* Notifications Option */}
+                {/* <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={() => router.push('/settings/notifications')}
+                >
+                    <View style={styles.settingLeft}>
+                        <Bell
+                            size={24}
+                            color={isDark ? '#FFFFFF' : '#000000'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            Notifications
+                        </Text>
+                    </View>
+                    <ChevronRight
+                        size={20}
+                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                    />
+                </TouchableOpacity> */}
+
+                {/* TEST OPTIONS - COMMENTED OUT FOR PRODUCTION */}
+                {/* 
+                <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={() => router.push('/settings/gesture-test')}
+                >
+                    <View style={styles.settingLeft}>
+                        <TestTube
+                            size={24}
+                            color={isDark ? '#FFFFFF' : '#000000'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            Gesture Handler Test
+                        </Text>
+                    </View>
+                    <ChevronRight
+                        size={20}
+                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                    />
+                </TouchableOpacity>
+
+                
+
+                <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={() => router.push('/settings/ultra-simple-test')}
+                >
+                    <View style={styles.settingLeft}>
+                        <TestTube
+                            size={24}
+                            color={isDark ? '#FFFFFF' : '#000000'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            Ultra Simple Test
+                        </Text>
+                    </View>
+                    <ChevronRight
+                        size={20}
+                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                    />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={() => router.push('/settings/toast-test')}
+                >
+                    <View style={styles.settingLeft}>
+                        <TestTube
+                            size={24}
+                            color={isDark ? '#FFFFFF' : '#000000'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                            Toast Test
+                        </Text>
+                    </View>
+                    <ChevronRight
+                        size={20}
+                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                    />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={() => router.push('/settings/swipe-test' as any)}
+                >
+                    <View style={styles.settingLeft}>
+                        <TestTube
+                            size={24}
+                            color={isDark ? '#EC4899' : '#DB2777'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>Swipe Test (Tinder Style)</Text>
+                    </View>
+                    <ChevronRight
+                        size={20}
+                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                    />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={() => router.push('/settings/swipe-example' as any)}
+                >
+                    <View style={styles.settingLeft}>
+                        <TestTube
+                            size={24}
+                            color={isDark ? '#10B981' : '#059669'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>Swipe Example (Docs Style)</Text>
+                    </View>
+                    <ChevronRight
+                        size={20}
+                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                    />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={() => router.push('/settings/custom-swipe' as any)}
+                >
+                    <View style={styles.settingLeft}>
+                        <TestTube
+                            size={24}
+                            color={isDark ? '#F59E0B' : '#D97706'}
+                        />
+                        <Text style={[styles.settingText, { color: isDark ? '#FFFFFF' : '#000000' }]}>Custom Swipe (Reanimated)</Text>
+                    </View>
+                    <ChevronRight
+                        size={20}
+                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                    />
+                </TouchableOpacity>
+                */}
+
+
+
+                {/* Logout Option */}
+                <TouchableOpacity
+                    style={[styles.settingItem, { backgroundColor: isDark ? '#1F2937' : '#F9FAFB' }]}
+                    onPress={handleLogout}
+                    disabled={isLoggingOut || isLoading}
+                >
+                    <View style={styles.settingLeft}>
+                        <LogOut
+                            size={24}
+                            color="#EF4444"
+                        />
+                        <Text style={[styles.settingText, { color: '#EF4444' }]}>
                             Đăng xuất
                         </Text>
                     </View>

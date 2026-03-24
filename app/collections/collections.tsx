@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import { FolderOpen, Plus } from 'lucide-react-native';
+import NavigationService from '../../services/navigationService';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -10,16 +11,19 @@ import {
     useColorScheme,
     View
 } from 'react-native';
-import CollectionCard from '../components/CollectionCard';
-import Header from '../components/Header';
-import { useToast } from '../contexts/ToastContext';
-import { locationFolderService } from '../services/locationFolderService';
-import { LocationFolder } from '../types/locationFolder';
+import CollectionCard from '../../components/CollectionCard';
+import Header from '../../components/Header';
+import { FeatureErrorBoundary } from '../../components/FeatureErrorBoundary';
+import { useToast } from '../../contexts/ToastContext';
+import { locationFolderService } from '../../services/locationFolderService';
+import { useCollectionStore } from '../../store/collectionStore';
+import { LocationFolder } from '../../types/locationFolder';
 
 export default function CollectionsScreen() {
     const router = useRouter();
     const isDark = useColorScheme() === 'dark';
     const { success: showSuccess, error: showError } = useToast();
+    const { setCurrentCollection } = useCollectionStore();
 
     const [collections, setCollections] = useState<LocationFolder[]>([]);
     const [loading, setLoading] = useState(true);
@@ -34,7 +38,7 @@ export default function CollectionsScreen() {
                 showError('Không thể tải danh sách collections');
             }
         } catch (error: any) {
-            console.error('Failed to load collections:', error);
+            console.error('[Collections] Failed to load collections:', error);
             showError(`Lỗi: ${error.message}`);
         }
     }, [showError]);
@@ -56,21 +60,15 @@ export default function CollectionsScreen() {
     }, [loadCollections]);
 
     const handleCollectionPress = (collection: LocationFolder) => {
-        router.push({
-            pathname: '/collections/collection-detail',
-            params: {
-                collectionId: collection.id,
-                collectionName: collection.name,
-                collectionDescription: collection.description || '',
-                visibility: collection.visibility,
-                isDefault: collection.isDefault.toString()
-            }
-        });
+        // Save current collection to store before navigation (for immediate display)
+        setCurrentCollection(collection);
+
+        // Navigate with just ID - detail screen will fetch fresh data from API
+        NavigationService.goToCollectionDetail(collection.id);
     };
 
     const handleCreateCollection = () => {
         // TODO: Navigate to create collection screen
-        console.log('Create collection');
     };
 
     const renderCollection = ({ item }: { item: LocationFolder }) => (
@@ -115,37 +113,40 @@ export default function CollectionsScreen() {
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            <Header
-                title="Collections"
-                showBackButton
-                rightIcon={{
-                    icon: Plus,
-                    onPress: handleCreateCollection
-                }}
-            />
-
-            {collections.length === 0 ? (
-                renderEmptyState()
-            ) : (
-                <FlatList
-                    data={collections}
-                    renderItem={renderCollection}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                    refreshing={refreshing}
-                    onRefresh={onRefresh}
-                    ListHeaderComponent={
-                        <View style={styles.headerContainer}>
-                            <Text style={[styles.headerSubtitle, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                {collections.length} collections
-                            </Text>
-                        </View>
-                    }
+        <FeatureErrorBoundary feature="Collections">
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                <Header
+                    title="Collections"
+                    showBackButton
+                    rightIcon={{
+                        icon: Plus,
+                        size: 28,
+                        onPress: handleCreateCollection
+                    }}
                 />
-            )}
-        </View>
+
+                {collections.length === 0 ? (
+                    renderEmptyState()
+                ) : (
+                    <FlatList
+                        data={collections}
+                        renderItem={renderCollection}
+                        keyExtractor={(item) => item.id}
+                        contentContainerStyle={styles.listContent}
+                        showsVerticalScrollIndicator={false}
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        ListHeaderComponent={
+                            <View style={styles.headerContainer}>
+                                <Text style={[styles.headerSubtitle, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                    {collections.length} collections
+                                </Text>
+                            </View>
+                        }
+                    />
+                )}
+            </View>
+        </FeatureErrorBoundary>
     );
 }
 

@@ -62,12 +62,9 @@ export default function ConfirmDeleteModal({
     );
 
     useEffect(() => {
-        console.log('🔍 ConfirmDeleteModal useEffect - isVisible:', isVisible);
         if (isVisible) {
-            console.log('🔍 Opening ConfirmDeleteModal, calling snapToIndex(0)');
             bottomSheetRef.current?.snapToIndex(0);
         } else {
-            console.log('🔍 Closing ConfirmDeleteModal, calling snapToIndex(-1)');
             bottomSheetRef.current?.snapToIndex(-1);
         }
     }, [isVisible]);
@@ -81,13 +78,13 @@ export default function ConfirmDeleteModal({
             enablePanDownToClose={false}
             backdropComponent={renderBackdrop}
             backgroundStyle={{
-                backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+                backgroundColor: isDark ? '#000000' : '#FFFFFF',
             }}
             handleIndicatorStyle={{
                 backgroundColor: isDark ? '#4B5563' : '#D1D5DB',
             }}
         >
-            <BottomSheetView style={styles.content}>
+            <BottomSheetView style={[styles.content, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
                 {/* Warning Icon */}
                 <View style={[styles.iconContainer, { backgroundColor: isDark ? '#FEE2E2' : '#FEF2F2' }]}>
                     <AlertTriangle size={32} color="#EF4444" />
@@ -100,7 +97,7 @@ export default function ConfirmDeleteModal({
 
                 {/* Message */}
                 <Text style={[styles.message, { color: isDark ? '#D1D5DB' : '#6B7280' }]}>
-                    Bạn có chắc chắn muốn xóa collection "{collectionName}"? Tất cả địa điểm trong collection này sẽ bị xóa.
+                    Bạn có chắc chắn muốn xóa collection &quot;{collectionName}&quot;? Tất cả địa điểm trong collection này sẽ bị xóa.
                 </Text>
 
                 {/* Buttons */}
@@ -137,6 +134,7 @@ const styles = StyleSheet.create({
         paddingTop: 20,
         paddingBottom: 40,
         alignItems: 'center',
+        backgroundColor: '#000000',
     },
     iconContainer: {
         width: 64,

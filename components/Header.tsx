@@ -22,6 +22,8 @@ interface HeaderProps {
     showBackButton?: boolean;
     // NEW: Custom header content
     customContent?: React.ReactNode;
+    // NEW: Right-side custom content next to title
+    rightContent?: React.ReactNode;
     // NEW: Variants
     variant?: 'default' | 'profile' | 'settings';
 }
@@ -33,6 +35,7 @@ const Header: React.FC<HeaderProps> = ({
     rightIcons,
     showBackButton = true,
     customContent,
+    rightContent,
     variant = 'default',
 }) => {
     const isDark = useColorScheme() === 'dark';
@@ -67,9 +70,11 @@ const Header: React.FC<HeaderProps> = ({
                 </Text>
             </View>
 
-            {/* Right: Icons or Spacer */}
+            {/* Right: Custom content or Icons or Spacer */}
             <View style={styles.rightSection}>
-                {iconsToRender.length > 0 ? (
+                {rightContent ? (
+                    rightContent
+                ) : iconsToRender.length > 0 ? (
                     <View style={styles.rightIconsContainer}>
                         {iconsToRender.map((icon, index) => (
                             <TouchableOpacity

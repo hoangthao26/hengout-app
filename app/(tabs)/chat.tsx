@@ -1,6 +1,9 @@
 import { useRouter } from 'expo-router';
-import { Search, UserPlus, Users, X } from 'lucide-react-native';
+import { Search, UserPlus, Users, User, X, PlusCircle, MessageCirclePlus } from 'lucide-react-native';
+import NavigationService from '../../services/navigationService';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { ChatErrorBoundary } from '../../components/errorBoundaries';
 import {
     ActivityIndicator,
     FlatList,
@@ -17,7 +20,12 @@ import Header from '../../components/Header';
 import { useModal } from '../../contexts/ModalContext';
 import { useToast } from '../../contexts/ToastContext';
 import { chatService } from '../../services/chatService';
+import { useChatStore } from '../../store/chatStore';
+import { useChatSync } from '../../hooks/useChatSync';
 import { ChatConversation } from '../../types/chat';
+import Badge from '../../components/Badge';
+import { useNotificationStore } from '../../store/notificationStore';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ChatScreen() {
     const colorScheme = useColorScheme();
@@ -26,31 +34,32 @@ export default function ChatScreen() {
     const { openCreateGroupModal, setOnCreateGroupSuccess } = useModal();
     const router = useRouter();
 
-    const [conversations, setConversations] = useState<ChatConversation[]>([]);
+    const {
+        conversations,
+        conversationsLoading,
+        setConversations,
+        setConversationsLoading,
+        // Store-First Messages
+        setConversationMessages,
+        setMessageSnapshot,
+        preloadMessages
+    } = useChatStore();
+
+    const { hasUnreadMessages } = useNotificationStore();
+
+    // SQLite Chat Sync
+    const {
+        isInitialized: chatSyncInitialized,
+        isSyncing,
+        getConversations: getConversationsFromDB,
+        getMessages: getMessagesFromDB,
+        forceSync
+    } = useChatSync();
+
     const [filteredConversations, setFilteredConversations] = useState<ChatConversation[]>([]);
-    const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchLoading, setSearchLoading] = useState(false);
-
-    // Load conversations
-    const loadConversations = useCallback(async () => {
-        try {
-            const response = await chatService.getConversations();
-            if (response.status === 'success') {
-                setConversations(response.data);
-                setFilteredConversations(response.data);
-            } else {
-                error('Không thể tải danh sách cuộc trò chuyện');
-            }
-        } catch (err: any) {
-            console.error('Failed to load conversations:', err);
-            error('Lỗi khi tải cuộc trò chuyện');
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    }, [error]);
 
     // Filter conversations based on search query
     const filterConversations = useCallback((query: string) => {
@@ -71,6 +80,52 @@ export default function ChatScreen() {
         setFilteredConversations(filtered);
     }, [conversations]);
 
+    // Subscribe to store changes for real-time updates
+    // This ensures new conversations appear immediately without pull-to-refresh
+    useEffect(() => {
+        if (searchQuery.trim()) {
+            filterConversations(searchQuery);
+        } else {
+            setFilteredConversations(conversations);
+        }
+    }, [conversations, searchQuery, filterConversations]);
+
+    // Preloading Strategy: Load conversations + recent messages
+    const loadConversations = useCallback(async () => {
+        try {
+            setConversationsLoading(true);
+
+            // Load from SQLite first (instant)
+            if (chatSyncInitialized) {
+                const localConversations = await getConversationsFromDB();
+                setConversations(localConversations);
+                // setFilteredConversations sẽ được cập nhật tự động qua useEffect
+
+                // MVP OPTIMIZATION: Disabled preloading to reduce memory usage
+                // MVP OPTIMIZATION: Disabled background sync to reduce network calls
+            } else {
+                // Fallback to direct API call if SQLite not ready
+                const response = await chatService.getConversations();
+                if (response.status === 'success') {
+                    setConversations(response.data);
+                    // setFilteredConversations sẽ được cập nhật tự động qua useEffect
+                } else {
+                    error('Không thể tải danh sách cuộc trò chuyện');
+                }
+            }
+        } catch (err: any) {
+            // DEFENSIVE: Don't show error if user logged out
+            if (err.message?.includes('User logged out')) {
+                return;
+            }
+            console.error('[Chat] Failed to load conversations:', err);
+            error('Lỗi khi tải cuộc trò chuyện');
+        } finally {
+            setConversationsLoading(false);
+            setRefreshing(false);
+        }
+    }, [chatSyncInitialized, getConversationsFromDB, getMessagesFromDB, error, setConversations, setConversationsLoading, setConversationMessages, setMessageSnapshot]);
+
     // Debounce search
     useEffect(() => {
         const timeoutId = setTimeout(() => {
@@ -86,27 +141,62 @@ export default function ChatScreen() {
         setFilteredConversations(conversations);
     }, [conversations]);
 
-    // Handle refresh
-    const handleRefresh = useCallback(() => {
+    // OPTIMISTIC REFRESH - Không clear data khi refresh
+    const handleRefresh = useCallback(async () => {
         setRefreshing(true);
-        loadConversations();
-    }, [loadConversations]);
+        try {
+            if (chatSyncInitialized) {
+                // Force sync trong background, không clear UI
+                await forceSync();
+
+                // Load fresh data từ database (đã được sync)
+                const freshConversations = await getConversationsFromDB();
+                setConversations(freshConversations);
+                setFilteredConversations(freshConversations);
+            } else {
+                // Fallback to direct API call
+                const response = await chatService.getConversations();
+                if (response.status === 'success') {
+                    setConversations(response.data);
+                    setFilteredConversations(response.data);
+                }
+            }
+        } catch (error) {
+            console.error('[Chat] Refresh failed:', error);
+        } finally {
+            setRefreshing(false);
+        }
+    }, [chatSyncInitialized, forceSync, getConversationsFromDB, setConversations]);
 
     // Handle conversation press
     const handleConversationPress = useCallback((conversation: ChatConversation) => {
-        router.push(`/chat/${conversation.id}` as any);
-    }, [router]);
+        NavigationService.goToChatConversation(conversation.id);
+    }, []);
 
     // Handle create group
     const handleCreateGroup = useCallback(() => {
-        setOnCreateGroupSuccess(() => loadConversations);
+        // Không cần reload toàn bộ danh sách nữa vì conversation đã được thêm vào store ngay lập tức
+        setOnCreateGroupSuccess(() => {
+            // Group created successfully, conversation already added to store
+        });
         openCreateGroupModal();
-    }, [setOnCreateGroupSuccess, openCreateGroupModal, loadConversations]);
+    }, [setOnCreateGroupSuccess, openCreateGroupModal]);
 
-    // Load conversations on mount
+    // Load conversations on mount and when screen is focused
     useEffect(() => {
+        // Load conversations on initial mount
         loadConversations();
     }, [loadConversations]);
+
+    // REMOVED: useFocusEffect reload - not needed because:
+    // 1. WebSocket updates store in real-time
+    // 2. Store changes trigger UI re-render automatically
+    // 3. Reloading from database can overwrite real-time updates
+    // 4. This was causing the "old preview" issue
+    // Note: Removed useFocusEffect reload to prevent overwriting real-time WebSocket updates
+
+    // Note: This is now handled in the useEffect above (line 66)
+    // Removed duplicate useEffect to avoid conflicts
 
     // Render conversation item
     const renderConversationItem = ({ item }: { item: ChatConversation }) => {
@@ -127,6 +217,7 @@ export default function ChatScreen() {
                                 styles.avatar,
                                 { borderColor: item.type === 'GROUP' ? '#F48C06' : '#9CA3AF' }
                             ]}
+                            resizeMode="contain"
                         />
                     ) : (
                         <View style={[
@@ -136,10 +227,11 @@ export default function ChatScreen() {
                                 borderColor: item.type === 'GROUP' ? '#F48C06' : '#9CA3AF'
                             }
                         ]}>
-                            <Users
-                                size={24}
-                                color={isDark ? '#9CA3AF' : '#6B7280'}
-                            />
+                            {item.type === 'GROUP' ? (
+                                <Users size={32} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                            ) : (
+                                <User size={34} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                            )}
                         </View>
                     )}
                 </View>
@@ -159,93 +251,118 @@ export default function ChatScreen() {
                             </Text>
                         )}
                     </View>
-                    <Text
-                        style={[styles.lastMessage, { color: isDark ? '#9CA3AF' : '#6B7280' }]}
-                        numberOfLines={1}
-                    >
-                        {lastMessage}
-                    </Text>
+                    <View style={styles.lastMessageContainer}>
+                        <Text
+                            style={[
+                                styles.lastMessage,
+                                {
+                                    // Highlight when has unread messages
+                                    fontWeight: hasUnreadMessages(item.id) ? '600' : '400',
+                                    color: hasUnreadMessages(item.id)
+                                        ? (isDark ? '#FFFFFF' : '#000000')
+                                        : (isDark ? '#9CA3AF' : '#6B7280')
+                                }
+                            ]}
+                            numberOfLines={1}
+                        >
+                            {lastMessage}
+                        </Text>
+                        {/* Gradient dot for unread messages */}
+                        {hasUnreadMessages(item.id) && (
+                            <LinearGradient
+                                colors={['#FAA307', '#F48C06', '#DC2F02', '#9D0208']}
+                                locations={[0, 0.31, 0.69, 1]}
+                                start={{ x: 0, y: 1 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.unreadDot}
+                            />
+                        )}
+                    </View>
                 </View>
             </TouchableOpacity>
         );
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            {/* Header */}
-            <Header
-                title="Chat"
-                showBackButton={false}
-                rightIcons={[
-                    {
-                        icon: UserPlus,
-                        size: 24,
-                        onPress: handleCreateGroup,
-                    }
-                ]}
-            />
-
-            {/* Search Bar */}
-            <View style={styles.searchContainer}>
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Tìm kiếm cuộc trò chuyện..."
-                    placeholderTextColor="#9CA3AF"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
+        <ChatErrorBoundary>
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                {/* Header */}
+                <Header
+                    title="Chat"
+                    showBackButton={false}
+                    rightIcons={[
+                        {
+                            icon: MessageCirclePlus,
+                            size: 28,
+                            onPress: handleCreateGroup,
+                        }
+                    ]}
                 />
-                {searchLoading ? (
-                    <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
-                ) : (
-                    <TouchableOpacity
-                        style={styles.searchButton}
-                        onPress={searchQuery ? clearSearch : undefined}
-                    >
-                        {searchQuery ? (
-                            <X
-                                size={20}
-                                color="#9CA3AF"
-                            />
-                        ) : (
-                            <Search
-                                size={20}
-                                color="#9CA3AF"
-                            />
-                        )}
-                    </TouchableOpacity>
-                )}
-            </View>
 
-            {/* Conversations List - Scrollable between header and tabs */}
-            <FlatList
-                data={filteredConversations}
-                keyExtractor={(item) => item.id}
-                renderItem={renderConversationItem}
-                style={styles.conversationsList}
-                contentContainerStyle={styles.conversationsContent}
-                showsVerticalScrollIndicator={true}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={handleRefresh}
-                        tintColor={isDark ? '#FFFFFF' : '#000000'}
+                {/* Search Bar */}
+                <View style={styles.searchContainer}>
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Tìm kiếm cuộc trò chuyện..."
+                        placeholderTextColor="#9CA3AF"
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
                     />
-                }
-                ListEmptyComponent={
-                    !loading ? (
-                        <View style={styles.emptyState}>
-                            <Users
-                                size={48}
-                                color={isDark ? '#4B5563' : '#9CA3AF'}
-                            />
-                            <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                {searchQuery ? 'Không tìm thấy cuộc trò chuyện nào' : 'Chưa có cuộc trò chuyện nào'}
-                            </Text>
-                        </View>
-                    ) : null
-                }
-            />
-        </View>
+                    {searchLoading ? (
+                        <ActivityIndicator size="small" color="#F48C06" style={styles.searchButton} />
+                    ) : (
+                        <TouchableOpacity
+                            style={styles.searchButton}
+                            onPress={searchQuery ? clearSearch : undefined}
+                        >
+                            {searchQuery ? (
+                                <X
+                                    size={20}
+                                    color="#9CA3AF"
+                                />
+                            ) : (
+                                <Search
+                                    size={20}
+                                    color="#9CA3AF"
+                                />
+                            )}
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {/* Conversations List - Scrollable between header and tabs */}
+                <FlatList
+                    data={filteredConversations}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderConversationItem}
+                    style={styles.conversationsList}
+                    contentContainerStyle={styles.conversationsContent}
+                    showsVerticalScrollIndicator={true}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={handleRefresh}
+                            tintColor={isDark ? '#FFFFFF' : '#000000'}
+                        />
+                    }
+                    ListEmptyComponent={
+                        !conversationsLoading ? (
+                            <View style={styles.emptyState}>
+                                <Users
+                                    size={48}
+                                    color={isDark ? '#4B5563' : '#9CA3AF'}
+                                />
+                                <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                    {searchQuery ? 'Không tìm thấy cuộc trò chuyện nào' : 'Chưa có cuộc trò chuyện nào'}
+                                </Text>
+                            </View>
+                        ) : null
+                    }
+                />
+
+
+            </View>
+        </ChatErrorBoundary>
     );
 }
 
@@ -298,7 +415,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingVertical: 16,
+        paddingVertical: 8,
         backgroundColor: 'transparent',
     },
     avatarContainer: {
@@ -334,8 +451,20 @@ const styles = StyleSheet.create({
         fontSize: 14,
         marginLeft: 8,
     },
+    lastMessageContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
     lastMessage: {
         fontSize: 14,
+        flex: 1,
+        marginRight: 8,
+    },
+    unreadDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
     },
     emptyState: {
         flex: 1,
@@ -350,3 +479,6 @@ const styles = StyleSheet.create({
         color: '#9CA3AF',
     },
 });
+
+
+

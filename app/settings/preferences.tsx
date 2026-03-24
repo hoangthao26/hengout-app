@@ -2,9 +2,9 @@ import { useRouter } from 'expo-router';
 import { Flag, Grid3X3, Tag } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
-import Header from '../components/Header';
-import { useToast } from '../contexts/ToastContext';
-import { usePreferencesStore } from '../store';
+import Header from '../../components/Header';
+import { useToast } from '../../contexts/ToastContext';
+import { usePreferencesStore } from '../../store';
 
 export default function PreferencesScreen() {
     const colorScheme = useColorScheme();
@@ -29,7 +29,7 @@ export default function PreferencesScreen() {
                 await fetchPreferences();
             }
         } catch (error: any) {
-            console.error('Failed to load preferences:', error);
+            console.error('[Preferences] Failed to load preferences:', error);
             showError('Failed to load preferences',);
         } finally {
             setLoading(false);

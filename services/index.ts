@@ -20,12 +20,20 @@ export { default as userSearchService } from './userSearchService';
 // Location Services
 export { default as locationFolderService } from './locationFolderService';
 
+// Activity Services
+// export { default as activityService } from './activityService';
+
 // Chat Services
 export { default as chatService } from './chatService';
 
+// Subscription Services
+export { default as subscriptionService } from './subscriptionService';
+export { default as paymentService } from './paymentService';
+export { default as paymentFlowManager } from './paymentFlowManager';
+export { default as upgradePromptManager } from './upgradePromptManager';
+
 // Utility Services
 export { default as CloudinaryService } from './cloudinaryService';
-export { googleOAuthService } from './googleOAuthService';
 export { default as NavigationService } from './navigationService';
 export { default as OnboardingService } from './onboardingService';
 

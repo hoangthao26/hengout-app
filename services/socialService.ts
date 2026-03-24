@@ -26,7 +26,7 @@ class SocialService {
             const response = await axiosInstance.get<PendingRequestsResponse>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to get pending friend requests:', error);
+            console.error('[SocialService] Failed to get pending friend requests:', error);
             throw error;
         }
     }
@@ -46,7 +46,7 @@ class SocialService {
             );
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to handle friend request ${friendRequestId}:`, error);
+            console.error(`[SocialService] Failed to handle friend request ${friendRequestId}:`, error);
             throw error;
         }
     }
@@ -61,7 +61,7 @@ class SocialService {
             const response = await axiosInstance.post<HandleRequestResponse>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to send friend request to ${friendId}:`, error);
+            console.error(`[SocialService] Failed to send friend request to ${friendId}:`, error);
             throw error;
         }
     }
@@ -76,7 +76,7 @@ class SocialService {
             const response = await axiosInstance.get<GetFriendsResponse>(endpoint);
             return response.data.data;
         } catch (error: any) {
-            console.error('Failed to get friends list:', error);
+            console.error('[SocialService] Failed to get friends list:', error);
             throw error;
         }
     }
@@ -91,7 +91,7 @@ class SocialService {
             const response = await axiosInstance.delete<RemoveFriendResponse>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to remove friend ${friendId}:`, error);
+            console.error(`[SocialService] Failed to remove friend ${friendId}:`, error);
             throw error;
         }
     }
@@ -106,7 +106,7 @@ class SocialService {
             const response = await axiosInstance.get<GetSentRequestsResponse>(endpoint);
             return response.data.data;
         } catch (error: any) {
-            console.error('Failed to get sent friend requests:', error);
+            console.error('[SocialService] Failed to get sent friend requests:', error);
             throw error;
         }
     }
@@ -123,7 +123,7 @@ class SocialService {
             );
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to block/unblock friend ${friendId}:`, error);
+            console.error(`[SocialService] Failed to block/unblock friend ${friendId}:`, error);
             throw error;
         }
     }
@@ -138,7 +138,7 @@ class SocialService {
             const response = await axiosInstance.delete<BaseApiResponse<string>>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error(`Failed to cancel sent friend request ${friendRequestId}:`, error);
+            console.error(`[SocialService] Failed to cancel sent friend request ${friendRequestId}:`, error);
             throw error;
         }
     }
@@ -159,7 +159,7 @@ class SocialService {
             });
             return response.data;
         } catch (error: any) {
-            console.error('Failed to search users:', error);
+            console.error('[SocialService] Failed to search users:', error);
             throw error;
         }
     }

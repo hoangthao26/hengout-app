@@ -4,9 +4,10 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Camera, ChevronRight, Eye, Images, User, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
-import Header from '../components/Header';
-import { useToast } from '../contexts/ToastContext';
-import { useProfileStore, useUIStore } from '../store';
+import Header from '../../components/Header';
+import { useToast } from '../../contexts/ToastContext';
+import NavigationService from '../../services/navigationService';
+import { useProfileStore, useUIStore } from '../../store';
 
 export default function EditProfileScreen() {
     const colorScheme = useColorScheme();
@@ -42,29 +43,22 @@ export default function EditProfileScreen() {
 
     const pickImageFromGallery = async () => {
         try {
-            console.log('📸 Starting gallery picker...');
-
             // Check current permission status first
             const { status: currentStatus } = await ImagePicker.getMediaLibraryPermissionsAsync();
-            console.log('📸 Current permission status:', currentStatus);
 
             let finalStatus = currentStatus;
 
             // Request permission if not already granted
             if (currentStatus !== 'granted') {
-                console.log('📸 Requesting gallery permissions...');
                 const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
                 finalStatus = status;
-                console.log('📸 Permission request result:', status);
             }
 
             if (finalStatus !== 'granted') {
-                console.log('❌ Permission denied');
                 showError('Quyền truy cập bị từ chối', 'Vui lòng cấp quyền truy cập thư viện ảnh trong Cài đặt.');
                 return;
             }
 
-            console.log('📸 Opening image library...');
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ['images'],
                 quality: 1.0, // Maximum quality for better crop results
@@ -77,51 +71,36 @@ export default function EditProfileScreen() {
                 presentationStyle: ImagePicker.UIImagePickerPresentationStyle.AUTOMATIC,
             });
 
-            console.log('📸 Full result:', JSON.stringify(result, null, 2));
-
             if (!result.canceled && result.assets && result.assets.length > 0) {
                 const asset = result.assets[0];
-                console.log('📸 Image selected:', asset.uri);
-                console.log('📸 Image dimensions:', `${asset.width}x${asset.height}`);
-                console.log('📸 Image type:', asset.type);
                 // Close modal and upload directly
                 setShowAvatarModal(false);
                 await uploadImage(asset.uri);
-            } else {
-                console.log('📸 Image picker canceled or no assets');
             }
         } catch (error: any) {
-            console.error('❌ Error picking image:', error);
-            console.error('❌ Error stack:', error.stack);
+            console.error('[EditProfile] Error picking image:', error);
             showError('Lỗi chọn ảnh', `Không thể chọn ảnh: ${error.message}`);
         }
     };
 
     const takePhoto = async () => {
         try {
-            console.log('📷 Starting camera...');
-
             // Check current permission status first
             const { status: currentStatus } = await ImagePicker.getCameraPermissionsAsync();
-            console.log('📷 Current permission status:', currentStatus);
 
             let finalStatus = currentStatus;
 
             // Request permission if not already granted
             if (currentStatus !== 'granted') {
-                console.log('📷 Requesting camera permissions...');
                 const { status } = await ImagePicker.requestCameraPermissionsAsync();
                 finalStatus = status;
-                console.log('📷 Permission request result:', status);
             }
 
             if (finalStatus !== 'granted') {
-                console.log('❌ Permission denied');
                 showError('Quyền truy cập bị từ chối', 'Vui lòng cấp quyền truy cập camera trong Cài đặt.');
                 return;
             }
 
-            console.log('📷 Opening camera...');
             const result = await ImagePicker.launchCameraAsync({
                 mediaTypes: ['images'],
                 quality: 1.0, // Maximum quality for better crop results
@@ -132,30 +111,23 @@ export default function EditProfileScreen() {
                 presentationStyle: ImagePicker.UIImagePickerPresentationStyle.AUTOMATIC,
             });
 
-            console.log('📷 Full result:', JSON.stringify(result, null, 2));
-
             if (!result.canceled && result.assets && result.assets.length > 0) {
                 const asset = result.assets[0];
-                console.log('📷 Photo taken:', asset.uri);
-                console.log('📷 Photo dimensions:', `${asset.width}x${asset.height}`);
-                console.log('📷 Photo type:', asset.type);
                 // Close modal and upload directly
                 setShowAvatarModal(false);
                 await uploadImage(asset.uri);
-            } else {
-                console.log('📷 Camera canceled or no assets');
             }
         } catch (error: any) {
-            console.error('❌ Error taking photo:', error);
-            console.error('❌ Error stack:', error.stack);
+            console.error('[EditProfile] Error taking photo:', error);
             showError('Lỗi chụp ảnh', `Không thể chụp ảnh: ${error.message}`);
         }
     };
 
+    /**
+     * Ensure image is square and resized to standard size for avatar consistency
+     */
     const ensureSquareImage = async (imageUri: string): Promise<string> => {
         try {
-            console.log('🔧 Ensuring square image for:', imageUri);
-
             // Get image info first
             const imageInfo = await ImageManipulator.manipulateAsync(
                 imageUri,
@@ -163,20 +135,16 @@ export default function EditProfileScreen() {
                 { format: ImageManipulator.SaveFormat.JPEG }
             );
 
-            console.log('🔧 Original dimensions:', `${imageInfo.width}x${imageInfo.height}`);
-
             // Target size for all avatars
             const TARGET_SIZE = 1024;
 
             let manipulations = [];
 
-            // If not square, crop to square first
+            // If not square, crop to square first (center crop)
             if (imageInfo.width !== imageInfo.height) {
                 const size = Math.min(imageInfo.width, imageInfo.height);
                 const x = (imageInfo.width - size) / 2;
                 const y = (imageInfo.height - size) / 2;
-
-                console.log('🔧 Cropping to square:', `${size}x${size} from (${x}, ${y})`);
 
                 manipulations.push({
                     crop: {
@@ -189,7 +157,6 @@ export default function EditProfileScreen() {
             }
 
             // Always resize to target size for consistency
-            console.log('🔧 Resizing to standard size:', `${TARGET_SIZE}x${TARGET_SIZE}`);
             manipulations.push({
                 resize: {
                     width: TARGET_SIZE,
@@ -207,10 +174,9 @@ export default function EditProfileScreen() {
                 }
             );
 
-            console.log('🔧 Final dimensions:', `${processedImage.width}x${processedImage.height}`);
             return processedImage.uri;
         } catch (error) {
-            console.error('❌ Error ensuring square image:', error);
+            console.error('[EditProfile] Error ensuring square image:', error);
             // Return original if manipulation fails
             return imageUri;
         }
@@ -218,21 +184,17 @@ export default function EditProfileScreen() {
 
     const uploadImage = async (imageUri: string) => {
         try {
-            console.log('☁️ Starting image upload for:', imageUri);
             setUploadingAvatar(true);
 
             // Ensure image is square before upload
             const squareImageUri = await ensureSquareImage(imageUri);
-            console.log('☁️ Using square image for upload:', squareImageUri);
 
             // Use Zustand store instead of direct API calls
             await uploadAvatar(squareImageUri);
 
-            console.log('✅ Profile update successful');
             showSuccess('Thành công', 'Đã cập nhật ảnh đại diện!');
         } catch (error: any) {
-            console.error('❌ Failed to upload avatar:', error);
-            console.error('❌ Error details:', error.message);
+            console.error('[EditProfile] Failed to upload avatar:', error);
             showError('Lỗi cập nhật ảnh đại diện', `Không thể cập nhật ảnh đại diện: ${error.message}`);
         } finally {
             setUploadingAvatar(false);
@@ -240,23 +202,17 @@ export default function EditProfileScreen() {
     };
 
     const handleAvatarActionPress = async (action: string) => {
-        console.log('🎯 Action pressed:', action);
-
         try {
-            console.log('🚀 Starting action:', action);
             switch (action) {
                 case 'camera':
-                    console.log('📷 Taking photo...');
                     // Don't close modal yet, let crop screen handle it
                     await takePhoto();
                     break;
                 case 'gallery':
-                    console.log('📸 Picking from gallery...');
                     // Don't close modal yet, let crop screen handle it
                     await pickImageFromGallery();
                     break;
                 case 'view':
-                    console.log('👁️ Viewing avatar...');
                     setShowAvatarModal(false);
                     if (profile?.avatarUrl) {
                         setShowImageViewer(true);
@@ -265,9 +221,8 @@ export default function EditProfileScreen() {
                     }
                     break;
             }
-            console.log('✅ Action completed:', action);
         } catch (error) {
-            console.error('❌ Error in action handler:', error);
+            console.error('[EditProfile] Error in action handler:', error);
             showError('Lỗi', 'Đã xảy ra lỗi. Vui lòng thử lại.');
             // Close modal on error
             setShowAvatarModal(false);
@@ -286,7 +241,7 @@ export default function EditProfileScreen() {
                 await fetchProfile();
             }
         } catch (error: any) {
-            console.error('Failed to load profile:', error);
+            console.error('[EditProfile] Failed to load profile:', error);
             showError('Lỗi tải hồ sơ', 'Không thể tải thông tin hồ sơ');
         } finally {
             setLoading(false);
@@ -357,10 +312,7 @@ export default function EditProfileScreen() {
                         <TouchableOpacity
                             style={styles.changePhotoButton}
                             onPress={() => {
-                                console.log('🎯 Change photo button pressed');
-                                console.log('🎯 Current showAvatarModal:', showAvatarModal);
                                 setShowAvatarModal(true);
-                                console.log('🎯 Set showAvatarModal to true');
                             }}
                             disabled={uploadingAvatar}
                             activeOpacity={0.7}
@@ -387,7 +339,7 @@ export default function EditProfileScreen() {
                         {/* Display Name */}
                         <TouchableOpacity
                             style={styles.fieldRow}
-                            onPress={() => router.push('/profile/edit-name')}
+                            onPress={() => NavigationService.goToEditName()}
                         >
                             <Text style={[styles.fieldLabel, { color: isDark ? '#FFFFFF' : '#000000' }]}>
                                 Tên
@@ -406,7 +358,7 @@ export default function EditProfileScreen() {
                         {/* Gender */}
                         <TouchableOpacity
                             style={styles.fieldRow}
-                            onPress={() => router.push('/profile/edit-gender')}
+                            onPress={() => NavigationService.goToEditGender()}
                         >
                             <Text style={[styles.fieldLabel, { color: isDark ? '#FFFFFF' : '#000000' }]}>
                                 Giới tính
@@ -425,7 +377,7 @@ export default function EditProfileScreen() {
                         {/* Date of Birth */}
                         <TouchableOpacity
                             style={styles.fieldRow}
-                            onPress={() => router.push('/profile/edit-date-of-birth')}
+                            onPress={() => NavigationService.goToEditDateOfBirth()}
                         >
                             <Text style={[styles.fieldLabel, { color: isDark ? '#FFFFFF' : '#000000' }]}>
                                 Ngày sinh
@@ -444,7 +396,7 @@ export default function EditProfileScreen() {
                         {/* Bio */}
                         <TouchableOpacity
                             style={styles.fieldRow}
-                            onPress={() => router.push('/profile/edit-bio')}
+                            onPress={() => NavigationService.goToEditBio()}
                         >
                             <Text style={[styles.fieldLabel, { color: isDark ? '#FFFFFF' : '#000000' }]}>
                                 Tiểu sử
@@ -470,7 +422,6 @@ export default function EditProfileScreen() {
                 transparent={true}
                 animationType="slide"
                 onRequestClose={() => {
-                    console.log('🎯 Modal close requested');
                     setShowAvatarModal(false);
                 }}
             >
@@ -478,7 +429,6 @@ export default function EditProfileScreen() {
                     style={styles.modalBackdrop}
                     activeOpacity={1}
                     onPress={() => {
-                        console.log('🎯 Modal backdrop pressed');
                         setShowAvatarModal(false);
                     }}
                 >

@@ -2,8 +2,8 @@ import { useRouter } from 'expo-router';
 import { XCircle } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
-import { useToast } from '../contexts/ToastContext';
-import { useProfileStore } from '../store';
+import { useToast } from '../../contexts/ToastContext';
+import { useProfileStore } from '../../store';
 
 export default function EditBioScreen() {
     const colorScheme = useColorScheme();
@@ -31,7 +31,7 @@ export default function EditBioScreen() {
             }
             setBio(profile?.bio || '');
         } catch (error: any) {
-            console.error('Failed to load profile:', error);
+            console.error('[EditBio] Failed to load profile:', error);
             showError('Failed to load profile',);
         } finally {
             setLoading(false);
@@ -48,7 +48,7 @@ export default function EditBioScreen() {
             showSuccess('Tiểu sử đã được cập nhật!',);
             router.back();
         } catch (error: any) {
-            console.error('Failed to update bio:', error);
+            console.error('[EditBio] Failed to update bio:', error);
             showError('Không thể cập nhật tiểu sử',);
         } finally {
             setSaving(false);

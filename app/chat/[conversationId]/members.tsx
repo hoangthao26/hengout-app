@@ -18,9 +18,11 @@ import {
 } from 'react-native';
 import AddMemberModal from '../../../components/AddMemberModal';
 import Header from '../../../components/Header';
+import { ChatErrorBoundary } from '../../../components/errorBoundaries';
 import { useToast } from '../../../contexts/ToastContext';
 import { chatService } from '../../../services/chatService';
 import { ChatMember } from '../../../types/chat';
+import { useSubscriptionStore } from '../../../store/subscriptionStore';
 
 // Member Item Component with Animation
 const MemberItem: React.FC<{
@@ -33,6 +35,12 @@ const MemberItem: React.FC<{
 }> = ({ item, canManage, isDark, onPress, getRoleIcon, getRoleText }) => {
     const scaleValue = React.useRef(new Animated.Value(1)).current;
     const opacityValue = React.useRef(new Animated.Value(1)).current;
+
+    // Reset animation values on mount
+    React.useEffect(() => {
+        scaleValue.setValue(1);
+        opacityValue.setValue(1);
+    }, [scaleValue, opacityValue]);
 
     const handlePressIn = () => {
         if (canManage) {
@@ -84,6 +92,11 @@ const MemberItem: React.FC<{
                 }),
             ]).start(() => {
                 onPress(item);
+                // Ensure animation values are reset after ActionSheet
+                setTimeout(() => {
+                    scaleValue.setValue(1);
+                    opacityValue.setValue(1);
+                }, 100);
             });
         }
     };
@@ -99,12 +112,11 @@ const MemberItem: React.FC<{
                         <Image
                             source={{ uri: item.avatarUrl }}
                             style={styles.memberAvatar}
+                            resizeMode="contain"
                         />
                     ) : (
                         <View style={[styles.defaultAvatar, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
-                            <Text style={[styles.avatarText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                {item.userName.charAt(0).toUpperCase()}
-                            </Text>
+                            <User size={32} color={isDark ? '#9CA3AF' : '#6B7280'} />
                         </View>
                     )}
 
@@ -157,6 +169,9 @@ const GroupMembersScreen: React.FC = () => {
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
     const [conversationName, setConversationName] = useState('');
 
+    // Get maxMember from store (fetched in details screen)
+    const groupStatus = useSubscriptionStore(state => state.groupStatus[conversationId || '']);
+
     // Load group members and conversation info
     const loadMembers = useCallback(async () => {
         if (!conversationId) return;
@@ -173,23 +188,8 @@ const GroupMembersScreen: React.FC = () => {
 
             // Set current user role from conversation response
             setCurrentUserRole(conversationResponse.data.userRole);
-
-            // Debug logs
-            console.log('🔍 [Members] Conversation info:', {
-                id: conversationResponse.data.id,
-                name: conversationResponse.data.name,
-                type: conversationResponse.data.type,
-                userRole: conversationResponse.data.userRole
-            });
-            console.log('🔍 [Members] Current user role from conversation:', conversationResponse.data.userRole);
-            console.log('🔍 [Members] All members:', membersResponse.data.map(m => ({
-                userId: m.userId,
-                userName: m.userName,
-                role: m.role,
-                isCurrentUser: m.isCurrentUser
-            })));
         } catch (err: any) {
-            console.error('Failed to load group members:', err);
+            console.error('[Members] Failed to load group members:', err);
             showError('Lỗi khi tải danh sách thành viên');
         } finally {
             setLoading(false);
@@ -224,7 +224,7 @@ const GroupMembersScreen: React.FC = () => {
                             showSuccess(`Đã xóa ${member.userName} khỏi nhóm`);
                             loadMembers(); // Reload members
                         } catch (err: any) {
-                            console.error('Failed to remove member:', err);
+                            console.error('[Members] Failed to remove member:', err);
                             showError('Lỗi khi xóa thành viên');
                         }
                     },
@@ -347,40 +347,50 @@ const GroupMembersScreen: React.FC = () => {
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <ChatErrorBoundary>
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                <StatusBar barStyle="light-content" backgroundColor="#000000" />
 
-            {/* Header */}
-            <Header
-                title={`Thành viên (${members.length} người)`}
-                showBackButton={true}
-                onBackPress={() => router.back()}
-                rightIcon={{
-                    icon: Plus,
-                    size: 24,
-                    onPress: handleAddMember
-                }}
-            />
+                {/* Header */}
+                <Header
+                    title={(() => {
+                        const maxMember = groupStatus?.maxMember;
+                        if (maxMember !== undefined && maxMember >= 0) {
+                            return `Thành viên (${members.length}/${maxMember})`;
+                        } else if (maxMember !== undefined && maxMember < 0) {
+                            return `Thành viên (${members.length}/∞)`;
+                        }
+                        return `Thành viên (${members.length} người)`;
+                    })()}
+                    showBackButton={true}
+                    onBackPress={() => router.back()}
+                    rightIcon={{
+                        icon: Plus,
+                        size: 28,
+                        onPress: handleAddMember
+                    }}
+                />
 
-            {/* Members List */}
-            <FlatList
-                data={members}
-                keyExtractor={(item) => item.userId}
-                renderItem={renderMemberItem}
-                style={styles.membersList}
-                contentContainerStyle={styles.membersContent}
-                showsVerticalScrollIndicator={false}
-            />
+                {/* Members List */}
+                <FlatList
+                    data={members}
+                    keyExtractor={(item) => item.userId}
+                    renderItem={renderMemberItem}
+                    style={styles.membersList}
+                    contentContainerStyle={styles.membersContent}
+                    showsVerticalScrollIndicator={false}
+                />
 
-            {/* Add Member Modal */}
-            <AddMemberModal
-                isVisible={showAddMemberModal}
-                onClose={handleCloseAddMemberModal}
-                onSuccess={handleAddMemberSuccess}
-                conversationId={conversationId!}
-                conversationName={conversationName}
-            />
-        </View>
+                {/* Add Member Modal */}
+                <AddMemberModal
+                    isVisible={showAddMemberModal}
+                    onClose={handleCloseAddMemberModal}
+                    onSuccess={handleAddMemberSuccess}
+                    conversationId={conversationId!}
+                    conversationName={conversationName}
+                />
+            </View>
+        </ChatErrorBoundary>
     );
 };
 
@@ -431,10 +441,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 16,
-    },
-    avatarText: {
-        fontSize: 22,
-        fontWeight: '600',
     },
     memberDetails: {
         flex: 1,

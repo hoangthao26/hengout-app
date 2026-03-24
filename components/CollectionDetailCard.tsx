@@ -189,6 +189,7 @@ const styles = StyleSheet.create({
     },
     imageContainer: {
         marginRight: 12,
+
     },
     image: {
         width: 80,

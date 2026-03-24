@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "project-exe101",
+    "name": "Hengout",
     "slug": "project-exe101",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/HengOut-Light.png",
     "scheme": "hengout",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -12,12 +12,22 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.hengout.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Hengout cần quyền truy cập vị trí của bạn để hiển thị bản đồ và tìm các địa điểm gần bạn.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Hengout cần quyền truy cập vị trí của bạn để hiển thị bản đồ và tìm các địa điểm gần bạn.",
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "Google OAuth",
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.481945533208-35u68ikm7dn5gv99me66b612i5uek4ms"
+            ]
+          }
+        ]
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/HengOut-Light.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -26,27 +36,17 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/HengOut-Light.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/HengOut-Light.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
-        }
-      ],
-      [
-        "expo-font",
-        {
-          "fonts": [
-            "./assets/fonts/Dongle-Regular.ttf",
-            "./assets/fonts/Dongle-Light.ttf",
-            "./assets/fonts/Dongle-Bold.ttf"
-          ]
         }
       ],
       [
@@ -55,7 +55,16 @@
           "photosPermission": "The app accesses your photos to let you share them with your friends.",
           "cameraPermission": "The app accesses your camera to let you take photos for your profile."
         }
-      ]
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Hengout cần quyền truy cập vị trí của bạn để hiển thị bản đồ và tìm các địa điểm gần bạn.",
+          "locationAlwaysPermission": "Hengout cần quyền truy cập vị trí của bạn để hiển thị bản đồ và tìm các địa điểm gần bạn.",
+          "locationWhenInUsePermission": "Hengout cần quyền truy cập vị trí của bạn để hiển thị bản đồ và tìm các địa điểm gần bạn."
+        }
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
@@ -65,14 +74,14 @@
       "eas": {
         "projectId": "20c98bc3-d234-463f-aaf0-84fabace9aca"
       },
-      "EXPO_PUBLIC_USER_SERVICE_URL": "https://hengout.tranquocdat.com/user-service/api/v1",
-      "EXPO_PUBLIC_API_BASE_URL": "https://hengout.tranquocdat.com/auth-service/api/v1",
-      "EXPO_PUBLIC_SOCIAL_SERVICE_URL": "https://hengout.tranquocdat.com/social-service/api/v1"
+      "EXPO_PUBLIC_USER_SERVICE_URL": "https://api.hengout.app/user-service/api/v1",
+      "EXPO_PUBLIC_API_BASE_URL": "https://api.hengout.app/auth-service/api/v1",
+      "EXPO_PUBLIC_SOCIAL_SERVICE_URL": "https://api.hengout.app/social-service/api/v1"
     },
     "oauth": {
       "redirectUrls": [
-        "hengout://auth",
         "https://auth.expo.io/@trendslade/project-exe101",
+        "https://auth.expo.io/@trendslade/project-exe101/redirect",
         "http://localhost:8081"
       ]
     }

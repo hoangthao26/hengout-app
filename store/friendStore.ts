@@ -91,9 +91,25 @@ export const useFriendStore = create<FriendStore>()(
                 friends: state.friends.filter(friend => friend.friendId !== friendId),
             })),
 
+            /**
+             * Block friend with multi-state cleanup
+             * 
+             * Blocking logic:
+             * 1. Removes friend from friends list (relationship terminated)
+             * 2. Removes from search results if present (hides from user discovery)
+             * 
+             * State synchronization:
+             * - Friends list: Removed immediately (optimistic update)
+             * - Search results: Removed to prevent re-friending blocked users
+             * 
+             * Note: Blocked user remains in database but is hidden from UI.
+             * This allows unblocking in the future if needed.
+             * 
+             * @param friendId - Friendship ID to block
+             */
             blockFriend: (friendId) => set((state) => ({
                 friends: state.friends.filter(friend => friend.friendId !== friendId),
-                // Also remove from search results if present
+                // Also remove from search results if present (prevent re-friending)
                 searchResults: state.searchResults.filter(user => user.friendshipId !== friendId),
             })),
 
@@ -101,6 +117,23 @@ export const useFriendStore = create<FriendStore>()(
                 sentRequests: state.sentRequests.filter(req => req.id !== requestId),
             })),
 
+            /**
+             * Update search result after sending friend request with optimistic UI update
+             * 
+             * State update strategy:
+             * 1. Finds user in search results by userId
+             * 2. Updates relationshipStatus to "REQUEST_SENT" (optimistic UI update)
+             * 3. Stores friendRequestId for cancellation support
+             * 4. Preserves all other user data unchanged
+             * 
+             * Optimistic update pattern:
+             * - UI updates immediately (shows "Request Sent" button)
+             * - If API fails, caller should rollback this change
+             * - friendRequestId enables cancel request functionality
+             * 
+             * @param userId - ID of user to update
+             * @param friendRequestId - Friend request ID from server for cancellation
+             */
             sendFriendRequest: (userId, friendRequestId) => set((state) => ({
                 searchResults: state.searchResults.map(user =>
                     user.id === userId

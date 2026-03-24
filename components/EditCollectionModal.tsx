@@ -16,7 +16,11 @@ import { locationFolderService } from '../services/locationFolderService';
 interface EditCollectionModalProps {
     isVisible: boolean;
     onClose: () => void;
-    onSuccess: () => void;
+    onSuccess: (updatedData?: {
+        name?: string;
+        description?: string;
+        visibility?: 'PUBLIC' | 'PRIVATE';
+    }) => void;
     collectionId: string;
     collectionName: string;
     collectionDescription: string;
@@ -111,13 +115,21 @@ const EditCollectionModal: React.FC<EditCollectionModalProps> = ({
 
             if (response.status === 'success') {
                 showSuccess('Cập nhật collection thành công');
-                onSuccess();
+
+                // Pass updated data to onSuccess for Store-Update-First approach
+                const updatedData = {
+                    name: name.trim(),
+                    description: description.trim(),
+                    visibility: visibility,
+                };
+
+                onSuccess(updatedData);
                 handleClose();
             } else {
                 showError(response.message || 'Có lỗi xảy ra khi cập nhật collection');
             }
         } catch (error: any) {
-            console.error('Update collection error:', error);
+            console.error('[EditCollectionModal] Failed to update collection:', error);
             showError('Có lỗi xảy ra khi cập nhật collection');
         } finally {
             setIsUpdating(false);
@@ -146,7 +158,7 @@ const EditCollectionModal: React.FC<EditCollectionModalProps> = ({
             backdropComponent={renderBackdrop}
             enablePanDownToClose={true}
             backgroundStyle={{
-                backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+                backgroundColor: isDark ? '#000000' : '#FFFFFF',
                 borderTopLeftRadius: 20,
                 borderTopRightRadius: 20,
             }}
@@ -156,7 +168,7 @@ const EditCollectionModal: React.FC<EditCollectionModalProps> = ({
                 height: 4,
             }}
         >
-            <BottomSheetView style={styles.container}>
+            <BottomSheetView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
                 {/* Header */}
                 <View style={[styles.header, { borderBottomColor: isDark ? '#374151' : '#E5E7EB' }]}>
                     <TouchableOpacity
@@ -369,6 +381,7 @@ const EditCollectionModal: React.FC<EditCollectionModalProps> = ({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: '#000000',
     },
     header: {
         flexDirection: 'row',

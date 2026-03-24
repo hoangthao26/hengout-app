@@ -3,6 +3,8 @@ import { StyleSheet, useColorScheme, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '../contexts/ToastContext';
 import SimpleToast from './SimpleToast';
+import MessageToast from './MessageToast';
+import { ChatMessage, ChatConversation } from '../types/chat';
 
 const ToastContainer: React.FC = () => {
     const { toasts, hideToast } = useToast();
@@ -19,23 +21,53 @@ const ToastContainer: React.FC = () => {
             style={[
                 styles.container,
                 {
-                    backgroundColor: isDark ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
-                    paddingTop: insets.top + 10, // Safe area + extra padding
+                    backgroundColor: 'transparent', // Transparent background để toast nổi bật
+                    paddingTop: insets.top, // Safe area + extra padding
                 },
             ]}
             pointerEvents="box-none"
         >
-            {toasts.map((toast) => (
-                <SimpleToast
-                    key={toast.id}
-                    toast={toast}
-                    onHide={hideToast}
-                    onActionPress={(action) => {
-                        action?.onPress();
-                        hideToast(toast.id);
-                    }}
-                />
-            ))}
+            {toasts.map((toast) => {
+                // Check if this is a message notification toast
+                const isMessageToast = (toast as any).type === 'message' &&
+                    (toast as any).conversationData &&
+                    (toast as any).messageData;
+
+                if (isMessageToast) {
+                    return (
+                        <MessageToast
+                            key={toast.id}
+                            conversation={(toast as any).conversationData}
+                            message={(toast as any).messageData}
+                            onPress={() => {
+                                toast.onPress?.();
+                                hideToast(toast.id);
+                            }}
+                            onDismiss={() => hideToast(toast.id)}
+                            duration={toast.duration || 5000}
+                        />
+                    );
+                }
+
+                // Regular toast
+                return (
+                    <SimpleToast
+                        key={toast.id}
+                        toast={toast}
+                        onHide={hideToast}
+                        onPress={() => {
+                            // Call the original onPress
+                            toast.onPress?.();
+                            // Hide the toast after press
+                            hideToast(toast.id);
+                        }}
+                        onActionPress={(action) => {
+                            action?.onPress();
+                            hideToast(toast.id);
+                        }}
+                    />
+                );
+            })}
         </View>
     );
 };

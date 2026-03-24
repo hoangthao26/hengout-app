@@ -17,6 +17,11 @@ import { chatService } from '../services/chatService';
 import { socialService } from '../services/socialService';
 import { Friend } from '../types/social';
 import GradientButton from './GradientButton';
+import useLimits from '../hooks/useLimits';
+import { useSubscriptionStore } from '../store/subscriptionStore';
+import { SubscriptionModal, PaymentScreen } from '../components/subscription';
+import { paymentFlowManager } from '../services/paymentFlowManager';
+import { Plan } from '../types/subscription';
 
 interface AddMemberModalProps {
     isVisible: boolean;
@@ -44,6 +49,87 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
     const [adding, setAdding] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [existingMembers, setExistingMembers] = useState<string[]>([]);
+    const [maxMember, setMaxMember] = useState<number | null>(null);
+    const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+    const [showPaymentScreen, setShowPaymentScreen] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+
+    // Sync with global payment flow like ProfileScreen
+    React.useEffect(() => {
+        const unsubscribe = paymentFlowManager.subscribe(() => {
+            const current = paymentFlowManager.getCurrentPayment();
+            if (current) {
+                setSelectedPlan(current.plan);
+                setShowPaymentScreen(true);
+            } else {
+                setShowPaymentScreen(false);
+                setSelectedPlan(null);
+            }
+        });
+        return unsubscribe;
+    }, []);
+
+    const handlePlanSelect = useCallback((plan: Plan) => {
+        setShowSubscriptionModal(false);
+        paymentFlowManager.startPayment(plan).catch(() => { /* noop */ });
+    }, []);
+
+    const handlePaymentBack = useCallback(() => {
+        setShowPaymentScreen(false);
+        setSelectedPlan(null);
+    }, []);
+
+    // Current members count
+    const currentMembersCount = existingMembers.length;
+
+    // Get maxMember from store (fetched in details screen)
+    const groupStatus = useSubscriptionStore(state => state.groupStatus[conversationId]);
+
+    // Update maxMember from store when groupStatus changes
+    React.useEffect(() => {
+        if (groupStatus?.maxMember !== undefined) {
+            setMaxMember(groupStatus.maxMember);
+        }
+    }, [groupStatus]);
+
+    // Format members label: current/maxMember from API status
+    const membersLabel = React.useMemo(() => {
+        if (maxMember === null) {
+            return `${currentMembersCount}/–`;
+        }
+        if (maxMember < 0) {
+            return `${currentMembersCount}/∞`;
+        }
+        return `${currentMembersCount}/${maxMember}`;
+    }, [currentMembersCount, maxMember]);
+
+    /**
+     * Guard function: Validates if more members can be added to group
+     * 
+     * Business logic:
+     * - null limit: Unknown limit, allow operation (graceful degradation)
+     * - Negative limit (< 0): Unlimited, always allow
+     * - Positive limit: Check if current count < max
+     * - At/over limit: Show subscription modal to upgrade
+     * 
+     * @returns true if can add members, false if at limit (triggers subscription modal)
+     */
+    const guardMembers = React.useCallback(() => {
+        if (maxMember === null) {
+            // Unknown limit - graceful degradation: allow operation
+            return true;
+        }
+        if (maxMember < 0) {
+            // Unlimited subscription (-1 typically means unlimited)
+            return true;
+        }
+        if (currentMembersCount >= maxMember) {
+            // At limit - show upgrade modal
+            setShowSubscriptionModal(true);
+            return false;
+        }
+        return true;
+    }, [currentMembersCount, maxMember]);
 
     // Bottom sheet snap points
     const snapPoints = useMemo(() => ['70%', '90%'], []);
@@ -109,7 +195,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
             setFriends(availableFriends);
             setFilteredFriends(availableFriends);
         } catch (err: any) {
-            console.error('Failed to load friends:', err);
+            console.error('[AddMemberModal] Failed to load friends:', err);
             showError('Lỗi khi tải danh sách bạn bè');
         } finally {
             setLoading(false);
@@ -142,6 +228,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
 
     // Handle add members
     const handleAddMembers = useCallback(async () => {
+        if (!guardMembers()) return;
         if (selectedFriends.length === 0) {
             showError('Vui lòng chọn ít nhất một người bạn');
             return;
@@ -154,7 +241,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
                 try {
                     await chatService.addMember(conversationId, friendId);
                 } catch (err) {
-                    console.error(`Failed to add friend ${friendId}:`, err);
+                    console.error(`[AddMemberModal] Failed to add friend ${friendId}:`, err);
                 }
             }
 
@@ -166,7 +253,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
             setSelectedFriends([]);
             setSearchQuery('');
         } catch (err: any) {
-            console.error('Failed to add members:', err);
+            console.error('[AddMemberModal] Failed to add members:', err);
             showError('Lỗi khi thêm thành viên');
         } finally {
             setAdding(false);
@@ -213,112 +300,126 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({
     if (!isVisible) return null;
 
     return (
-        <BottomSheet
-            ref={bottomSheetRef}
-            index={1}
-            snapPoints={snapPoints}
-            onChange={handleSheetChanges}
-            backdropComponent={renderBackdrop}
-            enablePanDownToClose
-            backgroundStyle={{
-                backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
-            }}
-            handleIndicatorStyle={{
-                backgroundColor: isDark ? '#4B5563' : '#D1D5DB',
-            }}
-        >
-            <BottomSheetView style={styles.container}>
-                {/* Header */}
-                <View style={[styles.header, { borderBottomColor: isDark ? '#374151' : '#E5E7EB' }]}>
-                    <TouchableOpacity
-                        onPress={onClose}
-                        disabled={adding}
-                        style={styles.headerButton}
-                    >
-                        <Text style={[
-                            styles.cancelText,
-                            { color: isDark ? '#9CA3AF' : '#6B7280' }
-                        ]}>
-                            Hủy
-                        </Text>
-                    </TouchableOpacity>
-
-                    <View style={styles.titleContainer}>
-                        <Text style={[
-                            styles.title,
-                            { color: isDark ? '#FFFFFF' : '#000000' }
-                        ]}>
-                            Thêm thành viên
-                        </Text>
-                        <Text style={[
-                            styles.subtitle,
-                            { color: isDark ? '#9CA3AF' : '#6B7280' }
-                        ]}>
-                            {conversationName}
-                        </Text>
-                    </View>
-
-                    <GradientButton
-                        title={adding ? "Đang thêm..." : "Thêm"}
-                        onPress={handleAddMembers}
-                        disabled={adding || selectedFriends.length === 0}
-                        size="medium"
-                        fullWidth={false}
-                        minWidth={70}
-                    />
-                </View>
-
-                {/* Search Bar */}
-                <View style={styles.inputContainer}>
-                    <View style={styles.searchContainer}>
-                        <Search
-                            size={20}
-                            color="#6B7280"
-                            style={styles.searchIcon}
-                        />
-                        <TextInput
-                            style={styles.searchInput}
-                            placeholder="Tìm kiếm bạn bè..."
-                            placeholderTextColor="#9CA3AF"
-                            value={searchQuery}
-                            onChangeText={handleSearch}
-                        />
-                    </View>
-                </View>
-
-                {/* Friends List */}
-                <View style={styles.friendsContainer}>
-                    {loading ? (
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="large" color="#F48C06" />
-                            <Text style={[styles.loadingText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                Đang tải danh sách bạn bè...
+        <>
+            <BottomSheet
+                ref={bottomSheetRef}
+                index={1}
+                snapPoints={snapPoints}
+                onChange={handleSheetChanges}
+                backdropComponent={renderBackdrop}
+                enablePanDownToClose
+                backgroundStyle={{
+                    backgroundColor: isDark ? '#000000' : '#FFFFFF',
+                }}
+                handleIndicatorStyle={{
+                    backgroundColor: isDark ? '#4B5563' : '#D1D5DB',
+                }}
+            >
+                <BottomSheetView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                    {/* Header */}
+                    <View style={[styles.header, { borderBottomColor: isDark ? '#374151' : '#E5E7EB' }]}>
+                        <TouchableOpacity
+                            onPress={onClose}
+                            disabled={adding}
+                            style={styles.headerButton}
+                        >
+                            <Text style={[
+                                styles.cancelText,
+                                { color: isDark ? '#9CA3AF' : '#6B7280' }
+                            ]}>
+                                Hủy
                             </Text>
+                        </TouchableOpacity>
+
+                        <View style={styles.titleContainer}>
+                            <Text style={[
+                                styles.title,
+                                { color: isDark ? '#FFFFFF' : '#000000' }
+                            ]}>
+                                Thêm thành viên
+                            </Text>
+                            <Text style={[styles.subtitle, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>Thành viên: {membersLabel}</Text>
+
                         </View>
-                    ) : (
-                        <FlatList
-                            data={filteredFriends}
-                            keyExtractor={(item) => item.friendId}
-                            renderItem={renderFriendItem}
-                            style={styles.friendsList}
-                            contentContainerStyle={styles.friendsContent}
-                            showsVerticalScrollIndicator={false}
-                            ListEmptyComponent={
-                                <View style={styles.emptyState}>
-                                    <UserPlus
-                                        size={48}
-                                        color={isDark ? '#4B5563' : '#9CA3AF'}
-                                    />
-                                    <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                        {searchQuery ? 'Không tìm thấy bạn bè nào' : 'Chưa có bạn bè nào để thêm'}
-                                    </Text>
-                                </View>
-                            }
+
+                        <GradientButton
+                            title={adding ? "Đang thêm..." : "Thêm"}
+                            onPress={handleAddMembers}
+                            disabled={adding || selectedFriends.length === 0}
+                            size="medium"
+                            fullWidth={false}
+                            minWidth={70}
                         />
-                    )}
-                </View>
-            </BottomSheetView>
-        </BottomSheet>
+                    </View>
+
+                    {/* Search Bar */}
+                    <View style={styles.inputContainer}>
+                        <View style={styles.searchContainer}>
+                            <Search
+                                size={20}
+                                color="#6B7280"
+                                style={styles.searchIcon}
+                            />
+                            <TextInput
+                                style={styles.searchInput}
+                                placeholder="Tìm kiếm bạn bè..."
+                                placeholderTextColor="#9CA3AF"
+                                value={searchQuery}
+                                onChangeText={handleSearch}
+                            />
+                        </View>
+                    </View>
+
+                    {/* Friends List */}
+                    <View style={styles.friendsContainer}>
+                        {loading ? (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator size="large" color="#F48C06" />
+                                <Text style={[styles.loadingText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                    Đang tải danh sách bạn bè...
+                                </Text>
+                            </View>
+                        ) : (
+                            <FlatList
+                                data={filteredFriends}
+                                keyExtractor={(item) => item.friendId}
+                                renderItem={renderFriendItem}
+                                style={styles.friendsList}
+                                contentContainerStyle={styles.friendsContent}
+                                showsVerticalScrollIndicator={false}
+                                ListEmptyComponent={
+                                    <View style={styles.emptyState}>
+                                        <UserPlus
+                                            size={48}
+                                            color={isDark ? '#4B5563' : '#9CA3AF'}
+                                        />
+                                        <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                            {searchQuery ? 'Không tìm thấy bạn bè nào' : 'Chưa có bạn bè nào để thêm'}
+                                        </Text>
+                                    </View>
+                                }
+                            />
+                        )}
+                    </View>
+                </BottomSheetView>
+            </BottomSheet>
+
+            {/* Subscription Modal */}
+            <SubscriptionModal
+                isVisible={showSubscriptionModal}
+                onClose={() => setShowSubscriptionModal(false)}
+                onPlanSelect={handlePlanSelect}
+            />
+
+            {/* Payment Screen */}
+            {showPaymentScreen && selectedPlan && (
+                <PaymentScreen
+                    plan={selectedPlan}
+                    onBack={handlePaymentBack}
+                    onSuccess={handlePaymentBack}
+                />
+            )}
+        </>
     );
 };
 
@@ -326,13 +427,15 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         paddingHorizontal: 16,
+        backgroundColor: '#000000',
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 16,
+        paddingVertical: 12,
         borderBottomWidth: 1,
+        position: 'relative',
     },
     headerButton: {
         padding: 8,
@@ -342,9 +445,11 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     titleContainer: {
-        flex: 1,
+        position: 'absolute',
+        left: 0,
+        right: 0,
         alignItems: 'center',
-        marginHorizontal: 16,
+        justifyContent: 'center',
     },
     title: {
         fontSize: 18,

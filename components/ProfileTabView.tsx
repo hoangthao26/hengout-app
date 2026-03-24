@@ -152,6 +152,8 @@ const CollectionsTab = React.memo(({
     );
 });
 
+CollectionsTab.displayName = 'CollectionsTab';
+
 // Saved Tab Component
 const SavedTab = React.memo(({
     isDark
@@ -186,6 +188,8 @@ const SavedTab = React.memo(({
         </View>
     );
 });
+
+SavedTab.displayName = 'SavedTab';
 
 const ProfileTabView: React.FC<ProfileTabViewProps> = ({
     collections,

@@ -20,6 +20,35 @@ export interface LocationInFolder {
     updatedAt: string;
 }
 
+export interface PaginatedLocationInFolder {
+    totalPages: number;
+    totalElements: number;
+    size: number;
+    content: LocationInFolder[];
+    number: number;
+    sort: {
+        empty: boolean;
+        sorted: boolean;
+        unsorted: boolean;
+    };
+    numberOfElements: number;
+    pageable: {
+        offset: number;
+        sort: {
+            empty: boolean;
+            sorted: boolean;
+            unsorted: boolean;
+        };
+        paged: boolean;
+        pageNumber: number;
+        pageSize: number;
+        unpaged: boolean;
+    };
+    first: boolean;
+    last: boolean;
+    empty: boolean;
+}
+
 // API Request Types
 export interface CreateFolderRequest {
     name: string;

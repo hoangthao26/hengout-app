@@ -118,15 +118,14 @@ const SignupForm: React.FC<SignupFormProps> = ({
                 <View style={{ width: '100%', marginTop: 86, paddingHorizontal: 10 }}>
                     <GradientText
                         colors={["#FAA307", "#F48C06", "#DC2F02", "#9D0208"]}
-                        style={{ fontSize: 72, fontWeight: 'bold', fontFamily: 'Dongle', textAlign: 'left', marginBottom: -20, marginTop: 0 }}
+                        style={{ fontSize: 72, fontWeight: 'bold', textAlign: 'left', marginTop: 0 }}
                     >
                         {t('signup')}
                     </GradientText>
                     <Text
                         style={{
                             color: isDark ? '#FFFFFF' : '#000000',
-                            fontSize: 28,
-                            fontFamily: 'Dongle',
+                            fontSize: 18,
                             lineHeight: 36,
                             textAlign: 'left',
                             marginBottom: 32,

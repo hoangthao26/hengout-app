@@ -58,7 +58,32 @@ export const useSearchStore = create<SearchState>()(
             currentPage: 0,
             totalResults: 0,
 
-            // Actions
+            /**
+             * Search users with pagination support
+             * 
+             * Search flow:
+             * 1. Sets loading state (isSearching = true) before API call
+             * 2. Calls search API with query, page, and size parameters
+             * 3. Updates results based on response structure:
+             *    - content: Array of search results
+             *    - last: Boolean indicating if last page (hasMore = !last)
+             *    - totalElements: Total count of results
+             * 4. Handles pagination state for infinite scroll
+             * 
+             * Pagination logic:
+             * - page=0: Initial search (replaces all results)
+             * - page>0: Load more (should append to existing results, but current impl replaces)
+             * - hasMore: Calculated from response.data.last flag
+             * 
+             * Error handling:
+             * - Sets error state on failure
+             * - Preserves previous results on error (doesn't clear)
+             * - Throws error for caller to handle
+             * 
+             * @param query - Search query string
+             * @param page - Page number (0-indexed), default 0
+             * @param size - Page size, default 20
+             */
             searchUsers: async (query: string, page = 0, size = 20) => {
                 try {
                     set({
@@ -75,7 +100,7 @@ export const useSearchStore = create<SearchState>()(
 
                     set({
                         searchResults: response.data.content || [],
-                        hasMore: !response.data.last,
+                        hasMore: !response.data.last, // Pagination: more pages if not last
                         totalResults: response.data.totalElements || 0,
                         isSearching: false,
                     });

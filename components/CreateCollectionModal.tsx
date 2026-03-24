@@ -12,6 +12,12 @@ import {
 import { useToast } from '../contexts/ToastContext';
 import { locationFolderService } from '../services/locationFolderService';
 import GradientButton from './GradientButton';
+import useLimits from '../hooks/useLimits';
+import { useSubscriptionStore } from '../store/subscriptionStore';
+import { useCollectionStore } from '../store/collectionStore';
+import { SubscriptionModal, PaymentScreen } from '../components/subscription';
+import { paymentFlowManager } from '../services/paymentFlowManager';
+import { Plan } from '../types/subscription';
 
 interface CreateCollectionModalProps {
     isVisible: boolean;
@@ -32,6 +38,46 @@ const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
     const [description, setDescription] = useState('');
     const [visibility, setVisibility] = useState<'PUBLIC' | 'PRIVATE'>('PRIVATE');
     const [isCreating, setIsCreating] = useState(false);
+    const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+    const [showPaymentScreen, setShowPaymentScreen] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+
+    // Sync with global payment flow like ProfileScreen
+    React.useEffect(() => {
+        const unsubscribe = paymentFlowManager.subscribe(() => {
+            const current = paymentFlowManager.getCurrentPayment();
+            if (current) {
+                setSelectedPlan(current.plan);
+                setShowPaymentScreen(true);
+            } else {
+                setShowPaymentScreen(false);
+                setSelectedPlan(null);
+            }
+        });
+        return unsubscribe;
+    }, []);
+
+    const handlePlanSelect = React.useCallback((plan: Plan) => {
+        setShowSubscriptionModal(false);
+        paymentFlowManager.startPayment(plan).catch(() => { /* noop */ });
+    }, []);
+
+    const handlePaymentBack = React.useCallback(() => {
+        setShowPaymentScreen(false);
+        setSelectedPlan(null);
+    }, []);
+
+    // Ensure limits are available when modal opens
+    const { activeSubscription, fetchActiveSubscription } = useSubscriptionStore();
+    React.useEffect(() => {
+        if (isVisible && !activeSubscription) {
+            fetchActiveSubscription().catch(() => { });
+        }
+    }, [isVisible, activeSubscription, fetchActiveSubscription]);
+
+    // Collections count from store (exclude 2 default system collections)
+    const collectionsCount = useCollectionStore(state => (state.collections || []).filter((c: any) => !c?.isDefault).length || 0);
+    const { label: collectionsLabel, guard: guardCollections } = useLimits('collections', collectionsCount, () => setShowSubscriptionModal(true));
 
     // Bottom sheet snap points
     const snapPoints = useMemo(() => ['60%', '85%'], []);
@@ -82,6 +128,7 @@ const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
     );
 
     const handleCreate = async () => {
+        if (!guardCollections()) return;
         if (!name.trim()) {
             showError('Vui lòng nhập tên collection');
             return;
@@ -96,15 +143,17 @@ const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
             });
 
             if (response.status === 'success') {
-                showSuccess('Đã tạo collection mới');
+                showSuccess(response.message || 'Đã tạo collection mới');
                 onSuccess();
                 handleClose();
             } else {
-                showError('Không thể tạo collection');
+                showError(response.message || 'Không thể tạo collection');
             }
         } catch (error: any) {
-            console.error('Failed to create collection:', error);
-            showError(`Lỗi: ${error.message}`);
+            console.error('[CreateCollectionModal] Failed to create collection:', error);
+            const apiMsg = error?.response?.data?.message || error?.message;
+            // Duplicate name (409) or any server-provided message
+            showError(apiMsg || 'Không thể tạo collection');
         } finally {
             setIsCreating(false);
         }
@@ -123,225 +172,248 @@ const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
     };
 
     return (
-        <BottomSheet
-            ref={bottomSheetRef}
-            index={-1}
-            snapPoints={snapPoints}
-            onChange={handleSheetChanges}
-            backdropComponent={renderBackdrop}
-            enablePanDownToClose={true}
-            backgroundStyle={{
-                backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
-                borderTopLeftRadius: 20,
-                borderTopRightRadius: 20,
-            }}
-            handleIndicatorStyle={{
-                backgroundColor: isDark ? '#6B7280' : '#D1D5DB',
-                width: 40,
-                height: 4,
-            }}
-        >
-            <BottomSheetView style={styles.container}>
-                {/* Header */}
-                <View style={[styles.header, { borderBottomColor: isDark ? '#374151' : '#E5E7EB' }]}>
-                    <TouchableOpacity
-                        onPress={handleClose}
-                        disabled={isCreating}
-                        style={styles.headerButton}
-                    >
-                        <Text style={[
-                            styles.cancelText,
-                            { color: isDark ? '#9CA3AF' : '#6B7280' }
-                        ]}>
-                            Hủy
-                        </Text>
-                    </TouchableOpacity>
-
-                    <View style={styles.titleContainer}>
-                        <Text style={[
-                            styles.title,
-                            { color: isDark ? '#FFFFFF' : '#000000' }
-                        ]}>
-                            Tạo Collection
-                        </Text>
-                        <Text style={[
-                            styles.subtitle,
-                            { color: isDark ? '#9CA3AF' : '#6B7280' }
-                        ]}>
-                            Tạo bộ sưu tập địa điểm mới
-                        </Text>
-                    </View>
-
-                    <GradientButton
-                        title={isCreating ? "Đang tạo..." : "Tạo"}
-                        onPress={handleCreate}
-                        disabled={isCreating || !name.trim()}
-                        size="medium"
-                        fullWidth={false}
-                        minWidth={70}
-                    />
-                </View>
-
-                {/* Content */}
-                <BottomSheetScrollView
-                    style={styles.content}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.scrollContent}
-                >
-                    {/* Name Input */}
-                    <View style={styles.inputGroup}>
-                        <View style={styles.labelContainer}>
+        <>
+            <BottomSheet
+                ref={bottomSheetRef}
+                index={-1}
+                snapPoints={snapPoints}
+                onChange={handleSheetChanges}
+                backdropComponent={renderBackdrop}
+                enablePanDownToClose={true}
+                backgroundStyle={{
+                    backgroundColor: isDark ? '#000000' : '#FFFFFF',
+                    borderTopLeftRadius: 20,
+                    borderTopRightRadius: 20,
+                }}
+                handleIndicatorStyle={{
+                    backgroundColor: isDark ? '#6B7280' : '#D1D5DB',
+                    width: 40,
+                    height: 4,
+                }}
+            >
+                <BottomSheetView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                    {/* Header */}
+                    <View style={[styles.header, { borderBottomColor: isDark ? '#374151' : '#E5E7EB' }]}>
+                        <TouchableOpacity
+                            onPress={handleClose}
+                            disabled={isCreating}
+                            style={styles.headerButton}
+                        >
                             <Text style={[
-                                styles.inputLabel,
+                                styles.cancelText,
+                                { color: isDark ? '#9CA3AF' : '#6B7280' }
+                            ]}>
+                                Hủy
+                            </Text>
+                        </TouchableOpacity>
+
+                        <View style={styles.titleContainer}>
+                            <Text style={[
+                                styles.title,
                                 { color: isDark ? '#FFFFFF' : '#000000' }
                             ]}>
-                                Tên collection
+                                Tạo Collection
                             </Text>
-                            <Text style={[
-                                styles.requiredLabel,
-                                { color: isDark ? '#EF4444' : '#DC2626' }
-                            ]}>
-                                *
-                            </Text>
-                        </View>
-                        <View style={[
-                            styles.inputContainer,
-                            {
-                                backgroundColor: isDark ? '#374151' : '#F9FAFB',
-                                borderColor: isDark ? '#4B5563' : '#E5E7EB',
-                            }
-                        ]}>
-                            <TextInput
-                                style={[
-                                    styles.textInput,
-                                    { color: isDark ? '#FFFFFF' : '#000000' }
-                                ]}
-                                value={name}
-                                onChangeText={setName}
-                                placeholder="Nhập tên collection"
-                                placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
-                                maxLength={50}
-                                editable={!isCreating}
-                            />
-                            <Text style={[
-                                styles.characterCount,
+                            <Text style={[styles.subtitle, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>Collections: {collectionsLabel}</Text>
+                            {/* <Text style={[
+                                styles.subtitle,
                                 { color: isDark ? '#9CA3AF' : '#6B7280' }
                             ]}>
-                                {name.length}/50
-                            </Text>
+                                Tạo bộ sưu tập địa điểm mới
+                            </Text> */}
+                        </View>
+
+                        <View style={styles.headerRightButton}>
+                            <GradientButton
+                                title={isCreating ? "Đang tạo..." : "Tạo"}
+                                onPress={handleCreate}
+                                disabled={isCreating || !name.trim()}
+                                size="medium"
+                                fullWidth={false}
+                                minWidth={70}
+                            />
                         </View>
                     </View>
 
-                    {/* Description Input */}
-                    <View style={styles.inputGroup}>
-                        <Text style={[
-                            styles.inputLabel,
-                            { color: isDark ? '#FFFFFF' : '#000000' }
-                        ]}>
-                            Mô tả
-                        </Text>
-                        <View style={[
-                            styles.inputContainer,
-                            {
-                                backgroundColor: isDark ? '#374151' : '#F9FAFB',
-                                borderColor: isDark ? '#4B5563' : '#E5E7EB',
-                            }
-                        ]}>
-                            <TextInput
-                                style={[
-                                    styles.textArea,
+                    {/* Content */}
+                    <BottomSheetScrollView
+                        style={styles.content}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={styles.scrollContent}
+                    >
+                        {/* Name Input */}
+                        <View style={styles.inputGroup}>
+                            <View style={styles.labelContainer}>
+                                <Text style={[
+                                    styles.inputLabel,
                                     { color: isDark ? '#FFFFFF' : '#000000' }
-                                ]}
-                                value={description}
-                                onChangeText={setDescription}
-                                placeholder="Nhập mô tả (tùy chọn)"
-                                placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
-                                multiline
-                                numberOfLines={3}
-                                maxLength={200}
-                                editable={!isCreating}
-                            />
-                            <Text style={[
-                                styles.characterCount,
-                                { color: isDark ? '#9CA3AF' : '#6B7280' }
-                            ]}>
-                                {description.length}/200
-                            </Text>
-                        </View>
-                    </View>
-
-                    {/* Visibility Selection */}
-                    <View style={styles.inputGroup}>
-                        <Text style={[
-                            styles.inputLabel,
-                            { color: isDark ? '#FFFFFF' : '#000000' }
-                        ]}>
-                            Quyền riêng tư
-                        </Text>
-                        <TouchableOpacity
-                            style={[
-                                styles.radioContainer,
+                                ]}>
+                                    Tên collection
+                                </Text>
+                                <Text style={[
+                                    styles.requiredLabel,
+                                    { color: isDark ? '#EF4444' : '#DC2626' }
+                                ]}>
+                                    *
+                                </Text>
+                            </View>
+                            <View style={[
+                                styles.inputContainer,
                                 {
                                     backgroundColor: isDark ? '#374151' : '#F9FAFB',
                                     borderColor: isDark ? '#4B5563' : '#E5E7EB',
                                 }
-                            ]}
-                            onPress={() => setVisibility(visibility === 'PRIVATE' ? 'PUBLIC' : 'PRIVATE')}
-                            disabled={isCreating}
-                            activeOpacity={1}
-                        >
-                            <View style={[
-                                styles.radioButton,
-                                {
-                                    borderColor: visibility === 'PRIVATE'
-                                        ? (isDark ? '#FFFFFF' : '#000000')
-                                        : (isDark ? '#6B7280' : '#D1D5DB'),
-                                }
                             ]}>
-                                {visibility === 'PRIVATE' && (
-                                    <View style={[
-                                        styles.radioButtonInner,
-                                        { backgroundColor: isDark ? '#FFFFFF' : '#000000' }
-                                    ]} />
-                                )}
-                            </View>
-                            <Lock
-                                size={20}
-                                color={isDark ? '#FFFFFF' : '#000000'}
-                                style={styles.radioIcon}
-                            />
-                            <View style={styles.radioTextContainer}>
+                                <TextInput
+                                    style={[
+                                        styles.textInput,
+                                        { color: isDark ? '#FFFFFF' : '#000000' }
+                                    ]}
+                                    value={name}
+                                    onChangeText={setName}
+                                    placeholder="Nhập tên collection"
+                                    placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
+                                    maxLength={50}
+                                    editable={!isCreating}
+                                />
                                 <Text style={[
-                                    styles.radioText,
-                                    { color: isDark ? '#FFFFFF' : '#000000' }
-                                ]}>
-                                    Riêng tư
-                                </Text>
-                                <Text style={[
-                                    styles.radioSubtext,
+                                    styles.characterCount,
                                     { color: isDark ? '#9CA3AF' : '#6B7280' }
                                 ]}>
-                                    {visibility === 'PRIVATE' ? 'Chỉ bạn mới thấy' : 'Mọi người đều thấy'}
+                                    {name.length}/50
                                 </Text>
                             </View>
-                        </TouchableOpacity>
-                    </View>
-                </BottomSheetScrollView>
-            </BottomSheetView>
-        </BottomSheet>
+                        </View>
+
+                        {/* Description Input */}
+                        <View style={styles.inputGroup}>
+                            <Text style={[
+                                styles.inputLabel,
+                                { color: isDark ? '#FFFFFF' : '#000000' }
+                            ]}>
+                                Mô tả
+                            </Text>
+                            <View style={[
+                                styles.inputContainer,
+                                {
+                                    backgroundColor: isDark ? '#374151' : '#F9FAFB',
+                                    borderColor: isDark ? '#4B5563' : '#E5E7EB',
+                                }
+                            ]}>
+                                <TextInput
+                                    style={[
+                                        styles.textArea,
+                                        { color: isDark ? '#FFFFFF' : '#000000' }
+                                    ]}
+                                    value={description}
+                                    onChangeText={setDescription}
+                                    placeholder="Nhập mô tả (tùy chọn)"
+                                    placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
+                                    multiline
+                                    numberOfLines={3}
+                                    maxLength={200}
+                                    editable={!isCreating}
+                                />
+                                <Text style={[
+                                    styles.characterCount,
+                                    { color: isDark ? '#9CA3AF' : '#6B7280' }
+                                ]}>
+                                    {description.length}/200
+                                </Text>
+                            </View>
+                        </View>
+
+                        {/* Visibility Selection */}
+                        <View style={styles.inputGroup}>
+                            <Text style={[
+                                styles.inputLabel,
+                                { color: isDark ? '#FFFFFF' : '#000000' }
+                            ]}>
+                                Quyền riêng tư
+                            </Text>
+                            <TouchableOpacity
+                                style={[
+                                    styles.radioContainer,
+                                    {
+                                        backgroundColor: isDark ? '#374151' : '#F9FAFB',
+                                        borderColor: isDark ? '#4B5563' : '#E5E7EB',
+                                    }
+                                ]}
+                                onPress={() => setVisibility(visibility === 'PRIVATE' ? 'PUBLIC' : 'PRIVATE')}
+                                disabled={isCreating}
+                                activeOpacity={1}
+                            >
+                                <View style={[
+                                    styles.radioButton,
+                                    {
+                                        borderColor: visibility === 'PRIVATE'
+                                            ? (isDark ? '#FFFFFF' : '#000000')
+                                            : (isDark ? '#6B7280' : '#D1D5DB'),
+                                    }
+                                ]}>
+                                    {visibility === 'PRIVATE' && (
+                                        <View style={[
+                                            styles.radioButtonInner,
+                                            { backgroundColor: isDark ? '#FFFFFF' : '#000000' }
+                                        ]} />
+                                    )}
+                                </View>
+                                <Lock
+                                    size={20}
+                                    color={isDark ? '#FFFFFF' : '#000000'}
+                                    style={styles.radioIcon}
+                                />
+                                <View style={styles.radioTextContainer}>
+                                    <Text style={[
+                                        styles.radioText,
+                                        { color: isDark ? '#FFFFFF' : '#000000' }
+                                    ]}>
+                                        Riêng tư
+                                    </Text>
+                                    <Text style={[
+                                        styles.radioSubtext,
+                                        { color: isDark ? '#9CA3AF' : '#6B7280' }
+                                    ]}>
+                                        {visibility === 'PRIVATE' ? 'Chỉ bạn mới thấy' : 'Mọi người đều thấy'}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+                    </BottomSheetScrollView>
+                </BottomSheetView>
+            </BottomSheet>
+
+            {/* Subscription Modal */}
+            <SubscriptionModal
+                isVisible={showSubscriptionModal}
+                onClose={() => setShowSubscriptionModal(false)}
+                onPlanSelect={handlePlanSelect}
+            />
+
+            {/* Payment Screen */}
+            {showPaymentScreen && selectedPlan && (
+                <PaymentScreen
+                    plan={selectedPlan}
+                    onBack={handlePaymentBack}
+                    onSuccess={handlePaymentBack}
+                />
+            )}
+        </>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: '#000000',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 24,
-        paddingVertical: 20,
+        paddingVertical: 12,
         borderBottomWidth: 1,
+        position: 'relative',
     },
     headerButton: {
         padding: 8,
@@ -354,7 +426,12 @@ const styles = StyleSheet.create({
     titleContainer: {
         flex: 1,
         alignItems: 'center',
-        marginHorizontal: 16,
+        justifyContent: 'center',
+        paddingHorizontal: 60, // Add padding to prevent overlap with buttons
+    },
+    headerRightButton: {
+        minWidth: 70,
+        alignItems: 'flex-end',
     },
     title: {
         fontSize: 20,

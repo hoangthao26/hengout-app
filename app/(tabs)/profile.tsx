@@ -1,4 +1,5 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     Globe,
     List,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Image, RefreshControl, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
+import { ProfileErrorBoundary } from '../../components/errorBoundaries';
 import Animated, {
     useAnimatedScrollHandler,
     useSharedValue,
@@ -25,16 +27,28 @@ import NavigationService from '../../services/navigationService';
 import { OnboardingService } from '../../services/onboardingService';
 import { useProfileStore } from '../../store';
 import { useCollectionStore } from '../../store/collectionStore';
+import { useSubscriptionStore } from '../../store/subscriptionStore';
 import { LocationFolder } from '../../types/locationFolder';
+import { SubscriptionStatusCard, SubscriptionModal, PaymentScreen } from '../../components/subscription';
+import { paymentFlowManager } from '../../services/paymentFlowManager';
 
 export default function ProfileScreen() {
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
-    const { success: showSuccess, error: showError, info: showInfo, warning: showWarning } = useToast();
+    const { success: showSuccess, error: showError, info: showInfo, warning: showWarning, showToast } = useToast() as any;
     const router = useRouter();
+    const params = useLocalSearchParams<{ openSubscription?: string }>();
 
     // Zustand stores
     const { profile, isLoading, fetchProfile, refreshProfile } = useProfileStore();
+    // Ensure subscription data stays fresh when screen focuses
+    const { fetchActiveSubscription: refetchActiveSubscription } = useSubscriptionStore();
+    useFocusEffect(
+        React.useCallback(() => {
+            refetchActiveSubscription().catch(() => { });
+            return undefined;
+        }, [refetchActiveSubscription])
+    );
     const {
         collections,
         loading: collectionsLoading,
@@ -42,15 +56,55 @@ export default function ProfileScreen() {
         setLoading: setCollectionsLoading,
         addCollection,
         updateCollection,
-        removeCollection
+        removeCollection,
+        setCurrentCollection
     } = useCollectionStore();
+    const {
+        activeSubscription,
+        fetchActiveSubscription,
+        fetchPlans,
+        plans,
+        plansLoading
+    } = useSubscriptionStore();
 
     // Local state
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [isProfileInitialized, setIsProfileInitialized] = useState(false);
+
+    // Subscription state
+    const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+    const [showPaymentScreen, setShowPaymentScreen] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState<any>(null);
     const [collectionsRefreshing, setCollectionsRefreshing] = useState(false);
     const { openCreateModal, openDeleteModal, setOnCreateSuccess, setOnDeleteSuccess } = useModal();
+
+    // Listen for payment flow changes
+    useEffect(() => {
+        const unsubscribe = paymentFlowManager.subscribe(() => {
+            const currentPayment = paymentFlowManager.getCurrentPayment();
+            if (currentPayment) {
+                setSelectedPlan(currentPayment.plan);
+                setShowPaymentScreen(true);
+            } else {
+                setShowPaymentScreen(false);
+                setSelectedPlan(null);
+            }
+        });
+
+        return unsubscribe;
+    }, []);
+
+    // Open subscription modal if navigation parameter is provided
+    useEffect(() => {
+        if (params?.openSubscription === 'true') {
+            setShowSubscriptionModal(true);
+            try {
+                router.replace('/(tabs)/profile' as any);
+            } catch { }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [params?.openSubscription]);
 
     // Sticky header animation with Reanimated
     const scrollY = useSharedValue(0);
@@ -73,6 +127,14 @@ export default function ProfileScreen() {
         loadCollections();
     }, []);
 
+    // Load subscription data when component mounts
+    useEffect(() => {
+        if (isProfileInitialized) {
+            fetchActiveSubscription();
+            fetchPlans();
+        }
+    }, [isProfileInitialized, fetchActiveSubscription, fetchPlans]);
+
     // Load collections
     const loadCollections = useCallback(async () => {
         try {
@@ -82,7 +144,7 @@ export default function ProfileScreen() {
                 setCollections(response.data);
             }
         } catch (error: any) {
-            console.error('Failed to load collections:', error);
+            console.error('[Profile] Failed to load collections:', error);
         } finally {
             setCollectionsLoading(false);
         }
@@ -120,17 +182,12 @@ export default function ProfileScreen() {
 
     // Handle collection press
     const handleCollectionPress = useCallback((collection: LocationFolder) => {
-        router.push({
-            pathname: '/collections/collection-detail',
-            params: {
-                collectionId: collection.id,
-                collectionName: collection.name,
-                collectionDescription: collection.description || '',
-                visibility: collection.visibility,
-                isDefault: collection.isDefault.toString()
-            }
-        });
-    }, [router]);
+        // Save current collection to store before navigation (for immediate display)
+        setCurrentCollection(collection);
+
+        // Navigate with just ID - detail screen will fetch fresh data from API
+        NavigationService.goToCollectionDetail(collection.id);
+    }, [setCurrentCollection]);
 
     // Handle create collection
     const handleCreateCollection = useCallback(() => {
@@ -148,43 +205,46 @@ export default function ProfileScreen() {
                 try {
                     const tokenInfo = await AuthHelper.getTokenInfo();
                     if (tokenInfo?.isAuthenticated && isProfileInitialized) {
-                        // Only refresh if we have a profile but want to ensure it's up to date
-                        fetchProfile();
+                        const currentProfile = profile;
+                        if (!currentProfile) {
+                            fetchProfile();
+                        }
                     }
                 } catch (error) {
-                    console.error('Failed to check auth status in useFocusEffect:', error);
+                    console.error('[Profile] Failed to check auth status:', error);
                 }
             };
 
             checkAuthAndRefresh();
-        }, [isProfileInitialized, fetchProfile])
+        }, [isProfileInitialized, fetchProfile, profile])
     );
 
     const loadProfile = async () => {
         try {
-            // Check if user is authenticated first using AuthHelper (more reliable)
             const tokenInfo = await AuthHelper.getTokenInfo();
             if (!tokenInfo?.isAuthenticated) {
-                console.log('User not authenticated, redirecting to login');
                 NavigationService.logoutToLogin();
                 return;
             }
 
-            // Check onboarding status from stored data (preferred method)
+            // Check if profile already exists in store
+            const currentProfile = profile;
+            if (currentProfile) {
+                setIsProfileInitialized(true);
+                return;
+            }
+
+            // Check onboarding status
             const onboardingComplete = await OnboardingService.isOnboardingComplete();
 
             if (onboardingComplete) {
-                // User has completed onboarding, load profile using Zustand
-                // Always refresh profile to ensure we have the latest data
                 await refreshProfile();
                 setIsProfileInitialized(true);
             } else {
-                // User hasn't completed onboarding, redirect to wizard
-                console.log('Onboarding not complete, redirecting to onboarding wizard');
                 NavigationService.goToOnboardingWizard();
             }
         } catch (error: any) {
-            console.error('Failed to load profile:', error);
+            console.error('[Profile] Failed to load profile:', error);
             showError('Failed to load profile',);
         }
     };
@@ -192,13 +252,19 @@ export default function ProfileScreen() {
     const handleRefresh = async () => {
         setRefreshing(true);
         try {
-            // Force refresh profile data and collections
-            await Promise.all([
-                refreshProfile(),
-                loadCollections()
-            ]);
+            const currentProfile = profile;
+            const refreshPromises = [];
+
+            if (!currentProfile) {
+                refreshPromises.push(refreshProfile());
+            }
+
+            // Always refresh collections as they change more frequently
+            refreshPromises.push(loadCollections());
+
+            await Promise.all(refreshPromises);
         } catch (error: any) {
-            console.error('Failed to refresh profile:', error);
+            console.error('[Profile] Failed to refresh profile:', error);
             showError('Failed to refresh profile',);
         } finally {
             setRefreshing(false);
@@ -215,7 +281,7 @@ export default function ProfileScreen() {
             // Use AuthHelper for immediate logout with navigation
             await AuthHelper.logoutAndNavigate();
         } catch (error: any) {
-            console.error('Logout failed:', error);
+            console.error('[Profile] Logout failed:', error);
             showError('Logout failed. Please try again.',);
 
             // Force navigation to login even if logout fails
@@ -225,6 +291,125 @@ export default function ProfileScreen() {
         }
     };
 
+    // Subscription handlers
+    const handleUpgradePress = () => {
+        setShowSubscriptionModal(true);
+    };
+
+    // --- Subscription reminders (upgrade/expiry) ---
+    const getDaysLeft = (endDate?: string | null) => {
+        if (!endDate) return null;
+        const end = new Date(endDate).getTime();
+        if (Number.isNaN(end)) return null;
+        const now = Date.now();
+        const diffMs = end - now;
+        return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    };
+
+    const daysLeft = getDaysLeft(activeSubscription?.endDate || null);
+    const isPremium = activeSubscription?.plan?.id === 2;
+
+    // Show lightweight reminder toasts (7 ngày và 1 ngày trước hạn) khi dữ liệu đổi hoặc khi vào màn
+    const [lastReminderDaysLeft, setLastReminderDaysLeft] = useState<number | null>(null);
+    useEffect(() => {
+        if (!isPremium || typeof daysLeft !== 'number') return;
+        if (daysLeft < 0) return; // đã hết hạn
+        // Chỉ nhắc một lần cho cùng mốc daysLeft trong phiên
+        if (lastReminderDaysLeft === daysLeft) return;
+
+        if (daysLeft === 7) {
+            showInfo('Gói Premium còn 7 ngày sẽ hết hạn. Bạn có thể gia hạn ngay.');
+            setLastReminderDaysLeft(7);
+        } else if (daysLeft === 1) {
+            showWarning('Gói Premium còn 1 ngày sẽ hết hạn. Gia hạn ngay để không gián đoạn.');
+            setLastReminderDaysLeft(1);
+        }
+    }, [isPremium, daysLeft, lastReminderDaysLeft, showInfo, showWarning]);
+
+    // Basic upgrade prompt (once per day)
+    const hasPromptedThisFocus = React.useRef(false);
+    useFocusEffect(
+        useCallback(() => {
+            // Reset flag when screen comes into focus
+            hasPromptedThisFocus.current = false;
+
+            const maybePromptBasicUpgrade = async () => {
+                try {
+                    if (isPremium) return;
+
+                    // Prevent duplicate prompts in the same focus session
+                    if (hasPromptedThisFocus.current) return;
+
+                    const STORAGE_KEY = 'basic_upgrade_prompt_last_date';
+                    const today = new Date();
+                    const yyyy = today.getFullYear();
+                    const mm = String(today.getMonth() + 1).padStart(2, '0');
+                    const dd = String(today.getDate()).padStart(2, '0');
+                    const todayKey = `${yyyy}-${mm}-${dd}`;
+                    const last = await AsyncStorage.getItem(STORAGE_KEY);
+                    if (last === todayKey) return; // already prompted today
+
+                    // Set flag and save to storage BEFORE showing toast to prevent race condition
+                    hasPromptedThisFocus.current = true;
+                    await AsyncStorage.setItem(STORAGE_KEY, todayKey);
+
+                    // Show a dedicated toast with CTA to open subscription modal
+                    const id = showToast({
+                        type: 'upgrade',
+                        title: 'Nâng cấp để mở khóa đầy đủ tính năng',
+                        message: 'Tăng giới hạn collections, bạn bè và nhóm.',
+                        duration: 5000,
+                        position: 'top',
+                        onPress: handleUpgradePress,
+                    });
+                    // Silence unused var warning if any
+                    if (id) { /* no-op */ }
+                } catch (e) {
+                    // Reset flag on error so it can retry
+                    hasPromptedThisFocus.current = false;
+                    // best-effort prompt, ignore storage errors
+                }
+            };
+
+            maybePromptBasicUpgrade();
+
+            // Cleanup: reset flag when screen loses focus (optional, but good practice)
+            return () => {
+                // No cleanup needed for this case
+            };
+        }, [isPremium, handleUpgradePress, showToast])
+    );
+
+    const handlePlanSelect = async (plan: any) => {
+        setShowSubscriptionModal(false);
+
+        try {
+            // Start payment flow
+            await paymentFlowManager.startPayment(plan);
+            // PaymentScreen will be shown automatically via paymentFlowManager subscription
+        } catch (error: any) {
+            console.error('[ProfileScreen] Failed to start payment:', error);
+            showError('Failed to start payment. Please try again.');
+        }
+    };
+
+    const handlePaymentSuccess = () => {
+        setShowPaymentScreen(false);
+        setSelectedPlan(null);
+        showSuccess('Subscription activated successfully!');
+        // Refresh subscription data
+        fetchActiveSubscription();
+    };
+
+    const handlePaymentBack = () => {
+        setShowPaymentScreen(false);
+        setSelectedPlan(null);
+    };
+
+    const handleSubscriptionModalClose = () => {
+        setShowSubscriptionModal(false);
+    };
+
 
 
     const handleCheckAuthStatus = async () => {
@@ -232,27 +417,21 @@ export default function ProfileScreen() {
             const tokenInfo = await AuthHelper.getTokenInfo();
 
             if (tokenInfo) {
-                console.log('🔍 Current Auth Status:');
-                console.log('- Is Authenticated:', tokenInfo.isAuthenticated);
-                console.log('- Has Tokens:', tokenInfo.hasTokens);
-                console.log('- Token Expired:', tokenInfo.tokenExpired);
-                console.log('- Remaining Time:', Math.round(tokenInfo.remainingTime / 1000), 'seconds');
-                console.log('- Expiration Time:', tokenInfo.expirationTime);
-                console.log('- Refresh Time:', tokenInfo.refreshTime);
-                console.log('- Time Until Refresh:', Math.round(tokenInfo.timeUntilRefresh / 1000), 'seconds');
-                console.log('- Token Type:', tokenInfo.tokenType);
-                console.log('- Role:', tokenInfo.role);
+                // Debug info for development - useful for troubleshooting auth issues
+                if (__DEV__) {
+                    // Keep debug info for development troubleshooting
+                }
 
                 const refreshStatus = tokenInfo.timeUntilRefresh > 0
                     ? `Refresh in ${Math.round(tokenInfo.timeUntilRefresh / 60000)}m ${Math.round((tokenInfo.timeUntilRefresh % 60000) / 1000)}s`
                     : 'Refresh overdue';
 
-                showInfo(`Auth: ${tokenInfo.isAuthenticated ? '✅' : '❌'} | Expired: ${tokenInfo.tokenExpired ? '❌' : '✅'} | ${refreshStatus}`,);
+                showInfo(`Auth: ${tokenInfo.isAuthenticated ? 'Yes' : 'No'} | Expired: ${tokenInfo.tokenExpired ? 'Yes' : 'No'} | ${refreshStatus}`,);
             } else {
                 showError('Failed to get token information',);
             }
-        } catch (error: any) {
-            console.error('Failed to check auth status:', error);
+            } catch (error: any) {
+                console.error('[Profile] Failed to check auth status:', error);
             showError('Failed to check authentication status',);
         }
     };
@@ -290,193 +469,240 @@ export default function ProfileScreen() {
     // }
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            {/* Header with 2 Icons */}
-            <Header
-                title=""
-                showBackButton={false}
-                variant="profile"
-                rightIcons={[
-                    {
-                        icon: UserPlus,
-                        size: 28,
-                        onPress: () => NavigationService.navigate('/friend-request')
-                    },
-                    {
-                        icon: Settings,
-                        size: 28,
-                        onPress: () => NavigationService.goToSettings()
-                    }
-                ]}
-            />
-
-
-            {/* Scrollable Profile Content */}
-            <Animated.ScrollView
-                style={styles.scrollContainer}
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-                onScroll={scrollHandler}
-                scrollEventThrottle={16}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={handleRefresh}
-                        tintColor={isDark ? '#FFFFFF' : '#000000'}
-                    />
-                }
-            >
-                {/* Profile Info Section - Avatar Left, Name/Bio Below, Edit Icon Right */}
-                <View style={styles.profileInfoSection}>
-                    {/* Avatar */}
-                    <View style={styles.avatarContainer}>
-                        {profile?.avatarUrl ? (
-                            <Image
-                                source={{ uri: profile.avatarUrl }}
-                                style={styles.avatarImage}
-                            />
-                        ) : (
-                            <User
-                                size={90}
-                                color={isDark ? '#9CA3AF' : '#6B7280'}
-                            />
-                        )}
-                    </View>
-
-                    {/* Name and Bio - Centered below avatar */}
-                    <View style={styles.nameBioSection}>
-                        <Text style={[styles.displayName, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                            {profile?.displayName || 'User'}
-                        </Text>
-                        {profile?.bio && (
-                            <Text style={[styles.bio, { color: isDark ? '#CCCCCC' : '#666666' }]}>
-                                {profile.bio}
-                            </Text>
-                        )}
-                    </View>
-
-                    {/* Edit Icon - Right side */}
-                    <View style={styles.editIconContainer}>
-                        <TouchableOpacity
-                            style={[styles.editIconButton, { backgroundColor: isDark ? '#262626' : '#F5F5F5' }]}
-                            onPress={() => router.push('/profile/edit-profile')}
-                        >
-                            <UserPen
-                                size={24}
-                                color={isDark ? '#FFFFFF' : '#000000'}
-                            />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                {/* Collections Section */}
-                <View style={styles.tabContent}>
-                    {/* Collections Section */}
-                    <View style={[
-                        styles.collectionsSection,
+        <ProfileErrorBoundary>
+            <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                {/* Header with 2 Icons */}
+                <Header
+                    title=""
+                    showBackButton={false}
+                    variant="profile"
+                    rightIcons={[
                         {
-                            backgroundColor: isDark ? '#232024' : '#F3F4F6'
+                            icon: UserPlus,
+                            size: 28,
+                            onPress: () => NavigationService.goToFriendRequest()
+                        },
+                        {
+                            icon: Settings,
+                            size: 28,
+                            onPress: () => NavigationService.goToSettings()
                         }
-                    ]}>
-                        <View style={styles.collectionsHeader}>
-                            <Text style={[styles.collectionsTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
-                                Collections ({collections.length})
-                            </Text>
-                            <View style={styles.collectionsHeaderActions}>
-                                <TouchableOpacity
-                                    style={styles.headerActionButton}
-                                    onPress={handleCreateCollection}
-                                >
-                                    <PlusCircle
-                                        size={28}
-                                        color={isDark ? '#FFFFFF' : '#000000'}
-                                    />
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.headerActionButton}
-                                    onPress={handleOpenDeleteModal}
+                    ]}
+                />
 
-                                >
-                                    <List
-                                        size={28}
-                                        color={isDark ? '#FFFFFF' : '#000000'}
+
+                {/* Scrollable Profile Content */}
+                <Animated.ScrollView
+                    style={styles.scrollContainer}
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                    onScroll={scrollHandler}
+                    scrollEventThrottle={16}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={handleRefresh}
+                            tintColor={isDark ? '#FFFFFF' : '#000000'}
+                        />
+                    }
+                >
+                    {/* Subscription Status Card */}
+                    <SubscriptionStatusCard
+                        subscription={activeSubscription}
+                        onUpgrade={handleUpgradePress}
+                    />
+
+                    {/* Test button to trigger upgrade toast (hidden)
+                <TouchableOpacity
+                    onPress={() => showToast({
+                        type: 'upgrade',
+                        title: 'Nâng cấp để mở khóa đầy đủ tính năng',
+                        message: 'Tăng giới hạn collections, bạn bè và nhóm.',
+                        duration: 5000,
+                        position: 'top',
+                        onPress: handleUpgradePress,
+                    })}
+                    style={{ alignSelf: 'center', marginTop: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: isDark ? '#374151' : '#E5E7EB' }}
+                >
+                    <Text style={{ color: isDark ? '#E5E7EB' : '#111827' }}>Test Upgrade Toast</Text>
+                </TouchableOpacity>
+                */}
+
+
+                    {/* Profile Info Section - Avatar Left, Name/Bio Below, Edit Icon Right */}
+                    <View style={styles.profileInfoSection}>
+                        {/* Avatar */}
+                        <View style={[
+                            styles.avatarContainer,
+                            !profile?.avatarUrl && styles.avatarContainerEmpty,
+                            !profile?.avatarUrl && { backgroundColor: isDark ? '#374151' : '#E5E7EB' }
+                        ]}>
+                            {profile?.avatarUrl ? (
+                                <Image
+                                    source={{ uri: profile.avatarUrl }}
+                                    style={styles.avatarImage}
+                                    resizeMode="cover"
+                                />
+                            ) : (
+                                <View style={styles.avatarIconContainer}>
+                                    <User
+                                        size={62}
+                                        color={isDark ? '#9CA3AF' : '#6B7280'}
                                     />
-                                </TouchableOpacity>
-                            </View>
+                                </View>
+                            )}
                         </View>
 
-                        {collectionsLoading ? (
-                            <View style={styles.collectionsLoading}>
-                                <Text style={[styles.loadingText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                    Đang tải collections...
+                        {/* Name and Bio - Centered below avatar */}
+                        <View style={styles.nameBioSection}>
+                            <Text style={[styles.displayName, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                                {profile?.displayName || 'User'}
+                            </Text>
+                            {profile?.bio && (
+                                <Text style={[styles.bio, { color: isDark ? '#CCCCCC' : '#666666' }]}>
+                                    {profile.bio}
                                 </Text>
-                            </View>
-                        ) : collections.length === 0 ? (
-                            <View style={styles.emptyCollections}>
-                                <MapPin
-                                    size={32}
-                                    color={isDark ? '#4B5563' : '#9CA3AF'}
+                            )}
+                        </View>
+
+                        {/* Edit Icon - Right side */}
+                        <View style={styles.editIconContainer}>
+                            <TouchableOpacity
+                                style={[styles.editIconButton, { backgroundColor: isDark ? '#262626' : '#F5F5F5' }]}
+                                onPress={() => NavigationService.goToEditProfile()}
+                            >
+                                <UserPen
+                                    size={24}
+                                    color={isDark ? '#FFFFFF' : '#000000'}
                                 />
-                                <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
-                                    Chưa có collections nào
-                                </Text>
-                            </View>
-                        ) : (
-                            <View style={styles.collectionsList}>
-                                {collections.map((item) => (
-                                    <TouchableOpacity
-                                        key={item.id}
-                                        style={[
-                                            styles.collectionItem,
-                                            {
-                                                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-                                            }
-                                        ]}
-                                        onPress={() => handleCollectionPress(item)}
-                                    >
-                                        <View style={styles.collectionIcon}>
-                                            <MapPin
-                                                size={36}
-                                                color={isDark ? '#FFFFFF' : '#000000'}
-                                            />
-                                        </View>
-                                        <View style={styles.collectionInfo}>
-                                            <Text
-                                                style={[styles.collectionName, { color: isDark ? '#FFFFFF' : '#000000' }]}
-                                                numberOfLines={1}
-                                            >
-                                                {item.name}
-                                            </Text>
-                                            <Text
-                                                style={[styles.collectionDescription, { color: isDark ? '#9CA3AF' : '#6B7280' }]}
-                                                numberOfLines={1}
-                                            >
-                                                {item.description || 'Không có mô tả'}
-                                            </Text>
-                                        </View>
-                                        <View style={styles.collectionStatus}>
-                                            {item.visibility === 'PUBLIC' ? (
-                                                <Globe
-                                                    size={24}
-                                                    color={isDark ? '#9CA3AF' : '#6B7280'}
-                                                />
-                                            ) : (
-                                                <Lock
-                                                    size={24}
-                                                    color={isDark ? '#9CA3AF' : '#6B7280'}
-                                                />
-                                            )}
-                                        </View>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        )}
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
 
-            </Animated.ScrollView>
+                    {/* Collections Section */}
+                    <View style={styles.tabContent}>
+                        {/* Collections Section */}
+                        <View style={[
+                            styles.collectionsSection,
+                            {
+                                backgroundColor: isDark ? '#232024' : '#F3F4F6'
+                            }
+                        ]}>
+                            <View style={styles.collectionsHeader}>
+                                <Text style={[styles.collectionsTitle, { color: isDark ? '#FFFFFF' : '#000000' }]}>
+                                    Collections ({collections.length})
+                                </Text>
+                                <View style={styles.collectionsHeaderActions}>
+                                    <TouchableOpacity
+                                        style={styles.headerActionButton}
+                                        onPress={handleOpenDeleteModal}
+                                    >
+                                        <List
+                                            size={28}
+                                            color={isDark ? '#FFFFFF' : '#000000'}
+                                        />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.headerActionButton}
+                                        onPress={handleCreateCollection}
+                                    >
+                                        <PlusCircle
+                                            size={28}
+                                            color={isDark ? '#FFFFFF' : '#000000'}
+                                        />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
 
-        </View>
+                            {collectionsLoading ? (
+                                <View style={styles.collectionsLoading}>
+                                    <Text style={[styles.loadingText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                        Đang tải collections...
+                                    </Text>
+                                </View>
+                            ) : collections.length === 0 ? (
+                                <View style={styles.emptyCollections}>
+                                    <MapPin
+                                        size={32}
+                                        color={isDark ? '#4B5563' : '#9CA3AF'}
+                                    />
+                                    <Text style={[styles.emptyText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
+                                        Chưa có collections nào
+                                    </Text>
+                                </View>
+                            ) : (
+                                <View style={styles.collectionsList}>
+                                    {collections.map((item) => (
+                                        <TouchableOpacity
+                                            key={item.id}
+                                            style={[
+                                                styles.collectionItem,
+                                                {
+                                                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+                                                }
+                                            ]}
+                                            onPress={() => handleCollectionPress(item)}
+                                        >
+                                            <View style={styles.collectionIcon}>
+                                                <MapPin
+                                                    size={36}
+                                                    color={isDark ? '#FFFFFF' : '#000000'}
+                                                />
+                                            </View>
+                                            <View style={styles.collectionInfo}>
+                                                <Text
+                                                    style={[styles.collectionName, { color: isDark ? '#FFFFFF' : '#000000' }]}
+                                                    numberOfLines={1}
+                                                >
+                                                    {item.name}
+                                                </Text>
+                                                <Text
+                                                    style={[styles.collectionDescription, { color: isDark ? '#9CA3AF' : '#6B7280' }]}
+                                                    numberOfLines={1}
+                                                >
+                                                    {item.description || 'Không có mô tả'}
+                                                </Text>
+                                            </View>
+                                            <View style={styles.collectionStatus}>
+                                                {item.visibility === 'PUBLIC' ? (
+                                                    <Globe
+                                                        size={24}
+                                                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                                                    />
+                                                ) : (
+                                                    <Lock
+                                                        size={24}
+                                                        color={isDark ? '#9CA3AF' : '#6B7280'}
+                                                    />
+                                                )}
+                                            </View>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+                    </View>
+
+                </Animated.ScrollView>
+
+            </View>
+
+            {/* Subscription Modal */}
+            <SubscriptionModal
+                isVisible={showSubscriptionModal}
+                onClose={handleSubscriptionModalClose}
+                onPlanSelect={handlePlanSelect}
+            />
+
+            {/* Payment Screen */}
+            {showPaymentScreen && selectedPlan && (
+                <PaymentScreen
+                    plan={selectedPlan}
+                    onBack={handlePaymentBack}
+                    onSuccess={handlePaymentSuccess}
+                />
+            )}
+        </ProfileErrorBoundary>
     );
 }
 
@@ -505,6 +731,20 @@ const styles = StyleSheet.create({
     },
     avatarContainer: {
         // Avatar stays on the left
+    },
+    avatarContainerEmpty: {
+        width: 90,
+        height: 90,
+        borderRadius: 45,
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden',
+    },
+    avatarIconContainer: {
+        width: 90,
+        height: 90,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     avatarImage: {
         width: 90,
@@ -670,5 +910,6 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 20,
     },
+
 
 });

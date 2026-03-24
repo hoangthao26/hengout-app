@@ -26,8 +26,8 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
         }
     }, []);
 
-    const showToast = useCallback((toastData: Omit<Toast, 'id'>): string => {
-        const id = generateId();
+    const showToast = useCallback((toastData: Omit<Toast, 'id'> & { id?: string }): string => {
+        const id = toastData.id || generateId();
         const toast: Toast = {
             id,
             duration: 4000, // Default 4 seconds
@@ -36,11 +36,46 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
             ...toastData,
         };
 
-        setToasts(prev => [...prev, toast]);
+        // Check if toast with this ID already exists
+        const existingIndex = toasts.findIndex(t => t.id === id);
+        const isExistingToast = existingIndex >= 0;
+
+        if (isExistingToast) {
+            // Update existing toast - clear old timeout first
+            const existingTimeout = timeoutRefs.current.get(id);
+            if (existingTimeout) {
+                clearTimeout(existingTimeout);
+                timeoutRefs.current.delete(id);
+            }
+        }
+
+        // Update toast state
+        setToasts(prev => {
+            const existingIndex = prev.findIndex(t => t.id === id);
+
+            if (existingIndex >= 0) {
+                const updated = [...prev];
+                updated[existingIndex] = toast;
+                return updated;
+            } else {
+                return [...prev, toast];
+            }
+        });
 
         // Auto hide after duration (unless persistent)
         if (!toast.persistent && toast.duration && toast.duration > 0) {
             const timeout = setTimeout(() => {
+                // Clear active notification for message toasts
+                if (toast.type === 'message' && toast.conversationData) {
+                    try {
+                        const { useNotificationStore } = require('../store/notificationStore');
+                        const notificationStore = useNotificationStore.getState();
+                        notificationStore.removeActiveNotification(toast.conversationData.id);
+                    } catch (error) {
+                        console.error('[ToastContext] Failed to clear active notification:', error);
+                    }
+                }
+
                 hideToast(id);
             }, toast.duration);
 
@@ -48,7 +83,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
         }
 
         return id;
-    }, [generateId, hideToast]);
+    }, [generateId, hideToast, toasts]);
 
     const hideAllToasts = useCallback(() => {
         // Clear all timeouts
@@ -71,13 +106,69 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
         });
     }, [toasts]);
 
+    const updateToast = useCallback((id: string, updates: Partial<Omit<Toast, 'id'>>) => {
+        setToasts(prev => {
+            const existingToast = prev.find(t => t.id === id);
+            if (!existingToast) {
+                // Clear active notification for message toasts when toast doesn't exist
+                if (updates.conversationData) {
+                    try {
+                        const { useNotificationStore } = require('../store/notificationStore');
+                        const notificationStore = useNotificationStore.getState();
+                        notificationStore.removeActiveNotification(updates.conversationData.id);
+                    } catch (error) {
+                        console.error('[ToastContext] Failed to clear active notification:', error);
+                    }
+                }
+
+                return prev; // Return unchanged state
+            }
+
+            return prev.map(toast => {
+                if (toast.id === id) {
+                    // Clear existing timeout
+                    const existingTimeout = timeoutRefs.current.get(id);
+                    if (existingTimeout) {
+                        clearTimeout(existingTimeout);
+                        timeoutRefs.current.delete(id);
+                    }
+
+                    // Update toast
+                    const updatedToast = { ...toast, ...updates };
+
+                    // Set new timeout if duration is provided
+                    if (updates.duration && updates.duration > 0 && !updatedToast.persistent) {
+                        const timeout = setTimeout(() => {
+                            // Clear active notification for message toasts
+                            if (updatedToast.type === 'message' && updatedToast.conversationData) {
+                                try {
+                                    const { useNotificationStore } = require('../store/notificationStore');
+                                    const notificationStore = useNotificationStore.getState();
+                                    notificationStore.removeActiveNotification(updatedToast.conversationData.id);
+                                } catch (error) {
+                                    console.error('[ToastContext] Failed to clear active notification:', error);
+                                }
+                            }
+
+                            hideToast(id);
+                        }, updates.duration);
+                        timeoutRefs.current.set(id, timeout);
+                    }
+
+                    return updatedToast;
+                }
+                return toast;
+            });
+        });
+    }, [hideToast, toasts]);
+
     // Convenience methods
     const success = useCallback((title: string, message?: string, options?: ToastOptions): string => {
         return showToast({
             type: 'success',
             title,
             message,
-            duration: 2000, // Giảm từ 3s xuống 2s
+            duration: 2500,
             ...options
         });
     }, [showToast]);
@@ -87,7 +178,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
             type: 'error',
             title,
             message,
-            duration: 3000, // Giảm từ 5s xuống 3s
+            duration: 4000,
             ...options
         });
     }, [showToast]);
@@ -97,7 +188,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
             type: 'warning',
             title,
             message,
-            duration: 2500, // Giảm từ 4s xuống 2.5s
+            duration: 3500,
             ...options
         });
     }, [showToast]);
@@ -107,7 +198,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
             type: 'info',
             title,
             message,
-            duration: 2000, // Giảm từ 3s xuống 2s
+            duration: 2500,
             ...options
         });
     }, [showToast]);
@@ -126,6 +217,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
         toasts,
         showToast,
         hideToast,
+        updateToast,
         hideAllToasts,
         success,
         error,

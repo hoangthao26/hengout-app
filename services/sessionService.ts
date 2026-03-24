@@ -6,6 +6,7 @@ import {
     LogoutResponse,
     RefreshTokenRequest,
 } from '../types/auth';
+import axiosInstance from '../config/axios';
 
 // ============================================================================
 // SESSION MANAGEMENT SERVICE
@@ -24,20 +25,13 @@ class SessionService {
             const request: RefreshTokenRequest = { refreshToken };
             const endpoint = buildEndpointUrl('AUTH_SERVICE', 'REFRESH_TOKEN');
 
-            // 🔥 ENTERPRISE BEST PRACTICE: No Authorization header needed
+            // ENTERPRISE BEST PRACTICE: No Authorization header needed
             // Backend supports refresh token rotation independently
-            console.log('🔄 [SessionService] Refreshing token with rotation:', {
-                hasRefreshToken: !!refreshToken,
-                refreshTokenLength: refreshToken?.length || 0,
-                endpoint: endpoint,
-                enterpriseMode: true,
-            });
 
             // Use publicAxios - no Authorization header will be added
             const response = await publicAxios.post<AuthResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.error('❌ [SessionService] Failed to refresh token:', error);
             throw error;
         }
     }
@@ -50,10 +44,12 @@ class SessionService {
         try {
             const request: LogoutRequest = { refreshToken };
             const endpoint = buildEndpointUrl('AUTH_SERVICE', 'LOGOUT');
-            const response = await publicAxios.post<LogoutResponse>(endpoint, request);
+
+            // USE AXIOS INSTANCE: Include access token in header for logout
+            const response = await axiosInstance.post<LogoutResponse>(endpoint, request);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to logout user:', error);
+            console.error('[SessionService] Failed to logout user:', error);
             throw error;
         }
     }

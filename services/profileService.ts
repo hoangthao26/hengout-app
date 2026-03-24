@@ -20,7 +20,7 @@ class ProfileService {
             const response = await axiosInstance.get<ProfileResponse>(endpoint);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to get user profile:', error);
+            console.error('[ProfileService] Failed to get user profile:', error);
             throw error;
         }
     }
@@ -35,7 +35,7 @@ class ProfileService {
             const response = await axiosInstance.post<InitializeResponse>(endpoint, profileData);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to initialize user profile:', error);
+            console.error('[ProfileService] Failed to initialize user profile:', error);
             throw error;
         }
     }
@@ -70,7 +70,7 @@ class ProfileService {
             const response = await axiosInstance.put<ProfileResponse>(endpoint, fullProfileData);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to update user profile:', error);
+            console.error('[ProfileService] Failed to update user profile:', error);
             throw error;
         }
     }
@@ -86,7 +86,7 @@ class ProfileService {
             const response = await axiosInstance.put<ProfileResponse>(endpoint, updateData);
             return response.data;
         } catch (error: any) {
-            console.error('Failed to upload avatar:', error);
+            console.error('[ProfileService] Failed to upload avatar:', error);
             throw error;
         }
     }
@@ -100,7 +100,6 @@ class ProfileService {
             const response = await this.getUserProfile();
             return response.status === 'success' && !!response.data.displayName;
         } catch (error: any) {
-            console.log('Profile not initialized or error:', error.message);
             return false;
         }
     }

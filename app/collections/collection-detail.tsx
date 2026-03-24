@@ -1,7 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Globe, Lock, MapPin, MoreHorizontal, Plus } from 'lucide-react-native';
-import React, { useCallback, useEffect, useState } from 'react';
+import NavigationService from '../../services/navigationService';
+import { Globe, Lock, MapPin, MoreHorizontal, Plus, Trash2 } from 'lucide-react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -9,19 +10,44 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     useColorScheme,
     View
 } from 'react-native';
-import CollectionActionsModal from '../components/CollectionActionsModal';
-import CollectionDetailCard from '../components/CollectionDetailCard';
-import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
-import EditCollectionModal from '../components/EditCollectionModal';
-import Header from '../components/Header';
-import { useToast } from '../contexts/ToastContext';
-import { locationFolderService } from '../services/locationFolderService';
-import { useCollectionStore } from '../store/collectionStore';
-import { LocationInFolder } from '../types/locationFolder';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
+import Reanimated, {
+    SharedValue,
+    useAnimatedStyle,
+    LinearTransition,
+    SlideOutLeft,
+} from 'react-native-reanimated';
+import CollectionActionsModal from '../../components/CollectionActionsModal';
+import LocationCard from '../../components/LocationCard';
+import ConfirmDeleteModal from '../../components/ConfirmDeleteModal';
+import EditCollectionModal from '../../components/EditCollectionModal';
+import Header from '../../components/Header';
+import ContextMenu, { MenuAction } from '../../components/ContextMenu';
+import { FeatureErrorBoundary } from '../../components/FeatureErrorBoundary';
+import { useToast } from '../../contexts/ToastContext';
+import { locationFolderService } from '../../services/locationFolderService';
+import { locationService } from '../../services/locationService';
+import { useCollectionStore } from '../../store/collectionStore';
+import { LocationInFolder } from '../../types/locationFolder';
+import { LocationDetails } from '../../types/location';
+import { useSubscriptionStore } from '../../store/subscriptionStore';
 
+/**
+ * Collection Detail Screen
+ * 
+ * Displays all locations within a specific collection/folder.
+ * Features:
+ * - View and manage locations in collection
+ * - Swipe to delete locations
+ * - Edit and delete collection
+ * - Add new locations to collection
+ * - Pull to refresh data
+ */
 export default function CollectionDetailScreen() {
     const router = useRouter();
     const navigation = useNavigation();
@@ -29,33 +55,26 @@ export default function CollectionDetailScreen() {
     const isDark = useColorScheme() === 'dark';
     const { success: showSuccess, error: showError } = useToast();
 
-    const {
-        collectionId,
-        collectionName,
-        collectionDescription,
-        visibility,
-        isDefault
-    } = params as {
+    const { collectionId } = params as {
         collectionId: string;
-        collectionName: string;
-        collectionDescription: string;
-        visibility: string;
-        isDefault: string;
     };
 
-    const [locations, setLocations] = useState<LocationInFolder[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [showActionsModal, setShowActionsModal] = useState(false);
-    const [showEditModal, setShowEditModal] = useState(false);
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    // State management
+    const [locations, setLocations] = useState<LocationInFolder[]>([]); // List of locations in this collection
+    const [loading, setLoading] = useState(true); // Initial data loading state
+    const [refreshing, setRefreshing] = useState(false); // Pull-to-refresh state
+    const [collectionLoading, setCollectionLoading] = useState(false); // Collection metadata loading
+    const [showActionsModal, setShowActionsModal] = useState(false); // Actions menu visibility
+    const [showEditModal, setShowEditModal] = useState(false); // Edit collection modal visibility
+    const [showDeleteModal, setShowDeleteModal] = useState(false); // Delete confirmation modal visibility
+    const [contextMenuVisible, setContextMenuVisible] = useState(false); // Context menu for long press
+    const [selectedLocation, setSelectedLocation] = useState<LocationInFolder | null>(null); // Location selected for context menu
+    const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set()); // Track locations being deleted (for UI feedback)
 
-    // Debug modal state
-    useEffect(() => {
-        console.log('🔍 showActionsModal changed to:', showActionsModal);
-    }, [showActionsModal]);
+    // Refs for managing swipeable item states
+    const itemRefs = useRef<{ [key: string]: any }>({});
 
-    // Zustand store
+    // Collection store for managing collection state
     const {
         currentCollection,
         setCurrentCollection,
@@ -64,52 +83,109 @@ export default function CollectionDetailScreen() {
         resetCurrentCollection
     } = useCollectionStore();
 
-    // Load collection info into store on mount
-    useEffect(() => {
-        const collectionData = {
-            id: collectionId,
-            name: collectionName,
-            description: collectionDescription,
-            visibility: visibility as 'PUBLIC' | 'PRIVATE',
-            isDefault: isDefault === 'true',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-        };
-        setCurrentCollection(collectionData);
-    }, [collectionId, collectionName, collectionDescription, visibility, isDefault, setCurrentCollection]);
+    // Get collection items limit from subscription plan
+    const activeSubscription = useSubscriptionStore(state => state.activeSubscription);
+    const maxItems = activeSubscription?.plan?.maxFolderItem;
 
-    // Cleanup store on unmount
+
+    /**
+     * Load collection metadata on mount or when collectionId changes
+     * Only fetches from API if not already in store or if collectionId doesn't match
+     */
+    useEffect(() => {
+        const { currentCollection: currentStoreCollection } = useCollectionStore.getState();
+
+        if (!currentStoreCollection || currentStoreCollection.id !== collectionId) {
+            setCollectionLoading(true);
+
+            const fetchFromAPI = async () => {
+                try {
+                    const response = await locationFolderService.getFolderById(collectionId);
+                    if (response.status === 'success') {
+                        setCurrentCollection(response.data);
+                    } else {
+                        showError('Không thể tải thông tin collection');
+                    }
+                } catch (error: any) {
+                    console.error('[CollectionDetail] Failed to load collection info:', error);
+                    showError('Lỗi khi tải thông tin collection');
+                } finally {
+                    setCollectionLoading(false);
+                }
+            };
+
+            fetchFromAPI();
+        }
+    }, [collectionId, setCurrentCollection, showError]);
+
+    /**
+     * Cleanup: Reset current collection in store when component unmounts
+     * Prevents stale data from persisting across navigation
+     */
     useEffect(() => {
         return () => {
             resetCurrentCollection();
         };
     }, [resetCurrentCollection]);
 
-    // Handle back navigation
+    /**
+     * Navigate back to previous screen
+     */
     const handleBackPress = useCallback(() => {
         router.back();
     }, [router]);
 
+    /**
+     * Load all locations in this collection from API
+     * Called on initial load and refresh
+     */
     const loadLocations = useCallback(async () => {
+        if (!collectionId) {
+            showError('Không tìm thấy ID collection');
+            return;
+        }
+
         try {
             const response = await locationFolderService.getLocationsInFolder(collectionId);
             if (response.status === 'success') {
-                setLocations(response.data);
+                setLocations(response.data.content);
             } else {
                 showError('Không thể tải danh sách địa điểm');
             }
         } catch (error: any) {
-            console.error('Failed to load locations:', error);
+            console.error('[CollectionDetail] Failed to load locations:', error);
             showError(`Lỗi: ${error.message}`);
         }
     }, [collectionId, showError]);
 
+    /**
+     * Pull-to-refresh handler
+     * Refreshes both locations list and collection metadata
+     */
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await loadLocations();
-        setRefreshing(false);
-    }, [loadLocations]);
 
+        try {
+            await loadLocations();
+
+            // Also refresh collection metadata to get latest info (name, description, etc.)
+            const collectionResponse = await locationFolderService.getFolderById(collectionId);
+            if (collectionResponse.status === 'success') {
+                setCurrentCollection(collectionResponse.data);
+                updateCollection(collectionId, collectionResponse.data);
+            }
+        } catch (error) {
+            console.error('[CollectionDetail] Failed to refresh data:', error);
+            showError('Lỗi khi làm mới dữ liệu');
+        } finally {
+            setRefreshing(false);
+        }
+    }, [collectionId, setCurrentCollection, updateCollection, loadLocations, showError]);
+
+    /**
+     * Initialize data on mount
+     * Loads locations list when component first renders
+     */
     useEffect(() => {
         const initializeData = async () => {
             setLoading(true);
@@ -120,11 +196,61 @@ export default function CollectionDetailScreen() {
         initializeData();
     }, [loadLocations]);
 
-    const handleLocationPress = (location: LocationInFolder) => {
-        // TODO: Navigate to location detail screen
-        console.log('Navigate to location:', location.locationId);
+    /**
+     * Convert LocationInFolder (folder-specific format) to LocationDetails (general format)
+     * Used to adapt folder location data for LocationCard component
+     */
+    const convertToLocationDetails = (locationInFolder: LocationInFolder): LocationDetails => {
+        return {
+            id: locationInFolder.locationId,
+            name: locationInFolder.locationName,
+            description: locationInFolder.note || '',
+            address: locationInFolder.address,
+            latitude: 0,
+            longitude: 0,
+            totalRating: 0,
+            categories: [],
+            purposes: [],
+            tags: [],
+            imageUrls: locationInFolder.imageUrl ? [locationInFolder.imageUrl] : [],
+            contacts: [],
+        };
     };
 
+    /**
+     * Handle location card press - navigate to discover screen with location details
+     * Fetches full location details from API and passes to discover screen
+     */
+    const handleLocationPress = async (location: LocationDetails) => {
+        try {
+            const response = await locationService.getLocationDetails(location.id);
+
+            if (response.status === 'success') {
+                const locationDetails = response.data;
+                // Navigate to discover tab with location pre-selected and auto-open card
+                router.push({
+                    pathname: '/(tabs)/discover',
+                    params: {
+                        locationId: location.id,
+                        latitude: locationDetails.latitude.toString(),
+                        longitude: locationDetails.longitude.toString(),
+                        autoOpenCard: 'true',
+                        locationData: JSON.stringify(locationDetails)
+                    }
+                });
+            } else {
+                showError('Không thể tải thông tin địa điểm');
+            }
+        } catch (error) {
+            console.error('[CollectionDetail] Error fetching location details:', error);
+            showError('Lỗi khi tải thông tin địa điểm');
+        }
+    };
+
+    /**
+     * Show confirmation dialog before removing location
+     * @param locationId - ID of location to remove
+     */
     const handleRemoveLocation = (locationId: string) => {
         Alert.alert(
             'Xóa địa điểm',
@@ -140,29 +266,120 @@ export default function CollectionDetailScreen() {
         );
     };
 
+    /**
+     * Right action component for swipeable item (delete button)
+     * Animates based on swipe gesture drag value
+     */
+    const RightAction = (prog: SharedValue<number>, drag: SharedValue<number>, onDelete: () => void) => {
+        const styleAnimation = useAnimatedStyle(() => {
+            return {
+                transform: [{ translateX: drag.value + 80 }],
+            };
+        });
+
+        return (
+            <Reanimated.View style={[styleAnimation, styles.rightActionContainer]}>
+                <TouchableOpacity style={styles.rightAction} onPress={onDelete}>
+                    <Trash2 size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+            </Reanimated.View>
+        );
+    };
+
+    /**
+     * Remove location from collection
+     * Optimistically updates UI, handles 404 gracefully (item already deleted)
+     * @param locationId - ID of location to remove
+     */
     const removeLocation = async (locationId: string) => {
         try {
+            // Track deleting state for UI feedback
+            setDeletingIds(prev => new Set(prev).add(locationId));
             await locationFolderService.removeLocationFromFolder(collectionId, locationId);
-            setLocations(prev => prev.filter(loc => loc.id !== locationId));
+
+            // Delay UI update to allow swipe animation to complete
+            setTimeout(() => {
+                setLocations(prev => prev.filter(loc => loc.locationId !== locationId));
+                setDeletingIds(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(locationId);
+                    return newSet;
+                });
+            }, 350);
+
             showSuccess('Đã xóa địa điểm khỏi collection');
         } catch (error: any) {
-            console.error('Failed to remove location:', error);
-            showError('Không thể xóa địa điểm');
+            console.error('[CollectionDetail] Failed to remove location:', error);
+
+            // Handle 404 - location already deleted (optimistic update already happened)
+            if (error.response?.status === 404) {
+                showSuccess('Địa điểm đã được xóa');
+                setTimeout(() => {
+                    setLocations(prev => prev.filter(loc => loc.locationId !== locationId));
+                    setDeletingIds(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(locationId);
+                        return newSet;
+                    });
+                }, 350);
+            } else {
+                showError('Không thể xóa địa điểm');
+                // Remove from deleting state on error
+                setDeletingIds(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(locationId);
+                    return newSet;
+                });
+            }
         }
     };
 
+    /**
+     * Handle long press on location item - show context menu
+     * @param item - Location item that was long pressed
+     */
+    const handleLongPress = (item: LocationInFolder) => {
+        setSelectedLocation(item);
+        setContextMenuVisible(true);
+    };
+
+    /**
+     * Handle context menu action selection
+     * @param actionId - ID of selected action ('delete', etc.)
+     */
+    const handleContextMenuAction = (actionId: string) => {
+        if (actionId === 'delete' && selectedLocation) {
+            Alert.alert(
+                'Xóa địa điểm',
+                `Bạn có chắc chắn muốn xóa "${selectedLocation.locationName}" khỏi collection này?`,
+                [
+                    {
+                        text: 'Hủy',
+                        style: 'cancel',
+                    },
+                    {
+                        text: 'Xóa',
+                        style: 'destructive',
+                        onPress: () => removeLocation(selectedLocation.locationId),
+                    },
+                ]
+            );
+        }
+        setContextMenuVisible(false);
+        setSelectedLocation(null);
+    };
+
+    /**
+     * Navigate to discover screen to add new location to collection
+     */
     const handleAddLocation = () => {
-        // TODO: Navigate to location picker/search screen
-        console.log('Add location to collection:', collectionId);
+        NavigationService.goToDiscover();
     };
 
-
-    const handleEditLocation = (location: LocationInFolder) => {
-        // TODO: Navigate to edit location screen
-        console.log('Edit location:', location.id);
-    };
-
-    // Modal handlers
+    /**
+     * Open edit collection modal
+     * Small delay to allow actions modal to close smoothly
+     */
     const handleEditCollection = () => {
         setShowActionsModal(false);
         setTimeout(() => {
@@ -170,6 +387,10 @@ export default function CollectionDetailScreen() {
         }, 200);
     };
 
+    /**
+     * Open delete collection confirmation modal
+     * Small delay to allow actions modal to close smoothly
+     */
     const handleDeleteCollection = () => {
         setShowActionsModal(false);
         setTimeout(() => {
@@ -177,28 +398,38 @@ export default function CollectionDetailScreen() {
         }, 200);
     };
 
-    const handleEditSuccess = () => {
+    /**
+     * Handle successful collection edit
+     * Updates both local state and collection store
+     * @param updatedData - Updated collection data (name, description, visibility)
+     */
+    const handleEditSuccess = useCallback((updatedData?: {
+        name?: string;
+        description?: string;
+        visibility?: 'PUBLIC' | 'PRIVATE';
+    }) => {
         setShowEditModal(false);
-        // Refresh collection info and locations after edit
-        loadLocations();
-        // Refresh collection info
-        const refreshCollectionInfo = async () => {
-            try {
-                const response = await locationFolderService.getAllFolders();
-                if (response.status === 'success') {
-                    const updatedCollection = response.data.find(folder => folder.id === collectionId);
-                    if (updatedCollection) {
-                        updateCurrentCollection(updatedCollection);
-                        updateCollection(collectionId, updatedCollection);
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to refresh collection info:', error);
-            }
-        };
-        refreshCollectionInfo();
-    };
 
+        if (updatedData && currentCollection) {
+            const updatedCollection = {
+                ...currentCollection,
+                ...updatedData,
+                updatedAt: new Date().toISOString()
+            };
+
+            // Update both current collection state and store
+            setCurrentCollection(updatedCollection);
+            updateCollection(collectionId, updatedCollection);
+        }
+
+        // Refresh locations list
+        loadLocations();
+    }, [collectionId, currentCollection, setCurrentCollection, updateCollection, loadLocations]);
+
+    /**
+     * Handle successful collection deletion
+     * Removes collection from store and navigates back
+     */
     const handleDeleteSuccess = async () => {
         try {
             const response = await locationFolderService.deleteFolder(collectionId);
@@ -206,10 +437,11 @@ export default function CollectionDetailScreen() {
                 showSuccess('Đã xóa collection thành công');
                 setShowDeleteModal(false);
 
-                // Cập nhật collection store để refresh danh sách
+                // Remove from collection store
                 const { removeCollection } = useCollectionStore.getState();
                 removeCollection(collectionId);
 
+                // Navigate back to collections list
                 router.back();
             } else {
                 showError(response.message || 'Có lỗi xảy ra khi xóa collection');
@@ -219,20 +451,58 @@ export default function CollectionDetailScreen() {
         }
     };
 
+    /**
+     * Render location item in list
+     * Includes swipe-to-delete functionality and animation
+     * @param item - LocationInFolder data to render
+     * @param index - Index in the list (for animations)
+     */
     const renderLocation = ({ item, index }: { item: LocationInFolder; index: number }) => {
-        const isProtected = isDefault === 'true'; // Protected if collection is default
+        const locationDetails = convertToLocationDetails(item);
+
         return (
-            <CollectionDetailCard
-                location={item}
-                onPress={handleLocationPress}
-                onRemove={handleRemoveLocation}
-                onEdit={handleEditLocation}
-                showActions={true} // Always show actions
-                isProtected={isProtected} // Disable actions if collection is default
-            />
+            <Reanimated.View
+                style={styles.swipeableWrapper}
+                exiting={SlideOutLeft.duration(300)}
+                layout={LinearTransition.springify().stiffness(200)}>
+                <ReanimatedSwipeable
+                    key={item.id}
+                    friction={2}
+                    enableTrackpadTwoFingerGesture
+                    rightThreshold={40}
+                    renderRightActions={(prog, drag) =>
+                        RightAction(prog, drag, () => removeLocation(item.locationId))
+                    }
+                    {...({ ref: (ref: any) => (itemRefs.current[item.id] = ref) } as any)}
+                    // Close other swipeable items when this one opens (single open at a time)
+                    onSwipeableOpenStartDrag={async () => {
+                        const keys = Object.keys(itemRefs.current);
+                        keys.map(async key => {
+                            if (key !== item.id) {
+                                await itemRefs.current[key]?.close();
+                            }
+                        });
+                    }}
+                >
+                    <View style={styles.cardContainer}>
+                        <LocationCard
+                            location={locationDetails}
+                            variant="list"
+                            onOpenDetail={handleLocationPress}
+                            addedAt={item.addedAt}
+                            updatedAt={item.updatedAt}
+                            note={item.note}
+                        />
+                    </View>
+                </ReanimatedSwipeable>
+            </Reanimated.View>
         );
     };
 
+    /**
+     * Render empty state when collection has no locations
+     * Shows icon, message, and add button (hidden for default collections)
+     */
     const renderEmptyState = () => (
         <View style={styles.emptyContainer}>
             <MapPin
@@ -245,7 +515,8 @@ export default function CollectionDetailScreen() {
             <Text style={[styles.emptySubtitle, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
                 Thêm địa điểm đầu tiên vào collection này
             </Text>
-            {isDefault !== 'true' && (
+            {/* Don't show add button for default collection (users can't modify it) */}
+            {currentCollection?.isDefault !== true && (
                 <TouchableOpacity
                     style={[styles.addButton, { backgroundColor: '#F48C06' }]}
                     onPress={handleAddLocation}
@@ -257,10 +528,18 @@ export default function CollectionDetailScreen() {
         </View>
     );
 
+    /**
+     * Get visibility icon based on collection visibility setting
+     * @returns Globe icon for PUBLIC, Lock icon for PRIVATE
+     */
     const getVisibilityIcon = () => {
         return currentCollection?.visibility === 'PUBLIC' ? Globe : Lock;
     };
 
+    /**
+     * Get visibility icon color based on collection visibility setting
+     * @returns Color hex code for visibility icon
+     */
     const getVisibilityColor = () => {
         return currentCollection?.visibility === 'PUBLIC' ? '#9CA3AF' : '#6B7280';
     };
@@ -277,111 +556,107 @@ export default function CollectionDetailScreen() {
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
-            <Header
-                title={currentCollection?.name || collectionName}
-                showBackButton
-                onBackPress={handleBackPress}
-                rightIcon={{
-                    icon: MoreHorizontal,
-                    onPress: () => {
-                        console.log('🔍 Icon pressed, setting showActionsModal to true');
-                        setShowActionsModal(true);
-                    }
-                }}
-            />
-
-            {/* Collection Info - Similar to Profile */}
-            <TouchableOpacity style={[styles.collectionItem, { backgroundColor: isDark ? '#232024' : '#F3F4F6' }]}>
-                <View style={styles.collectionIcon}>
-                    <MapPin
-                        size={46}
-                        color={isDark ? '#FFFFFF' : '#000000'}
-                    />
-                </View>
-                <View style={styles.collectionInfo}>
-                    <Text
-                        style={[styles.collectionName, { color: isDark ? '#FFFFFF' : '#000000' }]}
-                        numberOfLines={1}
-                    >
-                        {currentCollection?.name || collectionName}
-                    </Text>
-                    <Text
-                        style={[styles.collectionDescription, { color: isDark ? '#9CA3AF' : '#6B7280' }]}
-                        numberOfLines={2}
-                    >
-                        {currentCollection?.description || collectionDescription || 'Không có mô tả'}
-                    </Text>
-                </View>
-                <View style={styles.collectionStatus}>
-                    {(() => {
-                        const IconComponent = getVisibilityIcon();
-                        return <IconComponent size={24} color={isDark ? '#9CA3AF' : '#6B7280'} />;
-                    })()}
-                </View>
-            </TouchableOpacity>
-
-            {locations.length === 0 ? (
-                renderEmptyState()
-            ) : (
-                <FlatList
-                    data={locations}
-                    renderItem={renderLocation}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                    refreshing={refreshing}
-                    onRefresh={onRefresh}
-                />
-            )}
-
-            {/* Collection Actions Modal */}
-            {showActionsModal && (
-                <>
-                    {console.log('🔍 Rendering CollectionActionsModal with isVisible:', showActionsModal)}
-                    <CollectionActionsModal
-                        isVisible={showActionsModal}
-                        onClose={() => {
-                            console.log('🔍 Closing CollectionActionsModal');
-                            setShowActionsModal(false);
+        <FeatureErrorBoundary feature="Collections">
+            <TouchableWithoutFeedback onPress={() => {
+                setContextMenuVisible(false);
+                setSelectedLocation(null);
+            }}>
+                <View style={[styles.container, { backgroundColor: isDark ? '#000000' : '#FFFFFF' }]}>
+                    <Header
+                        title={(() => {
+                            const collectionName = currentCollection?.name || 'Collection';
+                            if (maxItems !== undefined && maxItems >= 0) {
+                                return `${collectionName} (${locations.length}/${maxItems})`;
+                            } else if (maxItems !== undefined && maxItems < 0) {
+                                return `${collectionName} (${locations.length})`;
+                            }
+                            return `${collectionName} (${locations.length} địa điểm)`;
+                        })()}
+                        showBackButton
+                        onBackPress={handleBackPress}
+                        rightIcon={{
+                            icon: MoreHorizontal,
+                            size: 28,
+                            onPress: () => setShowActionsModal(true)
                         }}
-                        onEdit={handleEditCollection}
-                        onDelete={handleDeleteCollection}
-                        isDefault={isDefault === 'true'}
                     />
-                </>
-            )}
 
-            {/* Edit Collection Modal */}
-            {showEditModal && (
-                <EditCollectionModal
-                    isVisible={showEditModal}
-                    onClose={() => setShowEditModal(false)}
-                    onSuccess={handleEditSuccess}
-                    collectionId={collectionId}
-                    collectionName={currentCollection?.name || collectionName}
-                    collectionDescription={currentCollection?.description || collectionDescription}
-                    visibility={(currentCollection?.visibility || visibility) as 'PUBLIC' | 'PRIVATE'}
-                />
-            )}
 
-            {/* Confirm Delete Modal */}
-            {showDeleteModal && (
-                <ConfirmDeleteModal
-                    isVisible={showDeleteModal}
-                    onClose={() => setShowDeleteModal(false)}
-                    onConfirm={handleDeleteSuccess}
-                    collectionName={currentCollection?.name || collectionName}
-                />
-            )}
+                    {locations.length === 0 ? (
+                        renderEmptyState()
+                    ) : (
+                        <GestureHandlerRootView style={{ flex: 1 }}>
+                            <FlatList
+                                data={locations}
+                                renderItem={renderLocation}
+                                keyExtractor={(item) => item.id}
+                                contentContainerStyle={styles.listContent}
+                                showsVerticalScrollIndicator={false}
+                                refreshing={refreshing}
+                                onRefresh={onRefresh}
+                                style={{ overflow: 'visible' }}
+                                removeClippedSubviews={false}
+                                scrollEventThrottle={16}
+                            />
+                        </GestureHandlerRootView>
+                    )}
 
-        </View>
+                    {showActionsModal && (
+                        <CollectionActionsModal
+                            isVisible={showActionsModal}
+                            onClose={() => setShowActionsModal(false)}
+                            onEdit={handleEditCollection}
+                            onDelete={handleDeleteCollection}
+                            isDefault={currentCollection?.isDefault === true}
+                        />
+                    )}
+
+                    {showEditModal && (
+                        <EditCollectionModal
+                            isVisible={showEditModal}
+                            onClose={() => setShowEditModal(false)}
+                            onSuccess={handleEditSuccess}
+                            collectionId={collectionId}
+                            collectionName={currentCollection?.name || ''}
+                            collectionDescription={currentCollection?.description || ''}
+                            visibility={currentCollection?.visibility || 'PRIVATE'}
+                        />
+                    )}
+
+                    {showDeleteModal && (
+                        <ConfirmDeleteModal
+                            isVisible={showDeleteModal}
+                            onClose={() => setShowDeleteModal(false)}
+                            onConfirm={handleDeleteSuccess}
+                            collectionName={currentCollection?.name || ''}
+                        />
+                    )}
+
+                    {contextMenuVisible && selectedLocation && (
+                        <ContextMenu
+                            actions={[
+                                {
+                                    id: 'delete',
+                                    title: 'Xóa khỏi collection',
+                                    icon: Trash2,
+                                    onPress: () => handleContextMenuAction('delete'),
+                                    destructive: true,
+                                },
+                            ]}
+                            disabled={false}
+                        />
+                    )}
+
+                </View>
+            </TouchableWithoutFeedback>
+        </FeatureErrorBoundary>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+
     },
     centered: {
         justifyContent: 'center',
@@ -391,7 +666,6 @@ const styles = StyleSheet.create({
         marginTop: 16,
         fontSize: 16,
     },
-    // Collection Item Styles (similar to profile)
     collectionItem: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -401,6 +675,7 @@ const styles = StyleSheet.create({
         marginTop: 16,
         borderRadius: 12,
         minHeight: 80,
+
     },
     collectionIcon: {
         width: 70,
@@ -431,13 +706,50 @@ const styles = StyleSheet.create({
         lineHeight: 20,
     },
     listContent: {
-        paddingBottom: 20,
+        padding: 8,
+    },
+    rightActionContainer: {
+        height: '100%',
+        paddingVertical: 8,
+        justifyContent: 'center',
+    },
+    rightAction: {
+        width: 80,
+        height: '100%',
+        backgroundColor: '#ff4444',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 20,
+    },
+    swipeableWrapper: {},
+    cardContainer: {
+        paddingVertical: 8,
+        marginHorizontal: 12,
     },
     emptyContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 32,
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
+    errorText: {
+        fontSize: 16,
+        textAlign: 'center',
+    },
+    collectionLoadingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    collectionLoadingText: {
+        fontSize: 14,
+        marginLeft: 8,
     },
     emptyTitle: {
         fontSize: 20,

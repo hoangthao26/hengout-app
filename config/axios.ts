@@ -16,17 +16,29 @@ const axiosInstance: AxiosInstance = axios.create({
 
 // Flag to prevent multiple refresh attempts
 let isRefreshing = false;
+let isLoggingOut = false;
 let failedQueue: Array<{
     resolve: (value?: any) => void;
     reject: (reason?: any) => void;
 }> = [];
 
 // Flag to disable interceptor for logout scenarios
-let isLoggingOut = false;
+let isUserLoggedOut = false;
 
 // Function to set logout mode
 export const setLogoutMode = (mode: boolean) => {
     isLoggingOut = mode;
+};
+
+// NEW: Function to set user logged out state
+export const setUserLoggedOut = (loggedOut: boolean) => {
+    isUserLoggedOut = loggedOut;
+};
+
+// NEW: Function to reset refresh state
+export const resetRefreshState = () => {
+    isRefreshing = false;
+    failedQueue = [];
 };
 
 const processQueue = (error: any, token: string | null = null) => {
@@ -71,7 +83,8 @@ axiosInstance.interceptors.request.use(
                     }
                 }
             } catch (error) {
-                console.warn('Failed to add auth token to request:', error);
+                // Failed to add auth token - request will proceed without auth (may fail if auth required)
+                console.warn('[Axios] Failed to add auth token to request:', error);
             }
         }
 
@@ -84,7 +97,7 @@ axiosInstance.interceptors.request.use(
         return config;
     },
     (error) => {
-        console.error('❌ Request Error:', error);
+        console.warn('[Axios] Request Error:', error);
         return Promise.reject(error);
     }
 );
@@ -101,8 +114,13 @@ axiosInstance.interceptors.response.use(
 
         // Handle specific error cases
         if (error.response?.status === 401) {
-            console.error('🔐 401 Unauthorized - Attempting token refresh');
+            // STOP INFINITE LOOP: Don't try to refresh if user is logged out
+            if (isLoggingOut || isUserLoggedOut) {
+                // Return a silent rejection - don't log as error
+                return Promise.reject(new Error('User logged out - request cancelled'));
+            }
 
+            // If already logging out, skip all processing
             if (isLoggingOut) {
                 return Promise.reject(error);
             }
@@ -116,8 +134,11 @@ axiosInstance.interceptors.response.use(
             }
 
             if (originalRequest.url?.includes('/session/refresh')) {
-                console.error('❌ Refresh token failed - redirecting to login');
-                await AuthHelper.logoutAndNavigate();
+                if (!isLoggingOut) {
+                    isLoggingOut = true;
+                    await AuthHelper.logoutAndNavigate();
+                    // Don't reset flag here - let it stay true to prevent other requests from logging out
+                }
                 return Promise.reject(error);
             }
 
@@ -125,13 +146,24 @@ axiosInstance.interceptors.response.use(
                 isRefreshing = true;
 
                 try {
-                    await refreshTokenManager.forceRefresh();
-                    const newAccessToken = await AuthHelper.getAccessToken();
-                    originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-                    processQueue(null, newAccessToken);
-                    return axiosInstance(originalRequest);
+                    const refreshSuccess = await refreshTokenManager.performRefresh();
+
+                    if (refreshSuccess) {
+                        const newAccessToken = await AuthHelper.getAccessToken();
+                        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+                        processQueue(null, newAccessToken);
+                        return axiosInstance(originalRequest);
+                    } else {
+                        // Refresh failed, logout user
+                        processQueue(new Error('Token refresh failed'), null);
+                        if (!isLoggingOut) {
+                            isLoggingOut = true;
+                            await AuthHelper.logoutAndNavigate();
+                            // Don't reset flag here - let it stay true to prevent other requests from logging out
+                        }
+                        return Promise.reject(new Error('Token refresh failed'));
+                    }
                 } catch (refreshError) {
-                    console.error('❌ Token refresh error:', refreshError);
                     processQueue(refreshError, null);
 
                     const isAuthError = (refreshError as any)?.response?.status === 401 || (refreshError as any)?.message?.includes('401');
@@ -139,7 +171,11 @@ axiosInstance.interceptors.response.use(
                     const isTimeoutError = (refreshError as any)?.code === 'TIMEOUT' || (refreshError as any)?.message?.includes('timeout');
 
                     if (isAuthError) {
-                        await AuthHelper.logoutAndNavigate();
+                        if (!isLoggingOut) {
+                            isLoggingOut = true;
+                            await AuthHelper.logoutAndNavigate();
+                            // Don't reset flag here - let it stay true to prevent other requests from logging out
+                        }
                     } else if (isNetworkError || isTimeoutError) {
                         // Keep user logged in for network errors
                     }
@@ -159,11 +195,11 @@ axiosInstance.interceptors.response.use(
                 });
             }
         } else if (error.response?.status === 400) {
-            console.error('📝 400 Bad Request - Check request data format');
+            console.warn('[Axios] 400 Bad Request - Check request data format');
         } else if (error.response?.status === 404) {
-            console.error('🔍 404 Not Found - Check API endpoint');
+            console.warn('[Axios] 404 Not Found - Check API endpoint');
         } else if (error.response?.status === 500) {
-            console.error('💥 500 Server Error - Server issue');
+            console.warn('[Axios] 500 Server Error - Server issue');
         }
 
         return Promise.reject(error);

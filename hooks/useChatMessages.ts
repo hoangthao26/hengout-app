@@ -43,12 +43,12 @@ export const useChatMessages = ({
 
     // Store hooks
     const {
-        messages,
+        conversationMessages,
         currentConversation,
         messagesLoading,
         messagesError,
-        setMessages,
-        addMessage,
+        setConversationMessages,
+        addConversationMessage,
         setMessagesLoading,
         setMessagesError,
         setCurrentConversation,
@@ -62,7 +62,7 @@ export const useChatMessages = ({
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
 
     // Get current conversation data
-    const currentMessages = messages[conversationId] || [];
+    const currentMessages = conversationMessages[conversationId] || [];
     const isLoading = messagesLoading[conversationId] || false;
     const error = messagesError[conversationId];
 
@@ -76,12 +76,34 @@ export const useChatMessages = ({
                 setCurrentConversation(response.data);
             }
         } catch (err: any) {
-            console.error('Failed to load conversation:', err);
+            console.error('[useChatMessages] Failed to load conversation:', err);
             showError('Không thể tải thông tin cuộc trò chuyện');
         }
     }, [conversationId, setCurrentConversation, showError]);
 
-    // Load messages with pagination
+    /**
+     * Load messages with pagination supporting both replace and append modes
+     * 
+     * Message loading strategy:
+     * 1. Replace mode (append=false, page=0): Initial load - replaces all existing messages
+     *    - Used for: First load, refresh, or conversation switch
+     *    - Clears existing messages before setting new ones
+     * 2. Append mode (append=true, page>0): Infinite scroll - prepends older messages
+     *    - Used for: Loading message history when scrolling up
+     *    - Prepends older messages to existing list for seamless infinite scroll
+     * 
+     * Loading state management:
+     * - Replace mode: Uses global messagesLoading state (shows main loader)
+     * - Append mode: Uses local isLoadingMore state (shows bottom loader)
+     * - Prevents duplicate loading states for different UI indicators
+     * 
+     * Pagination detection:
+     * - If returned messages < pageSize: No more messages (hasMoreMessages = false)
+     * - If returned messages = pageSize: More messages available (hasMoreMessages = true)
+     * 
+     * @param page - Page number (0-indexed), 0 = initial load, >0 = load more
+     * @param append - If true, prepends messages (infinite scroll); if false, replaces messages (initial load)
+     */
     const loadMessages = useCallback(async (page: number = 0, append: boolean = false) => {
         if (!conversationId) return;
 
@@ -100,10 +122,10 @@ export const useChatMessages = ({
 
                 if (append) {
                     // Prepend older messages
-                    setMessages(conversationId, [...newMessages, ...currentMessages]);
+                    setConversationMessages(conversationId, [...newMessages, ...currentMessages]);
                 } else {
                     // Replace with new messages (initial load)
-                    setMessages(conversationId, newMessages);
+                    setConversationMessages(conversationId, newMessages);
                 }
 
                 // Update pagination state
@@ -113,7 +135,7 @@ export const useChatMessages = ({
                 setMessagesError(conversationId, 'Không thể tải tin nhắn');
             }
         } catch (err: any) {
-            console.error('Failed to load messages:', err);
+            console.error('[useChatMessages] Failed to load messages:', err);
             setMessagesError(conversationId, 'Lỗi khi tải tin nhắn');
         } finally {
             if (append) {
@@ -126,7 +148,7 @@ export const useChatMessages = ({
         conversationId,
         currentMessages,
         pageSize,
-        setMessages,
+        setConversationMessages,
         setMessagesLoading,
         setMessagesError
     ]);
@@ -139,7 +161,12 @@ export const useChatMessages = ({
         }
     }, [isLoadingMore, hasMoreMessages, currentMessages.length, currentPage, loadMessages]);
 
-    // Send message
+    /**
+     * Send a text message to the conversation
+     * Adds message to store immediately after successful send
+     * @param content - Message text content
+     * @returns true if successful, false otherwise
+     */
     const sendMessage = useCallback(async (content: string): Promise<boolean> => {
         if (!content.trim() || !conversationId || isSending) return false;
 
@@ -155,20 +182,20 @@ export const useChatMessages = ({
 
             if (response.status === 'success') {
                 // Add message to store
-                addMessage(conversationId, response.data);
+                addConversationMessage(conversationId, response.data);
                 return true;
             } else {
                 showError('Không thể gửi tin nhắn');
                 return false;
             }
         } catch (err: any) {
-            console.error('Failed to send message:', err);
+            console.error('[useChatMessages] Failed to send message:', err);
             showError('Lỗi khi gửi tin nhắn');
             return false;
         } finally {
             setIsSending(false);
         }
-    }, [conversationId, isSending, addMessage, showError]);
+    }, [conversationId, isSending, addConversationMessage, showError]);
 
     // Refresh messages
     const refreshMessages = useCallback(async () => {

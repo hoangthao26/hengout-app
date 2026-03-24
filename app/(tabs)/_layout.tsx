@@ -1,20 +1,18 @@
-import { useFonts } from 'expo-font';
 import { Tabs } from 'expo-router';
 import { Map, MessageCircle, User } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { Platform, useColorScheme } from 'react-native';
+import { Platform, useColorScheme, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CreateCollectionModal from '../../components/CreateCollectionModal';
 import CreateGroupModal from '../../components/CreateGroupModal';
 import DeleteCollectionsModal from '../../components/DeleteCollectionsModal';
+import LocationDetailModal from '../../components/LocationDetailModal';
+import FilterVibesModal from '../../components/FilterVibesModal';
+import SaveLocationModal from '../../components/SaveLocationModal';
 import { ModalProvider, useModal } from '../../contexts/ModalContext';
+import Badge from '../../components/Badge';
 
 function TabLayoutContent() {
-    const [fontsLoaded] = useFonts({
-        'Dongle': require('../../assets/fonts/Dongle-Regular.ttf'),
-        'Dongle-Bold': require('../../assets/fonts/Dongle-Bold.ttf'),
-        'Dongle-Light': require('../../assets/fonts/Dongle-Light.ttf'),
-    });
 
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
@@ -23,13 +21,24 @@ function TabLayoutContent() {
         showCreateModal,
         showDeleteModal,
         showCreateGroupModal,
+        showLocationDetailModal,
+        showSaveLocationModal,
         deleteModalCollections,
+        locationDetailModalData,
+        saveLocationModalData,
         closeCreateModal,
         closeDeleteModal,
         closeCreateGroupModal,
+        closeLocationDetailModal,
+        closeSaveLocationModal,
+        closeFilterVibesModal,
         onCreateSuccess,
         onDeleteSuccess,
-        onCreateGroupSuccess
+        onCreateGroupSuccess,
+        onLocationDetailSuccess,
+        onSaveLocationSuccess,
+        showFilterVibesModal,
+        onFilterVibesApply
     } = useModal();
 
     // State for native modules
@@ -55,7 +64,7 @@ function TabLayoutContent() {
                 setLinearGradient(() => LinearGradientModule.LinearGradient);
                 setMaskedView(() => MaskedViewModule.default);
             } catch (error) {
-                console.log('Native modules not available for tabs, using fallback:', error);
+                // Native modules not available, fallback to regular icons
             } finally {
                 setIsLoading(false);
             }
@@ -118,12 +127,10 @@ function TabLayoutContent() {
                 </MaskedView>
             );
         } catch (error) {
-            console.log('Error rendering gradient icon, using fallback:', error);
+            // Error rendering gradient, fallback to regular icon
             return <IconComponent size={size} color="#FAA307" />;
         }
     };
-
-    if (!fontsLoaded) return null;
 
     return (
         <>
@@ -157,7 +164,10 @@ function TabLayoutContent() {
                     options={{
                         title: 'Chat',
                         tabBarIcon: ({ color, size, focused }) => (
-                            <GradientIcon name="chatbubble" size={28} focused={focused} />
+                            <View style={{ position: 'relative' }}>
+                                <GradientIcon name="chatbubble" size={28} focused={focused} />
+                                <Badge size="small" />
+                            </View>
                         ),
                     }}
                 />
@@ -198,6 +208,36 @@ function TabLayoutContent() {
                 onSuccess={() => {
                     onCreateGroupSuccess?.();
                     closeCreateGroupModal();
+                }}
+            />
+
+            <LocationDetailModal
+                isVisible={showLocationDetailModal}
+                onClose={closeLocationDetailModal}
+                location={locationDetailModalData}
+                onSuccess={() => {
+                    onLocationDetailSuccess?.();
+                    // Không tự động đóng LocationDetailModal khi onSuccess được gọi
+                    // closeLocationDetailModal();
+                }}
+            />
+
+            <SaveLocationModal
+                isVisible={showSaveLocationModal}
+                onClose={closeSaveLocationModal}
+                location={saveLocationModalData}
+                onSuccess={() => {
+                    onSaveLocationSuccess?.();
+                    closeSaveLocationModal();
+                }}
+            />
+
+            <FilterVibesModal
+                isVisible={showFilterVibesModal}
+                onClose={closeFilterVibesModal}
+                onApply={(filters) => {
+                    onFilterVibesApply?.(filters);
+                    closeFilterVibesModal();
                 }}
             />
         </>
